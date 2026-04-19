@@ -7,6 +7,8 @@
 #include "OvEditor/Panels/ProjectSettings.h"
 #include "OvEditor/Core/EditorActions.h"
 
+#include <filesystem>
+
 #include <OvCore/Resources/Loaders/MaterialLoader.h>
 #include <OvCore/Helpers/GUIDrawer.h>
 #include <OvUI/Widgets/Layout/Columns.h>
@@ -99,6 +101,22 @@ OvEditor::Panels::ProjectSettings::ProjectSettings(const std::string & p_title, 
 		auto& columns = gameRoot.CreateWidget<Layout::Columns<2>>();
 		columns.widths[0] = 125;
 
-		GUIDrawer::DrawScene(columns, "Start scene", GenerateGatherer<std::string>("start_scene"), GenerateProvider<std::string>("start_scene"));
+		auto& startSceneField = GUIDrawer::DrawScene(columns, "Start scene", GenerateGatherer<std::string>("start_scene"), GenerateProvider<std::string>("start_scene"));
+		startSceneField.displayFormatter = [](const std::string& p_path)
+		{
+			if (p_path.empty())
+			{
+				return std::string{};
+			}
+
+			const std::filesystem::path realPath = EDITOR_EXEC(GetRealPath(p_path));
+
+			if (!std::filesystem::exists(realPath))
+			{
+				return std::string{ "(Missing Reference)" };
+			}
+
+			return GUIDrawer::GetAssetDisplayName(p_path);
+		};
 	}
 }
