@@ -4,7 +4,6 @@
 * @licence: MIT
 */
 
-#include <ranges>
 #include <string>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
@@ -165,9 +164,10 @@ void OvEditor::Rendering::PickingRenderPass::DrawPickableModels(
 {
 	const auto& filteredDrawables = m_renderer.GetDescriptor<OvCore::Rendering::SceneRenderer::SceneFilteredDrawablesDescriptor>();
 
-	auto drawPickableModels = [&](auto drawables) {
-		for (auto& drawable : drawables)
+	auto drawPickableModels = [&](const auto& bucket) {
+		for (const auto& drawableRef : bucket.orderedDrawables)
 		{
+			const auto& drawable = bucket.drawables[drawableRef.drawableIndex];
 			const auto& actor = drawable.template GetDescriptor<OvCore::Rendering::SceneRenderer::SceneDrawableDescriptor>().actor;
 			const auto skinnedRenderer = actor.template GetComponent<OvCore::ECS::Components::CSkinnedMeshRenderer>();
 			const bool hasSkinningDescriptor = drawable.template HasDescriptor<OvCore::Rendering::SkinningDrawableDescriptor>();
@@ -214,9 +214,9 @@ void OvEditor::Rendering::PickingRenderPass::DrawPickableModels(
 		}
 	};
 
-	drawPickableModels(filteredDrawables.opaques | std::views::values);
-	drawPickableModels(filteredDrawables.transparents | std::views::values);
-	drawPickableModels(filteredDrawables.ui | std::views::values);
+	drawPickableModels(filteredDrawables.opaques);
+	drawPickableModels(filteredDrawables.transparents);
+	drawPickableModels(filteredDrawables.ui);
 }
 
 void OvEditor::Rendering::PickingRenderPass::DrawPickableCameras(

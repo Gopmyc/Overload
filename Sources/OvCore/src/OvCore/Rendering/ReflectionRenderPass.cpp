@@ -4,8 +4,6 @@
 * @licence: MIT
 */
 
-#include <ranges>
-
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
@@ -135,13 +133,13 @@ void OvCore::Rendering::ReflectionRenderPass::_DrawReflections(
 		}
 	};
 
-	for (const auto& drawable : filteredDrawables.opaques | std::views::values)
+	for (const auto& drawableRef : filteredDrawables.opaques.orderedDrawables)
 	{
-		captureDrawable(drawable);
+		captureDrawable(filteredDrawables.opaques.drawables[drawableRef.drawableIndex]);
 	}
 
-	for (const auto& drawable : filteredDrawables.transparents | std::views::values)
+	for (const auto& drawableRef : filteredDrawables.transparents.orderedDrawables)
 	{
-		captureDrawable(drawable);
+		captureDrawable(filteredDrawables.transparents.drawables[drawableRef.drawableIndex]);
 	}
 }

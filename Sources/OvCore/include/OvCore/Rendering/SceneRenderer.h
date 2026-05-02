@@ -8,7 +8,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <utility>
 #include <vector>
 
 #include <OvRendering/Core/CompositeRenderer.h>
@@ -76,7 +75,17 @@ namespace OvCore::Rendering
 		};
 
 		template<EOrderingMode OrderingMode>
-		using DrawableList = std::vector<std::pair<DrawOrder<OrderingMode>, OvRendering::Entities::Drawable>>;
+		struct FilteredDrawableBucket
+		{
+			struct OrderedDrawable
+			{
+				DrawOrder<OrderingMode> sortKey;
+				uint32_t drawableIndex;
+			};
+
+			std::vector<OvRendering::Entities::Drawable> drawables;
+			std::vector<OrderedDrawable> orderedDrawables;
+		};
 
 		/**
 		* Input data for the scene renderer.
@@ -132,9 +141,9 @@ namespace OvCore::Rendering
 		*/
 		struct SceneFilteredDrawablesDescriptor
 		{
-			DrawableList<EOrderingMode::FRONT_TO_BACK> opaques;
-			DrawableList<EOrderingMode::BACK_TO_FRONT> transparents;
-			DrawableList<EOrderingMode::BACK_TO_FRONT> ui;
+			FilteredDrawableBucket<EOrderingMode::FRONT_TO_BACK> opaques;
+			FilteredDrawableBucket<EOrderingMode::BACK_TO_FRONT> transparents;
+			FilteredDrawableBucket<EOrderingMode::BACK_TO_FRONT> ui;
 		};
 
 		struct SceneDrawablesFilteringInput

@@ -5,7 +5,6 @@
 */
 
 #include <algorithm>
-#include <ranges>
 #include <string>
 #include <tracy/Tracy.hpp>
 
@@ -69,14 +68,14 @@ namespace
 	}
 
 	template<SceneRenderer::EOrderingMode OrderingMode>
-	void SortDrawableList(SceneRenderer::DrawableList<OrderingMode>& p_drawables)
+	void SortDrawableList(SceneRenderer::FilteredDrawableBucket<OrderingMode>& p_drawables)
 	{
 		std::stable_sort(
-			p_drawables.begin(),
-			p_drawables.end(),
+			p_drawables.orderedDrawables.begin(),
+			p_drawables.orderedDrawables.end(),
 			[](const auto& p_left, const auto& p_right)
 			{
-				return p_left.first < p_right.first;
+				return p_left.sortKey < p_right.sortKey;
 			}
 		);
 	}
@@ -125,9 +124,9 @@ namespace
 
 			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
 
-			for (const auto& drawable : drawables.opaques | std::views::values)
+			for (const auto& drawableRef : drawables.opaques.orderedDrawables)
 			{
-				m_renderer.DrawEntity(p_pso, drawable);
+				m_renderer.DrawEntity(p_pso, drawables.opaques.drawables[drawableRef.drawableIndex]);
 			}
 		}
 	};
@@ -149,9 +148,9 @@ namespace
 
 			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
 
-			for (const auto& drawable : drawables.transparents | std::views::values)
+			for (const auto& drawableRef : drawables.transparents.orderedDrawables)
 			{
-				m_renderer.DrawEntity(p_pso, drawable);
+				m_renderer.DrawEntity(p_pso, drawables.transparents.drawables[drawableRef.drawableIndex]);
 			}
 		}
 	};
@@ -173,9 +172,9 @@ namespace
 
 			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
 
-			for (const auto& drawable : drawables.ui | std::views::values)
+			for (const auto& drawableRef : drawables.ui.orderedDrawables)
 			{
-				m_renderer.DrawEntity(p_pso, drawable);
+				m_renderer.DrawEntity(p_pso, drawables.ui.drawables[drawableRef.drawableIndex]);
 			}
 		}
 	};
@@ -455,9 +454,12 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		frustum = frustumOverride ? frustumOverride : camera.GetFrustum();
 	}
 
-	output.opaques.reserve(p_drawables.count);
-	output.transparents.reserve(p_drawables.count);
-	output.ui.reserve(p_drawables.count);
+	output.opaques.drawables.reserve(p_drawables.count);
+	output.opaques.orderedDrawables.reserve(p_drawables.count);
+	output.transparents.drawables.reserve(p_drawables.count);
+	output.transparents.orderedDrawables.reserve(p_drawables.count);
+	output.ui.drawables.reserve(p_drawables.count);
+	output.ui.orderedDrawables.reserve(p_drawables.count);
 
 	// Process each parsed drawable
 	for (size_t i = 0; i < p_drawables.count; ++i)
@@ -588,24 +590,39 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		// This is also where sort keys are built.
 		if (targetMaterial->IsUserInterface())
 		{
-			output.ui.emplace_back(decltype(decltype(output.ui)::value_type::first){
-				.order = targetMaterial->GetDrawOrder(),
-				.distance = distanceToCamera
-			}, std::move(drawable));
+			const auto drawableIndex = static_cast<uint32_t>(output.ui.drawables.size());
+			output.ui.drawables.push_back(std::move(drawable));
+			output.ui.orderedDrawables.push_back({
+				.sortKey = {
+					.order = targetMaterial->GetDrawOrder(),
+					.distance = distanceToCamera
+				},
+				.drawableIndex = drawableIndex
+			});
 		}
 		else if (targetMaterial->IsBlendable())
 		{
-			output.transparents.emplace_back(decltype(decltype(output.transparents)::value_type::first){
-				.order = targetMaterial->GetDrawOrder(),
-				.distance = distanceToCamera
-			}, std::move(drawable));
+			const auto drawableIndex = static_cast<uint32_t>(output.transparents.drawables.size());
+			output.transparents.drawables.push_back(std::move(drawable));
+			output.transparents.orderedDrawables.push_back({
+				.sortKey = {
+					.order = targetMaterial->GetDrawOrder(),
+					.distance = distanceToCamera
+				},
+				.drawableIndex = drawableIndex
+			});
 		}
 		else
 		{
-			output.opaques.emplace_back(decltype(decltype(output.opaques)::value_type::first){
-				.order = targetMaterial->GetDrawOrder(),
-				.distance = distanceToCamera
-			}, std::move(drawable));
+			const auto drawableIndex = static_cast<uint32_t>(output.opaques.drawables.size());
+			output.opaques.drawables.push_back(std::move(drawable));
+			output.opaques.orderedDrawables.push_back({
+				.sortKey = {
+					.order = targetMaterial->GetDrawOrder(),
+					.distance = distanceToCamera
+				},
+				.drawableIndex = drawableIndex
+			});
 		}
 	}
 
