@@ -6,7 +6,10 @@
 
 #pragma once
 
-#include <map>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
+#include <vector>
 
 #include <OvRendering/Core/CompositeRenderer.h>
 #include <OvRendering/Data/Frustum.h>
@@ -20,6 +23,12 @@
 #include <OvCore/Rendering/EVisibilityFlags.h>
 #include <OvCore/Resources/Material.h>
 #include <OvCore/SceneSystem/Scene.h>
+
+namespace OvCore::ECS::Components
+{
+	class CMaterialRenderer;
+	class CSkinnedMeshRenderer;
+}
 
 namespace OvCore::Rendering
 {
@@ -38,8 +47,8 @@ namespace OvCore::Rendering
 		template<EOrderingMode OrderingMode>
 		struct DrawOrder
 		{
-			const int order;
-			const float distance;
+			int order;
+			float distance;
 
 			/**
 			* Determines the order of the drawables.
@@ -67,7 +76,7 @@ namespace OvCore::Rendering
 		};
 
 		template<EOrderingMode OrderingMode>
-		using DrawableMap = std::multimap<DrawOrder<OrderingMode>, OvRendering::Entities::Drawable>;
+		using DrawableList = std::vector<std::pair<DrawOrder<OrderingMode>, OvRendering::Entities::Drawable>>;
 
 		/**
 		* Input data for the scene renderer.
@@ -86,11 +95,26 @@ namespace OvCore::Rendering
 		};
 
 		/**
+		* Parsed drawable data, stored as a cache-friendly, typed structure.
+		*/
+		struct ParsedDrawable
+		{
+			OvCore::ECS::Actor* actor = nullptr;
+			const OvCore::ECS::Components::CMaterialRenderer* materialRenderer = nullptr;
+			const OvCore::ECS::Components::CSkinnedMeshRenderer* skinnedRenderer = nullptr;
+			OvRendering::Resources::Mesh* mesh = nullptr;
+			uint32_t materialIndex = 0;
+			bool meshHasSkinningData = false;
+			std::optional<OvRendering::Geometry::BoundingSphere> bounds;
+		};
+
+		/**
 		* Result of the scene parsing, containing the drawables to be rendered.
 		*/
 		struct SceneDrawablesDescriptor
 		{
-			std::vector<OvRendering::Entities::Drawable> drawables;
+			const ParsedDrawable* drawables = nullptr;
+			size_t count = 0;
 		};
 
 		/**
@@ -108,9 +132,9 @@ namespace OvCore::Rendering
 		*/
 		struct SceneFilteredDrawablesDescriptor
 		{
-			DrawableMap<EOrderingMode::FRONT_TO_BACK> opaques;
-			DrawableMap<EOrderingMode::BACK_TO_FRONT> transparents;
-			DrawableMap<EOrderingMode::BACK_TO_FRONT> ui;
+			DrawableList<EOrderingMode::FRONT_TO_BACK> opaques;
+			DrawableList<EOrderingMode::BACK_TO_FRONT> transparents;
+			DrawableList<EOrderingMode::BACK_TO_FRONT> ui;
 		};
 
 		struct SceneDrawablesFilteringInput
@@ -171,5 +195,31 @@ namespace OvCore::Rendering
 			const SceneDrawablesDescriptor& p_drawables,
 			const SceneDrawablesFilteringInput& p_filteringInput
 		);
+
+	private:
+		struct ParseCacheEntry
+		{
+			const OvCore::ECS::Components::CModelRenderer* modelRenderer = nullptr;
+			const OvRendering::Resources::Model* model = nullptr;
+			const OvCore::ECS::Components::CMaterialRenderer* materialRenderer = nullptr;
+			const OvCore::ECS::Components::CSkinnedMeshRenderer* skinnedRenderer = nullptr;
+			OvCore::ECS::Components::CModelRenderer::EFrustumBehaviour frustumBehaviour = OvCore::ECS::Components::CModelRenderer::EFrustumBehaviour::MESH_BOUNDS;
+			OvRendering::Geometry::BoundingSphere customBounds{};
+		};
+
+		bool ShouldRebuildParseCache(
+			const OvCore::SceneSystem::Scene& p_scene,
+			const std::vector<ParseCacheEntry>& p_currentEntries
+		) const;
+
+		void RebuildParseCache(
+			const OvCore::SceneSystem::Scene& p_scene,
+			const std::vector<ParseCacheEntry>& p_currentEntries
+		);
+
+	private:
+		const OvCore::SceneSystem::Scene* m_cachedScene = nullptr;
+		std::vector<ParseCacheEntry> m_parseCacheEntries;
+		std::vector<ParsedDrawable> m_parsedDrawablesCache;
 	};
 }
