@@ -21,7 +21,6 @@
 #include <OvCore/Rendering/SceneRenderer.h>
 #include <OvCore/Rendering/ShadowRenderFeature.h>
 #include <OvCore/Rendering/ShadowRenderPass.h>
-#include <OvCore/Rendering/SkinningDrawableDescriptor.h>
 #include <OvCore/Rendering/SkinningRenderFeature.h>
 #include <OvCore/Rendering/SkinningUtils.h>
 #include <OvCore/ResourceManagement/ShaderManager.h>
