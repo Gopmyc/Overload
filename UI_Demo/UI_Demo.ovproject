@@ -1,0 +1,11 @@
+executable_name=Game
+gravity=-9.810000
+x_resolution=1280
+multisampling=false
+window_icon=
+y_resolution=720
+start_scene=Scenes/10_UI_API_SmokeTest.ovscene
+fullscreen=false
+vsync=true
+samples=4
+build_type=0

@@ -1,0 +1,14 @@
+{
+  "workspace.library": ["C:\Users\Utilisateur\Desktop\Overload\PR\631\Build\Debug\Data\Engine"],
+  "runtime.version": "Lua 5.4",
+  "runtime.builtin": {
+    "basic": "enable",
+    "math": "enable",
+    "string": "disable",
+    "table": "disable",
+    "io": "disable",
+    "os": "disable",
+    "package": "disable",
+    "coroutine": "disable"
+  }
+}

@@ -1,0 +1,96 @@
+<root>
+	<scene>
+		<actors>
+			<actor>
+				<name>Main Camera</name>
+				<tag>Untagged</tag>
+				<active>true</active>
+				<id>1</id>
+				<guid>8100000000000001</guid>
+				<prefab_source></prefab_source>
+				<prefab_node_guid>0</prefab_node_guid>
+				<parent>0</parent>
+				<components>
+					<component>
+						<type>class OvCore::ECS::Components::CTransform</type>
+						<data>
+							<position>
+								<x>0</x>
+								<y>0</y>
+								<z>0</z>
+							</position>
+							<rotation>
+								<x>0</x>
+								<y>0</y>
+								<z>0</z>
+								<w>1</w>
+							</rotation>
+							<scale>
+								<x>1</x>
+								<y>1</y>
+								<z>1</z>
+							</scale>
+						</data>
+					</component>
+					<component>
+						<type>class OvCore::ECS::Components::CCamera</type>
+						<data>
+							<fov>60</fov>
+							<size>5</size>
+							<near>0.1</near>
+							<far>1000</far>
+							<clear_color>
+								<x>0.1921569</x>
+								<y>0.3019608</y>
+								<z>0.4745098</z>
+							</clear_color>
+							<frustum_geometry_culling>true</frustum_geometry_culling>
+							<frustum_light_culling>true</frustum_light_culling>
+							<projection_mode>1</projection_mode>
+						</data>
+					</component>
+				</components>
+				<behaviours />
+			</actor>
+			<actor>
+				<name>UI API Smoke Test Runner</name>
+				<tag>UI</tag>
+				<active>true</active>
+				<id>2</id>
+				<guid>8100000000000002</guid>
+				<prefab_source></prefab_source>
+				<prefab_node_guid>0</prefab_node_guid>
+				<parent>0</parent>
+				<components>
+					<component>
+						<type>class OvCore::ECS::Components::CTransform</type>
+						<data>
+							<position>
+								<x>0</x>
+								<y>0</y>
+								<z>0</z>
+							</position>
+							<rotation>
+								<x>0</x>
+								<y>0</y>
+								<z>0</z>
+								<w>1</w>
+							</rotation>
+							<scale>
+								<x>1</x>
+								<y>1</y>
+								<z>1</z>
+							</scale>
+						</data>
+					</component>
+				</components>
+				<behaviours>
+					<behaviour>
+						<type>Scripts/UI_API_SmokeTest.lua</type>
+						<data />
+					</behaviour>
+				</behaviours>
+			</actor>
+		</actors>
+	</scene>
+</root>
