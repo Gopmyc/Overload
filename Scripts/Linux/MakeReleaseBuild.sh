@@ -10,17 +10,27 @@ for arg in "$@"; do
     fi
 done
 
+# Generate projects
+"$SCRIPT_DIR/GenerateProjects.sh"
+
 # Build Debug
-"$SCRIPT_DIR/Build.sh" debug
+"$SCRIPT_DIR/Build.sh" debug -skip-project-generation
 if [ $? -ne 0 ]; then
     echo "Debug build failed. Exiting."
     exit $?
 fi
 
 # Build Release
-"$SCRIPT_DIR/Build.sh" release
+"$SCRIPT_DIR/Build.sh" release -skip-project-generation
 if [ $? -ne 0 ]; then
     echo "Release build failed. Exiting."
+    exit $?
+fi
+
+# Build Publish
+"$SCRIPT_DIR/Build.sh" publish -skip-project-generation
+if [ $? -ne 0 ]; then
+    echo "Publish build failed. Exiting."
     exit $?
 fi
 
@@ -39,8 +49,8 @@ fi
 # Create Releases folder if it doesn't exist
 mkdir -p ../Releases
 
-# Copy the Release folder to a new folder
-cp -r Release "../Releases/Overload-$VERSION-$PLATFORM"
+# Copy the Publish folder to a new folder
+cp -r Publish "../Releases/Overload-$VERSION-$PLATFORM"
 
 # Create the archive, delete any existing one first
 if [ -f "../Releases/Overload-$VERSION-$PLATFORM.tar.gz" ]; then

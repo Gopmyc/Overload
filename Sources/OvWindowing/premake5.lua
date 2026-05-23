@@ -17,9 +17,9 @@ project "OvWindowing"
 	includedirs {
 		-- Dependencies
 		dependdir .. "glfw/include",
-		dependdir .. "stb_image/include",
 
 		-- Overload SDK
+		"%{wks.location}/Sources/OvRendering/include",
 		"%{wks.location}/Sources/OvTools/include",
 
 		-- Current Project
@@ -33,6 +33,6 @@ project "OvWindowing"
 		defines { "DEBUG", "_DEBUG" }
 		symbols "On"
 
-	filter { "configurations:Release" }
+	filter { "configurations:Release or configurations:Publish" }
 		defines { "NDEBUG" }
 		optimize "On"

@@ -7,15 +7,19 @@
 #include <filesystem>
 
 #include <OvCore/Scripting/Null/NullScriptEngine.h>
+#include <unordered_set>
 
 template<>
-OvCore::Scripting::NullScriptEngineBase::TScriptEngine() {}
+OvCore::Scripting::NullScriptEngineBase::TScriptEngine(
+	const std::filesystem::path& p_projectAssetsPath,
+	const std::filesystem::path& p_engineAssetsPath
+) {}
 
 template<>
 OvCore::Scripting::NullScriptEngineBase::~TScriptEngine() {}
 
 template<>
-void OvCore::Scripting::NullScriptEngineBase::SetScriptRootFolder(const std::filesystem::path& p_scriptRootFolder) {}
+bool OvCore::Scripting::NullScriptEngineBase::CreateProjectFiles(const std::filesystem::path& p_projectFolder, bool p_force) { return true; }
 
 template<>
 std::string OvCore::Scripting::NullScriptEngineBase::GetDefaultExtension()
@@ -24,7 +28,7 @@ std::string OvCore::Scripting::NullScriptEngineBase::GetDefaultExtension()
 }
 
 template<>
-std::vector<std::string> OvCore::Scripting::NullScriptEngineBase::GetValidExtensions()
+std::unordered_set<std::string> OvCore::Scripting::NullScriptEngineBase::GetValidExtensions()
 {
 	return { GetDefaultExtension() };
 }

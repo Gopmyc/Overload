@@ -13,21 +13,28 @@ end
 local version = readVersion()
 
 workspace "Overload"
-	configurations { "Debug", "Release" }
+	configurations { "Debug", "Release", "Publish" }
 	platforms { "x64" }
 	startproject "OvEditor"
 	defines {
 		"LUA_SCRIPTING",
 		"GRAPHICS_API_OPENGL",
 		"OVERLOAD_VERSION=\"" .. version .. "\"",
-		"TRACY_ENABLE",
-		"TRACY_ON_DEMAND",
-		"TRACY_MEMORY_ENABLE"
+		"SOL_NO_LUA_HPP"
 	}
+
+	filter {"configurations:Debug or configurations:Release"}
+		defines {
+			"TRACY_ENABLE",
+			"TRACY_ON_DEMAND",
+			"TRACY_MEMORY_ENABLE",
+		}
+	filter{}
 
 	-- Set toolset based on operating system
 	filter {"system:windows"}
 		toolset("msc")
+		buildoptions { "/FS" } -- Prevent C1041 PDB write conflicts with parallel compilation
 	filter {"system:linux"}
 		toolset("clang") -- Use Clang on Linux (sol2 doesn't work well with GCC)
 	filter {}
@@ -46,6 +53,7 @@ group "Dependencies"
 	include "Dependencies/tinyxml2"
 	include "Dependencies/tracy"
 	include "Dependencies/lua"
+	include "Dependencies/freetype"
 	include "Dependencies/glad"
 	include "Dependencies/soloud"
 	include "Dependencies/assimp"
@@ -73,6 +81,10 @@ group ""
 group "Overload Apps"
 	include "Sources/OvEditor"
 	include "Sources/OvGame"
+group ""
+
+group "Overload Tests"
+	include "Tests/OvLuaApiTests"
 group ""
 
 include "Resources"

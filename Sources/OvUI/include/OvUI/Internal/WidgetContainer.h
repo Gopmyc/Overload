@@ -62,10 +62,10 @@ namespace OvUI::Internal
 		*/
 		void DrawWidgets();
 
-        /**
-        * Allow the user to reverse the draw order of this widget container
-        */
-        void ReverseDrawOrder(bool reversed = true);
+		/**
+		* Allow the user to reverse the draw order of this widget container
+		*/
+		void ReverseDrawOrder(bool reversed = true);
 
 		/**
 		* Create a widget

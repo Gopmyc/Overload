@@ -39,6 +39,7 @@ project "OvGame"
 		-- Dependencies
 		"assimp",
 		"bullet3",
+		"freetype",
 		"glad",
 		"glfw",
 		"ImGui",
@@ -64,7 +65,7 @@ project "OvGame"
 		symbols "On"
 		kind "ConsoleApp"
 
-	filter { "configurations:Release" }
+	filter { "configurations:Release or configurations:Publish" }
 		defines { "NDEBUG" }
 		optimize "Speed"
 		kind "WindowedApp"

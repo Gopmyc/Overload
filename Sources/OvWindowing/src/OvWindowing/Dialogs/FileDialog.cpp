@@ -30,13 +30,18 @@ void OvWindowing::Dialogs::FileDialog::SetInitialDirectory(const std::string & p
 	m_initialDirectory = p_initialDirectory;
 }
 
+void OvWindowing::Dialogs::FileDialog::SetInitialFilename(const std::string& p_initialFilename)
+{
+	m_initialFilename = p_initialFilename;
+}
+
 void OvWindowing::Dialogs::FileDialog::Show(EExplorerFlags p_flags)
 {
 #ifdef _WIN32
 	OPENFILENAME ofn;
 
-	if (!m_initialDirectory.empty())
-		m_filepath = m_initialDirectory;
+	if (!m_initialFilename.empty())
+		m_filepath = (std::filesystem::path{ m_initialDirectory } / m_initialFilename).string();
 
 	m_filepath.resize(MAX_PATH);
 
@@ -72,7 +77,11 @@ void OvWindowing::Dialogs::FileDialog::Show(EExplorerFlags p_flags)
 	if (m_isSaveDialog)
 		command += " --save";
 	
-	if (!m_initialDirectory.empty())
+	if (!m_initialFilename.empty())
+	{
+		command += " --filename=\"" + (std::filesystem::path{ m_initialDirectory } / m_initialFilename).string() + "\"";
+	}
+	else if (!m_initialDirectory.empty())
 	{
 		// Add trailing slash to indicate directory for zenity
 		command += " --filename=\"" + m_initialDirectory;
@@ -80,37 +89,18 @@ void OvWindowing::Dialogs::FileDialog::Show(EExplorerFlags p_flags)
 			command += "/";
 		command += "\"";
 	}
-	else
-	{
-		// Even without initial directory, --filename="" helps show the filename entry
-		command += " --filename=\"\"";
-	}
 	
 	// Add file filters if present
 	if (!m_filter.empty())
 	{
-		std::string filters = m_filter;
-		size_t pos = 0;
-		while (pos < filters.length())
+		std::istringstream stream(m_filter);
+		std::string label, pattern;
+		
+		while (std::getline(stream, label, '\0') && std::getline(stream, pattern, '\0'))
 		{
-			// Skip label (terminated by null)
-			size_t labelEnd = filters.find('\0', pos);
-			if (labelEnd == std::string::npos) break;
-			
-			pos = labelEnd + 1;
-			if (pos >= filters.length()) break;
-			
-			// Get filter pattern
-			size_t patternEnd = filters.find('\0', pos);
-			if (patternEnd == std::string::npos) patternEnd = filters.length();
-			
-			std::string pattern = filters.substr(pos, patternEnd - pos);
-			if (!pattern.empty())
-			{
-				command += " --file-filter='" + pattern + "'";
-			}
-			
-			pos = patternEnd + 1;
+			std::ranges::replace(pattern, ';', ' ');
+			if (pattern.ends_with(' ')) pattern.pop_back();
+			command += " --file-filter=\"" + label + " | " + pattern + "\"";
 		}
 	}
 	

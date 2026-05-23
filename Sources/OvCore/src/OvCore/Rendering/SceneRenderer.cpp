@@ -280,7 +280,7 @@ SceneRenderer::SceneDrawablesDescriptor OvCore::Rendering::SceneRenderer::ParseS
 		if (!materialRenderer) continue;
 		const auto* skinnedRenderer = owner.GetComponent<CSkinnedMeshRenderer>();
 		const bool hasSkinning = SkinningUtils::IsSkinningActive(skinnedRenderer);
-				
+
 		const auto& transform = owner.transform.GetFTransform();
 		const auto& materials = materialRenderer->GetMaterials();
 
@@ -314,7 +314,7 @@ SceneRenderer::SceneDrawablesDescriptor OvCore::Rendering::SceneRenderer::ParseS
 			drawable.AddDescriptor<SceneDrawableDescriptor>({
 				.actor = modelRenderer->owner,
 				.visibilityFlags = materialRenderer->GetVisibilityFlags(),
-				.bounds = bounds,
+				.bounds = bounds
 			});
 			
 			drawable.AddDescriptor<EngineDrawableDescriptor>({
@@ -359,7 +359,8 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 	for (const auto& drawable : p_drawables.drawables)
 	{
 		const auto& desc = drawable.GetDescriptor<SceneDrawableDescriptor>();
-		const bool hasSkinningDescriptor = drawable.HasDescriptor<SkinningDrawableDescriptor>();
+		OvTools::Utils::OptRef<const SkinningDrawableDescriptor> skinningDescriptor;
+		const bool hasSkinningDescriptor = drawable.TryGetDescriptor<SkinningDrawableDescriptor>(skinningDescriptor);
 
 		// Skip drawables that do not satisfy the required visibility flags
 		if (!SatisfiesVisibility(desc.visibilityFlags, p_filteringInput.requiredVisibilityFlags))
@@ -386,11 +387,17 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		}
 
 		// Perform frustum culling if enabled
-		if (frustum && desc.bounds.has_value() && !hasSkinningDescriptor)
+		if (frustum && desc.bounds.has_value())
 		{
 			ZoneScopedN("Frustum Culling");
 
-			if (!frustum->BoundingSphereInFrustum(desc.bounds.value(), desc.actor.transform.GetFTransform()))
+			auto cullingBounds = desc.bounds.value();
+			if (hasSkinningDescriptor)
+			{
+				cullingBounds.radius *= skinningDescriptor->boundsScale;
+			}
+
+			if (!frustum->BoundingSphereInFrustum(cullingBounds, desc.actor.transform.GetFTransform()))
 			{
 				continue; // Skip this drawable as it's outside the frustum
 			}
@@ -429,6 +436,7 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		{
 			output.ui.emplace(decltype(decltype(output.ui)::value_type::first){
 				.order = drawableCopy.material->GetDrawOrder(),
+				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
 				.distance = distanceToCamera
 			}, drawableCopy);
 		}
@@ -436,6 +444,7 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		{
 			output.transparents.emplace(decltype(decltype(output.transparents)::value_type::first){
 				.order = drawableCopy.material->GetDrawOrder(),
+				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
 				.distance = distanceToCamera
 			}, drawableCopy);
 		}
@@ -443,6 +452,7 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		{
 			output.opaques.emplace(decltype(decltype(output.opaques)::value_type::first){
 				.order = drawableCopy.material->GetDrawOrder(),
+				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
 				.distance = distanceToCamera
 			}, drawableCopy);
 		}

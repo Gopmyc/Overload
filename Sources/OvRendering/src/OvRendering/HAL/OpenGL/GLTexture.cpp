@@ -143,10 +143,10 @@ void OvRendering::HAL::GLTexture::Upload(const void* p_data, Settings::EFormat p
 					0,
 					0,
 					0,
-					0,
+					i,
 					m_textureContext.desc.width,
 					m_textureContext.desc.height,
-					i,
+					1,
 					EnumToValue<GLenum>(p_format),
 					EnumToValue<GLenum>(p_type),
 					p_data
@@ -178,7 +178,7 @@ void OvRendering::HAL::GLTexture::Resize(uint32_t p_width, uint32_t p_height)
 
 	auto& desc = m_textureContext.desc;
 
-	if (p_width != desc.width || p_height != desc.width)
+	if (p_width != desc.width || p_height != desc.height)
 	{
 		desc.width = p_width;
 		desc.height = p_height;

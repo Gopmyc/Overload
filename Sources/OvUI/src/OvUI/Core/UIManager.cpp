@@ -4,31 +4,17 @@
 * @licence: MIT
 */
 
+#include "OvDebug/Logger.h"
+#include <OvDebug/Assertion.h>
 #include <OvUI/Core/UIManager.h>
-#include <OvUI/Styling/TStyle.h>
+#include <OvUI/Styling/Style.h>
+#include <OvWindowing/Window.h>
 
-namespace
-{
-	ImGuiStyle GetStyle(OvUI::Styling::EStyle p_style)
-	{
-		using namespace OvUI::Styling;
-		using enum OvUI::Styling::EStyle;
+#include <imgui.h>
+#include <optional>
 
-		switch (p_style)
-		{
-		case IM_CLASSIC_STYLE: return TStyle<IM_CLASSIC_STYLE>::GetStyle();
-		case IM_DARK_STYLE: return TStyle<IM_DARK_STYLE>::GetStyle();
-		case IM_LIGHT_STYLE: return TStyle<IM_LIGHT_STYLE>::GetStyle();
-		case DUNE_DARK: return TStyle<DUNE_DARK>::GetStyle();
-		case DEFAULT_DARK: return TStyle<DEFAULT_DARK>::GetStyle();
-		case EVEN_DARKER: return TStyle<EVEN_DARKER>::GetStyle();
-		}
-
-		return ImGuiStyle();
-	}
-}
-
-OvUI::Core::UIManager::UIManager(GLFWwindow* p_glfwWindow, Styling::EStyle p_style, std::string_view p_glslVersion)
+OvUI::Core::UIManager::UIManager(OvWindowing::Window& p_window, Styling::EStyle p_style, std::string_view p_glslVersion) :
+	m_window(p_window)
 {
 	ImGui::CreateContext();
 
@@ -37,12 +23,21 @@ OvUI::Core::UIManager::UIManager(GLFWwindow* p_glfwWindow, Styling::EStyle p_sty
 
 	ApplyStyle(p_style);
 	
-	ImGui_ImplGlfw_InitForOpenGL(p_glfwWindow, true);
+	ImGui_ImplGlfw_InitForOpenGL(m_window.GetGlfwWindow(), true);
 	ImGui_ImplOpenGL3_Init(p_glslVersion.data());
+
+	m_contentScaleChangedListener = m_window.ContentScaleChangedEvent += [this](float x, float y) {
+		if (m_dpiAware)
+		{
+			SetScale(); // Recompute scale based on content scale
+		}
+	};
 }
 
 OvUI::Core::UIManager::~UIManager()
 {
+	m_window.ContentScaleChangedEvent -= m_contentScaleChangedListener;
+
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
@@ -50,15 +45,29 @@ OvUI::Core::UIManager::~UIManager()
 
 void OvUI::Core::UIManager::ApplyStyle(Styling::EStyle p_style)
 {
-	ImGui::GetStyle() = GetStyle(p_style);
+	m_currentStyle = p_style;
+
+	auto& style = Styling::Style::Get();
+	using enum Styling::EStyle;
+	switch (p_style)
+	{
+	case IM_CLASSIC_STYLE: style.ApplyImClassicStyle();   break;
+	case IM_DARK_STYLE:    style.ApplyImDarkStyle();      break;
+	case IM_LIGHT_STYLE:   style.ApplyImLightStyle();     break;
+	case DUNE_DARK:        style.ApplyDuneDarkStyle();    break;
+	case DEFAULT_DARK:     style.ApplyDefaultDarkStyle(); break;
+	case EVEN_DARKER:      style.ApplyEvenDarkerStyle();  break;
+	}
+
+	style.ApplyToImGui(m_scale);
 }
 
-bool OvUI::Core::UIManager::LoadFont(const std::string& p_id, const std::string & p_path, float p_fontSize)
+bool OvUI::Core::UIManager::LoadFont(const std::string& p_id, const std::string & p_path, std::optional<float> p_fontSize)
 {
 	if (m_fonts.find(p_id) == m_fonts.end())
 	{
 		auto& io = ImGui::GetIO();
-		ImFont* fontInstance = io.Fonts->AddFontFromFileTTF(p_path.c_str(), p_fontSize);
+		ImFont* fontInstance = io.Fonts->AddFontFromFileTTF(p_path.c_str(), p_fontSize.value_or(0.0f));
 
 		if (fontInstance)
 		{
@@ -99,6 +108,34 @@ void OvUI::Core::UIManager::UseDefaultFont()
 	ImGui::GetIO().FontDefault = nullptr;
 }
 
+void OvUI::Core::UIManager::SetScale(std::optional<float> p_scale)
+{
+	m_dpiAware = !p_scale.has_value();
+
+	if (m_dpiAware)
+	{
+		const auto contentScale = m_window.GetContentScale();
+		m_scale = std::max(contentScale.first, contentScale.second);
+	}
+	else
+	{
+		m_scale = p_scale.value();
+	}
+
+	if (m_scale < 1.0f)
+	{
+		OVLOG_WARNING("UI scale values lower than 1.0f are not supported!");
+		m_scale = 1.0f;
+	}
+
+	ApplyStyle(m_currentStyle);
+}
+
+float OvUI::Core::UIManager::GetScale() const
+{
+	return m_scale;
+}
+
 void OvUI::Core::UIManager::EnableEditorLayoutSave(bool p_value)
 {
 	if (p_value)
@@ -129,6 +166,14 @@ float OvUI::Core::UIManager::GetEditorLayoutAutosaveFrequency(float p_frequeny)
 	return ImGui::GetIO().IniSavingRate;
 }
 
+void OvUI::Core::UIManager::EnableMouse(bool p_value)
+{
+	if (p_value)
+		ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+	else
+		ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+}
+
 void OvUI::Core::UIManager::EnableDocking(bool p_value)
 {
 	m_dockingState = p_value;
@@ -141,7 +186,7 @@ void OvUI::Core::UIManager::EnableDocking(bool p_value)
 
 void OvUI::Core::UIManager::ResetLayout(const std::string& p_config) const
 {
-    ImGui::LoadIniSettingsFromDisk(p_config.c_str());
+	ImGui::LoadIniSettingsFromDisk(p_config.c_str());
 }
 
 bool OvUI::Core::UIManager::IsDockingEnabled() const
@@ -170,12 +215,3 @@ void OvUI::Core::UIManager::Render()
 	}
 }
 
-void OvUI::Core::UIManager::PushCurrentFont()
-{
-
-}
-
-void OvUI::Core::UIManager::PopCurrentFont()
-{
-
-}

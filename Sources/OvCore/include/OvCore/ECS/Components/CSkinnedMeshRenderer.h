@@ -13,6 +13,9 @@
 
 #include <OvCore/ECS/Components/AComponent.h>
 #include <OvMaths/FMatrix4.h>
+#include <OvMaths/FQuaternion.h>
+#include <OvMaths/FVector3.h>
+#include <OvTools/Eventing/Event.h>
 
 namespace OvCore::ECS { class Actor; }
 namespace OvRendering::Resources { class Model; }
@@ -94,6 +97,19 @@ namespace OvCore::ECS::Components
 		float GetPlaybackSpeed() const;
 
 		/**
+		* Returns the scale applied to mesh bounds during frustum culling
+		* Returned value is always >= 1.0f
+		*/
+		float GetMeshBoundsScale() const;
+
+		/**
+		* Sets the scale applied to mesh bounds during frustum culling
+		* Any value below 1.0f will be clamped to 1.0f
+		* @param p_scale
+		*/
+		void SetMeshBoundsScale(float p_scale);
+
+		/**
 		* Sets the current playback time in seconds
 		* @param p_timeSeconds
 		*/
@@ -103,6 +119,22 @@ namespace OvCore::ECS::Components
 		* Returns the current playback time in seconds
 		*/
 		float GetTime() const;
+
+		/**
+		* Sets the external model used as animation source. Pass nullptr to use the rendered model animations.
+		* @param p_model
+		*/
+		void SetAnimationSourceModel(OvRendering::Resources::Model* p_model);
+
+		/**
+		* Returns the external animation source model, or nullptr when the rendered model is used
+		*/
+		OvRendering::Resources::Model* GetAnimationSourceModel() const;
+
+		/**
+		* Returns true if the current animation source can be applied to the rendered model skeleton
+		*/
+		bool IsAnimationSourceCompatible() const;
 
 		/**
 		* Returns the number of available animations
@@ -136,6 +168,62 @@ namespace OvCore::ECS::Components
 		* Returns the active animation name (empty if none)
 		*/
 		std::optional<std::string> GetActiveAnimationName() const;
+
+		/**
+		* Returns the number of available bones
+		*/
+		uint32_t GetBoneCount() const;
+
+		/**
+		* Returns the bone name at index (std::nullopt if index is invalid)
+		* @param p_index
+		*/
+		std::optional<std::string> GetBoneName(uint32_t p_index) const;
+
+		/**
+		* Returns the bone index by name (std::nullopt if not found)
+		* @param p_name
+		*/
+		std::optional<uint32_t> GetBoneIndex(const std::string& p_name) const;
+
+		/**
+		* Returns the local bone position (std::nullopt if index is invalid)
+		* @param p_boneIndex
+		*/
+		std::optional<OvMaths::FVector3> GetBoneLocalPosition(uint32_t p_boneIndex) const;
+
+		/**
+		* Returns the local bone rotation (std::nullopt if index is invalid)
+		* @param p_boneIndex
+		*/
+		std::optional<OvMaths::FQuaternion> GetBoneLocalRotation(uint32_t p_boneIndex) const;
+
+		/**
+		* Returns the local bone scale (std::nullopt if index is invalid)
+		* @param p_boneIndex
+		*/
+		std::optional<OvMaths::FVector3> GetBoneLocalScale(uint32_t p_boneIndex) const;
+
+		/**
+		* Sets the local bone position
+		* @param p_boneIndex
+		* @param p_position
+		*/
+		bool SetBoneLocalPosition(uint32_t p_boneIndex, const OvMaths::FVector3& p_position);
+
+		/**
+		* Sets the local bone rotation
+		* @param p_boneIndex
+		* @param p_rotation
+		*/
+		bool SetBoneLocalRotation(uint32_t p_boneIndex, const OvMaths::FQuaternion& p_rotation);
+
+		/**
+		* Sets the local bone scale
+		* @param p_boneIndex
+		* @param p_scale
+		*/
+		bool SetBoneLocalScale(uint32_t p_boneIndex, const OvMaths::FVector3& p_scale);
 
 		/**
 		* Returns the transposed skinning matrix palette ready for GPU upload
@@ -175,18 +263,25 @@ namespace OvCore::ECS::Components
 
 	private:
 		bool HasCompatibleModel() const;
+		bool HasCompatibleAnimationSource() const;
+		const OvRendering::Resources::Model* GetAnimationModel() const;
 		void SyncWithModel();
 		void RebuildRuntimeData();
 		void EvaluatePose();
+		std::optional<uint32_t> GetNodeIndexFromBoneIndex(uint32_t p_boneIndex) const;
+		void RecomputeBoneMatricesFromLocalPose();
 		float GetAnimationDurationSeconds() const;
 		void UpdatePlayback(float p_deltaTime);
 
 	private:
 		const OvRendering::Resources::Model* m_model = nullptr;
+		OvRendering::Resources::Model* m_animationSourceModel = nullptr;
+		OvTools::Eventing::Event<> m_animationSourceChangedEvent;
 
 		bool m_playing = true;
 		bool m_looping = true;
 		float m_playbackSpeed = 1.0f;
+		float m_meshBoundsScale = 1.5f;
 		float m_poseEvaluationRate = 60.0f;
 		float m_poseEvaluationAccumulator = 0.0f;
 
@@ -195,8 +290,10 @@ namespace OvCore::ECS::Components
 		std::string m_deserializedAnimationName;
 
 		uint64_t m_poseVersion = 0;
+		bool m_manualPoseOverride = false;
 
 		std::vector<std::string> m_animationNames;
+		std::vector<int32_t> m_animationNodeMap;
 		std::vector<OvMaths::FMatrix4> m_localPose;
 		std::vector<OvMaths::FMatrix4> m_globalPose;
 		std::vector<OvMaths::FMatrix4> m_boneMatrices;

@@ -21,6 +21,8 @@ project "OvUI"
 		-- Overload SDK
 		"%{wks.location}/Sources/OvMaths/include",
 		"%{wks.location}/Sources/OvTools/include",
+		"%{wks.location}/Sources/OvDebug/include",
+		"%{wks.location}/Sources/OvWindowing/include",
 
 		-- Current Project
 		"include"
@@ -30,6 +32,6 @@ project "OvUI"
 		defines { "DEBUG", "_DEBUG" }
 		symbols "On"
 
-	filter { "configurations:Release" }
+	filter { "configurations:Release or configurations:Publish" }
 		defines { "NDEBUG" }
 		optimize "On"

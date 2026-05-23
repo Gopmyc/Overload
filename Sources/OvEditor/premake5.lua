@@ -39,6 +39,7 @@ project "OvEditor"
 	links {
 		-- Dependencies (order matters on Linux!)
 		"bullet3",
+		"freetype",
 		"glad",
 		"ImGui",
 		"lua",
@@ -68,7 +69,7 @@ project "OvEditor"
 		symbols "On"
 		kind "ConsoleApp"
 
-	filter { "configurations:Release" }
+	filter { "configurations:Release or configurations:Publish" }
 		defines { "NDEBUG" }
 		optimize "Speed"
 		kind "WindowedApp"
@@ -95,17 +96,19 @@ project "OvEditor"
 
 			"xcopy \"%{resdir}Engine\\*\" \"%{builddir}%{cfg.buildcfg}\\Data\\Engine\" /y /i /r /e /q",
 			"xcopy \"%{resdir}Editor\\*\" \"%{builddir}%{cfg.buildcfg}\\Data\\Editor\" /y /i /r /e /q",
-			"xcopy \"%{prj.location}\\Layout.ini\" \"%{builddir}%{cfg.buildcfg}\\Config\\\" /y /i",
+			"xcopy \"%{prj.location}\\layout.ini\" \"%{builddir}%{cfg.buildcfg}\\Config\\\" /y /i",
 
 			"xcopy \"%{wks.location}\\Tools\\tracy-profiler.exe\" \"%{builddir}%{cfg.buildcfg}\\Tools\\\" /y /i",
 
 			"xcopy /Y /I /Q /D \"%{outputdir}%{cfg.buildcfg}\\%{prj.name}\\*.exe\" \"%{builddir}%{cfg.buildcfg}\\\"",
 			"xcopy /Y /I /Q /D \"%{outputdir}%{cfg.buildcfg}\\%{prj.name}\\*.dll\" \"%{builddir}%{cfg.buildcfg}\\\"",
 
-			"xcopy \"%{outputdir}Debug\\OvGame\\*.exe\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Development\" /y /i /c",
-			"xcopy \"%{outputdir}Debug\\OvGame\\*.dll\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Development\" /y /i /c",
-			"xcopy \"%{outputdir}Release\\OvGame\\*.exe\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Shipping\" /y /i /c",
-			"xcopy \"%{outputdir}Release\\OvGame\\*.dll\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Shipping\" /y /i /c",
+			"xcopy \"%{outputdir}Debug\\OvGame\\*.exe\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Debug\" /y /i /c",
+			"xcopy \"%{outputdir}Debug\\OvGame\\*.dll\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Debug\" /y /i /c",
+			"xcopy \"%{outputdir}Release\\OvGame\\*.exe\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Release\" /y /i /c",
+			"xcopy \"%{outputdir}Release\\OvGame\\*.dll\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Release\" /y /i /c",
+			"xcopy \"%{outputdir}Publish\\OvGame\\*.exe\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Publish\" /y /i /c",
+			"xcopy \"%{outputdir}Publish\\OvGame\\*.dll\" \"%{builddir}%{cfg.buildcfg}\\Builder\\Publish\" /y /i /c",
 
 			"EXIT /B 0"
 		}
@@ -137,8 +140,9 @@ project "OvEditor"
 			"rm -rf %{builddir}%{cfg.buildcfg}/Data",
 			"mkdir -p %{builddir}%{cfg.buildcfg}/Data",
 			"mkdir -p %{builddir}%{cfg.buildcfg}/Config",
-			"mkdir -p %{builddir}%{cfg.buildcfg}/Builder/Development",
-			"mkdir -p %{builddir}%{cfg.buildcfg}/Builder/Shipping",
+			"mkdir -p %{builddir}%{cfg.buildcfg}/Builder/Debug",
+			"mkdir -p %{builddir}%{cfg.buildcfg}/Builder/Release",
+			"mkdir -p %{builddir}%{cfg.buildcfg}/Builder/Publish",
 
 			"cp -r %{resdir}Engine %{builddir}%{cfg.buildcfg}/Data/Engine",
 			"cp -r %{resdir}Editor %{builddir}%{cfg.buildcfg}/Data/Editor",
@@ -146,8 +150,9 @@ project "OvEditor"
 
 			"cp %{outputdir}%{cfg.buildcfg}/%{prj.name}/OvEditor %{builddir}%{cfg.buildcfg}/",
 
-			"cp %{outputdir}Debug/OvGame/OvGame %{builddir}%{cfg.buildcfg}/Builder/Development/ 2>/dev/null || true",
-			"cp %{outputdir}Release/OvGame/OvGame %{builddir}%{cfg.buildcfg}/Builder/Shipping/ 2>/dev/null || true",
+			"cp %{outputdir}Debug/OvGame/OvGame %{builddir}%{cfg.buildcfg}/Builder/Debug/OvGame 2>/dev/null || true",
+			"cp %{outputdir}Release/OvGame/OvGame %{builddir}%{cfg.buildcfg}/Builder/Release/OvGame 2>/dev/null || true",
+			"cp %{outputdir}Publish/OvGame/OvGame %{builddir}%{cfg.buildcfg}/Builder/Publish/OvGame 2>/dev/null || true",
 
 			"true"
 		}

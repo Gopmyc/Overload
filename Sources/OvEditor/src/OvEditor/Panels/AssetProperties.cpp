@@ -4,26 +4,38 @@
 * @licence: MIT
 */
 
+#include "OvCore/ResourceManagement/MaterialManager.h"
 #include <filesystem>
+
+#include <OvCore/Global/ServiceLocator.h>
+#include <OvCore/Helpers/GUIDrawer.h>
+#include <OvCore/ResourceManagement/ModelManager.h>
+#include <OvCore/ResourceManagement/TextureManager.h>
+
+#include <OvEditor/Core/EditorActions.h>
+#include <OvEditor/Panels/AssetProperties.h>
+#include <OvEditor/Panels/AssetView.h>
+#include <OvEditor/Panels/Inspector.h>
+#include <OvEditor/Panels/MaterialEditor.h>
 
 #include <OvTools/Utils/PathParser.h>
 #include <OvTools/Utils/SizeConverter.h>
 
-#include <OvCore/Helpers/GUIDrawer.h>
-#include <OvCore/Global/ServiceLocator.h>
-#include <OvCore/ResourceManagement/ModelManager.h>
-#include <OvCore/ResourceManagement/TextureManager.h>
-
-#include <OvUI/Widgets/Visual/Separator.h>
+#include <OvUI/Styling/Style.h>
+#include <OvUI/Widgets/Buttons/Button.h>
 #include <OvUI/Widgets/Layout/Group.h>
 #include <OvUI/Widgets/Layout/GroupCollapsable.h>
 #include <OvUI/Widgets/Layout/NewLine.h>
-#include <OvUI/Widgets/Buttons/Button.h>
 #include <OvUI/Widgets/Selection/ComboBox.h>
+#include <OvUI/Widgets/Visual/Separator.h>
 
-#include "OvEditor/Panels/AssetProperties.h"
-#include "OvEditor/Panels/AssetView.h"
-#include "OvEditor/Core/EditorActions.h"
+namespace
+{
+	bool IsReadOnlyAsset(const std::string& p_path)
+	{
+		return p_path.starts_with(":");
+	}
+}
 
 OvEditor::Panels::AssetProperties::AssetProperties
 (
@@ -43,18 +55,22 @@ OvEditor::Panels::AssetProperties::AssetProperties
 	CreateAssetSelector();
 
 	m_settings = &CreateWidget<OvUI::Widgets::Layout::GroupCollapsable>("Settings");
+	m_settings->neverDisabled = true;
 	m_settingsColumns = &m_settings->CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
-	m_settingsColumns->widths[0] = 150;
+	m_settingsColumns->widths[0] = 150 * OVUI_SCALE;
 
 	m_info = &CreateWidget<OvUI::Widgets::Layout::GroupCollapsable>("Info");
+	m_info->neverDisabled = true;
 	m_infoColumns = &m_info->CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
-	m_infoColumns->widths[0] = 150;
+	m_infoColumns->widths[0] = 150 * OVUI_SCALE;
 
 	m_settings->enabled = m_info->enabled = false;
 }
 
 void OvEditor::Panels::AssetProperties::SetTarget(const std::string& p_path)
 {
+	disabled = IsReadOnlyAsset(p_path);
+
 	m_resource = p_path == "" ? p_path : EDITOR_EXEC(GetResourcePath(p_path));
 
 	if (m_assetSelector)
@@ -113,6 +129,13 @@ void OvEditor::Panels::AssetProperties::Preview()
 			assetView.SetResource(resource);
 		}
 	}
+	else if (fileType == OvTools::Utils::PathParser::EFileType::MATERIAL)
+	{
+		if (auto resource = OVSERVICE(OvCore::ResourceManagement::MaterialManager).GetResource(m_resource))
+		{
+			assetView.SetResource(resource);
+		}
+	}
 
 	assetView.Open();
 }
@@ -120,7 +143,9 @@ void OvEditor::Panels::AssetProperties::Preview()
 void OvEditor::Panels::AssetProperties::CreateHeaderButtons()
 {
 	m_applyButton = &CreateWidget<OvUI::Widgets::Buttons::Button>("Apply");
-	m_applyButton->idleBackgroundColor = { 0.0f, 0.5f, 0.0f };
+	m_applyButton->backgroundColor = OVUI_STYLE(SuccessButton);
+	m_applyButton->hoveredBackgroundColor = OVUI_STYLE(SuccessButtonHovered);
+	m_applyButton->clickedBackgroundColor = OVUI_STYLE(SuccessButtonActive);
 	m_applyButton->tooltip = "Save changes and reimport the asset with the new settings";
 	m_applyButton->enabled = false;
 	m_applyButton->lineBreak = false;
@@ -133,6 +158,7 @@ void OvEditor::Panels::AssetProperties::CreateHeaderButtons()
 	m_revertButton->ClickedEvent += [this] { SetTarget(m_resource); };
 
 	m_previewButton = &CreateWidget<OvUI::Widgets::Buttons::Button>("Preview");
+	m_previewButton->neverDisabled = true;
 	m_previewButton->tooltip = "Preview the asset in the Asset View";
 	m_previewButton->enabled = false;
 	m_previewButton->lineBreak = false;
@@ -140,7 +166,9 @@ void OvEditor::Panels::AssetProperties::CreateHeaderButtons()
 
 	m_resetButton = &CreateWidget<OvUI::Widgets::Buttons::Button>("Reset");
 	m_resetButton->tooltip = "Reset all settings to default values";
-	m_resetButton->idleBackgroundColor = { 0.5f, 0.0f, 0.0f };
+	m_resetButton->backgroundColor = OVUI_STYLE(DangerButton);
+	m_resetButton->hoveredBackgroundColor = OVUI_STYLE(DangerButtonHovered);
+	m_resetButton->clickedBackgroundColor = OVUI_STYLE(DangerButtonActive);
 	m_resetButton->enabled = false;
 	m_resetButton->lineBreak = false;
 	m_resetButton->ClickedEvent += [this] {
@@ -155,8 +183,11 @@ void OvEditor::Panels::AssetProperties::CreateHeaderButtons()
 void OvEditor::Panels::AssetProperties::CreateAssetSelector()
 {
 	auto& columns = CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
-	columns.widths[0] = 150;
+	columns.widths[0] = 150 * OVUI_SCALE;
 	m_assetSelector = &OvCore::Helpers::GUIDrawer::DrawAsset(columns, "Target", m_resource, &m_targetChanged);
+	const auto& widgets = columns.GetWidgets();
+	widgets[widgets.size() - 1].first->neverDisabled = true;
+	widgets[widgets.size() - 2].first->neverDisabled = true;
 }
 
 void OvEditor::Panels::AssetProperties::CreateSettings()
@@ -211,6 +242,7 @@ void OvEditor::Panels::AssetProperties::CreateInfo()
 
 void OvEditor::Panels::AssetProperties::CreateModelSettings()
 {
+	m_metadata->Add("GENERATE_EMBEDDED_ASSETS", true);
 	m_metadata->Add("CALC_TANGENT_SPACE", true);
 	m_metadata->Add("JOIN_IDENTICAL_VERTICES", true);
 	m_metadata->Add("MAKE_LEFT_HANDED", false);
@@ -243,6 +275,7 @@ void OvEditor::Panels::AssetProperties::CreateModelSettings()
 	m_metadata->Add("DROP_NORMALS", false);
 	m_metadata->Add("GEN_BOUNDING_BOXES", false);
 
+	MODEL_FLAG_ENTRY("GENERATE_EMBEDDED_ASSETS");
 	MODEL_FLAG_ENTRY("CALC_TANGENT_SPACE");
 	MODEL_FLAG_ENTRY("JOIN_IDENTICAL_VERTICES");
 	MODEL_FLAG_ENTRY("MAKE_LEFT_HANDED");
@@ -360,6 +393,8 @@ void OvEditor::Panels::AssetProperties::Apply()
 		if (modelManager.IsResourceRegistered(resourcePath))
 		{
 			modelManager.AResourceManager::ReloadResource(resourcePath);
+			EDITOR_PANEL(OvEditor::Panels::Inspector, "Inspector").Refresh();
+			EDITOR_PANEL(OvEditor::Panels::MaterialEditor, "Material Editor").Refresh();
 		}
 	}
 	else if (fileType == OvTools::Utils::PathParser::EFileType::TEXTURE)

@@ -6,6 +6,7 @@
 
 #include <imgui.h>
 
+#include <OvUI/Internal/Converter.h>
 #include <OvUI/Widgets/Layout/TreeNode.h>
 
 OvUI::Widgets::Layout::TreeNode::TreeNode(const std::string & p_name, bool p_arrowClickToOpen) :
@@ -53,17 +54,51 @@ void OvUI::Widgets::Layout::TreeNode::_Draw_Impl()
 	if (selected)			flags |= ImGuiTreeNodeFlags_Selected;
 	if (leaf)				flags |= ImGuiTreeNodeFlags_Leaf;
 
-	bool opened = ImGui::TreeNodeEx((name + m_widgetID).c_str(), flags);
+	ImGui::PushStyleColor(ImGuiCol_Text, Internal::Converter::ToImVec4(labelColor.Resolve()));
 
-    if (ImGui::IsItemClicked() && (ImGui::GetMousePos().x - ImGui::GetItemRectMin().x) > ImGui::GetTreeNodeToLabelSpacing())
-    {
-        ClickedEvent.Invoke();
+	const bool hasIcon = iconTextureID != 0;
+	bool opened;
+	if (hasIcon)
+	{
+		flags |= ImGuiTreeNodeFlags_SpanAvailWidth;
+		opened = ImGui::TreeNodeEx(m_widgetID.c_str(), flags);
 
-        if (ImGui::IsMouseDoubleClicked(0))
-        {
-            DoubleClickedEvent.Invoke();
-        }
-    }
+		// Draw icon and text via the draw list so they don't create new ImGui
+		// items (the TreeNodeEx must remain the "last item" for plugins like
+		// ContextualMenu that call BeginPopupContextItem).
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+		const float startX = ImGui::GetItemRectMin().x + ImGui::GetTreeNodeToLabelSpacing();
+		const float centerY = (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f;
+
+		const ImU32 tintCol = ImGui::ColorConvertFloat4ToU32(Internal::Converter::ToImVec4(labelColor.Resolve()));
+		const ImVec2 iconMin(startX, centerY - iconSize * 0.5f);
+		const ImVec2 iconMax(startX + iconSize, centerY + iconSize * 0.5f);
+		drawList->AddImage(iconTextureID, iconMin, iconMax, ImVec2(0.f, 1.f), ImVec2(1.f, 0.f), tintCol);
+
+		const float textX = startX + iconSize + ImGui::GetStyle().ItemSpacing.x;
+		drawList->AddText(ImVec2(textX, ImGui::GetItemRectMin().y), tintCol, name.c_str());
+	}
+	else
+	{
+		opened = ImGui::TreeNodeEx((name + m_widgetID).c_str(), flags);
+	}
+
+	const bool inLabelArea = (ImGui::GetMousePos().x - ImGui::GetItemRectMin().x) > ImGui::GetTreeNodeToLabelSpacing();
+
+	// DoubleClickedEvent fires on the down event so it is detected reliably.
+	if (ImGui::IsItemHovered() && inLabelArea && ImGui::IsMouseDoubleClicked(0))
+	{
+		DoubleClickedEvent.Invoke();
+	}
+
+	// ClickedEvent fires on mouse release so that initiating a drag-and-drop does not
+	// immediately select the actor (which would hide the drop target in the inspector).
+	if (ImGui::IsItemHovered() && inLabelArea && ImGui::IsMouseReleased(0) && !ImGui::IsMouseDragging(0))
+	{
+		ClickedEvent.Invoke();
+	}
+
+	ImGui::PopStyleColor();
 
 	if (opened)
 	{

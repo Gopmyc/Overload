@@ -6,8 +6,9 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string>
-#include <vector>
+#include <unordered_set>
 
 #include <OvCore/Scripting/Common/EScriptingLanguage.h>
 
@@ -30,8 +31,13 @@ namespace OvCore::Scripting
 	public:
 		/**
 		* Constructor of the generic script engine
+		* @param p_projectAssetsPath
+		* @param p_engineAssetsPath
 		*/
-		TScriptEngine();
+		TScriptEngine(
+			const std::filesystem::path& p_projectAssetsPath,
+			const std::filesystem::path& p_engineAssetsPath
+		);
 
 		/**
 		* Destructor of the generic script engine (virtual to allow polymorphism)
@@ -39,15 +45,16 @@ namespace OvCore::Scripting
 		virtual ~TScriptEngine();
 
 		/**
-		* Defines the root location of the script folder
-		* @param p_rootFolder
+		* Create necessary project files.
+		* @param p_projectFolder Root folder of the user's project
+		* @param p_force
 		*/
-		void SetScriptRootFolder(const std::filesystem::path& p_rootFolder);
+		bool CreateProjectFiles(const std::filesystem::path& p_projectFolder, bool p_force = false);
 
 		/**
 		* Returns a list of valid extensions for scripts.
 		*/
-		std::vector<std::string> GetValidExtensions();
+		std::unordered_set<std::string> GetValidExtensions();
 
 		/**
 		* Returns the content for a default script

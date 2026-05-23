@@ -24,8 +24,9 @@
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>  
 #include <OvCore/ECS/Components/CSpotLight.h>  
 #include <OvCore/ECS/Components/CTransform.h>
+#include <OvCore/Scripting/Lua/LuaBindings.h>
 
-void BindLuaComponents(sol::state& p_luaState)
+void OvCore::Scripting::Lua::BindLuaComponents(sol::state& p_luaState)
 {
 	using namespace OvMaths;
 	using namespace OvCore::ECS;
@@ -76,7 +77,10 @@ void BindLuaComponents(sol::state& p_luaState)
 	p_luaState.new_usertype<CModelRenderer>("ModelRenderer",
 		sol::base_classes, sol::bases<AComponent>(),
 		"GetModel", &CModelRenderer::GetModel,
-		"SetModel", &CModelRenderer::SetModel,
+		"SetModel", [](CModelRenderer& p_this, OvRendering::Resources::Model* p_model)
+		{
+			p_this.SetModel(p_model);
+		},
 		"GetFrustumBehaviour", &CModelRenderer::GetFrustumBehaviour,
 		"SetFrustumBehaviour", &CModelRenderer::SetFrustumBehaviour
 	);
@@ -98,8 +102,13 @@ void BindLuaComponents(sol::state& p_luaState)
 		"IsLooping", &CSkinnedMeshRenderer::IsLooping,
 		"SetPlaybackSpeed", &CSkinnedMeshRenderer::SetPlaybackSpeed,
 		"GetPlaybackSpeed", &CSkinnedMeshRenderer::GetPlaybackSpeed,
+		"SetMeshBoundsScale", &CSkinnedMeshRenderer::SetMeshBoundsScale,
+		"GetMeshBoundsScale", &CSkinnedMeshRenderer::GetMeshBoundsScale,
 		"SetTime", &CSkinnedMeshRenderer::SetTime,
 		"GetTime", &CSkinnedMeshRenderer::GetTime,
+		"SetAnimationSourceModel", &CSkinnedMeshRenderer::SetAnimationSourceModel,
+		"GetAnimationSourceModel", &CSkinnedMeshRenderer::GetAnimationSourceModel,
+		"IsAnimationSourceCompatible", &CSkinnedMeshRenderer::IsAnimationSourceCompatible,
 		"GetAnimationCount", &CSkinnedMeshRenderer::GetAnimationCount,
 		"GetAnimationName", &CSkinnedMeshRenderer::GetAnimationName,
 		"SetAnimation", sol::overload(
@@ -107,7 +116,16 @@ void BindLuaComponents(sol::state& p_luaState)
 			sol::resolve<bool(const std::string&)>(&CSkinnedMeshRenderer::SetAnimation)
 		),
 		"GetActiveAnimationIndex", &CSkinnedMeshRenderer::GetActiveAnimationIndex,
-		"GetActiveAnimationName", &CSkinnedMeshRenderer::GetActiveAnimationName
+		"GetActiveAnimationName", &CSkinnedMeshRenderer::GetActiveAnimationName,
+		"GetBoneCount", &CSkinnedMeshRenderer::GetBoneCount,
+		"GetBoneName", &CSkinnedMeshRenderer::GetBoneName,
+		"GetBoneIndex", &CSkinnedMeshRenderer::GetBoneIndex,
+		"GetBoneLocalPosition", &CSkinnedMeshRenderer::GetBoneLocalPosition,
+		"GetBoneLocalRotation", &CSkinnedMeshRenderer::GetBoneLocalRotation,
+		"GetBoneLocalScale", &CSkinnedMeshRenderer::GetBoneLocalScale,
+		"SetBoneLocalPosition", &CSkinnedMeshRenderer::SetBoneLocalPosition,
+		"SetBoneLocalRotation", &CSkinnedMeshRenderer::SetBoneLocalRotation,
+		"SetBoneLocalScale", &CSkinnedMeshRenderer::SetBoneLocalScale
 	);
 
 	p_luaState.new_enum<OvPhysics::Entities::PhysicalObject::ECollisionDetectionMode>("CollisionDetectionMode", {

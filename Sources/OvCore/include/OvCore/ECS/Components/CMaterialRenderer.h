@@ -12,7 +12,7 @@
 #include <OvCore/Rendering/EVisibilityFlags.h>
 #include <OvCore/Resources/Material.h>
 #include <OvRendering/Resources/Mesh.h>
-#include <OvUI/Widgets/Layout/Columns.h>
+#include <OvUI/Widgets/AWidget.h>
 
 constexpr uint8_t kMaxMaterialCount = 0xFF;
 
@@ -27,7 +27,7 @@ namespace OvCore::ECS::Components
 	{
 	public:
 		using MaterialList = std::array<OvCore::Resources::Material*, kMaxMaterialCount>;
-		using MaterialField = std::array<std::array<OvUI::Widgets::AWidget*, 3>, kMaxMaterialCount>;
+		using MaterialField = std::array<std::array<OvUI::Widgets::AWidget*, 2>, kMaxMaterialCount>;
 
 		/**
 		* Constructor
@@ -82,9 +82,11 @@ namespace OvCore::ECS::Components
 		void RemoveAllMaterials();
 
 		/**
-		* Update the material list by fetching model information
+		* Fill material entries using the embedded materials of the current model
+		* @param p_overwriteExisting
+		* @param p_fallbackMaterial
 		*/
-		void UpdateMaterialList();
+		void FillWithEmbeddedMaterials(bool p_overwriteExisting, OvCore::Resources::Material* p_fallbackMaterial = nullptr);
 
 		/**
 		* Defines an element of the user matrix
@@ -151,7 +153,6 @@ namespace OvCore::ECS::Components
 	private:
 		MaterialList m_materials;
 		MaterialField m_materialFields;
-		std::array<std::string, kMaxMaterialCount> m_materialNames;
 		OvMaths::FMatrix4 m_userMatrix;
 		Rendering::EVisibilityFlags m_visibilityFlags = Rendering::EVisibilityFlags::ALL;
 	};

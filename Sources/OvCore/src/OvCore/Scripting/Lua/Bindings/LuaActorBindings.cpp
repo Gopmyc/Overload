@@ -4,6 +4,9 @@
 * @licence: MIT
 */
 
+#include <filesystem>
+#include <format>
+
 #include <sol/sol.hpp>
 
 #include <OvCore/ECS/Actor.h>  
@@ -23,9 +26,10 @@
 #include <OvCore/ECS/Components/CReflectionProbe.h>  
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>  
 #include <OvCore/ECS/Components/CSpotLight.h>  
+#include <OvCore/Scripting/Lua/LuaBindings.h>
 #include <OvCore/Scripting/Lua/LuaScriptEngine.h>
 
-void BindLuaActor(sol::state& p_luaState)
+void OvCore::Scripting::Lua::BindLuaActor(sol::state& p_luaState)
 {
 	using namespace OvCore::ECS;
 	using namespace OvCore::ECS::Components;
@@ -36,8 +40,10 @@ void BindLuaActor(sol::state& p_luaState)
 		"SetName", &Actor::SetName,
 		"GetTag", &Actor::GetTag,
 		"GetChildren", &Actor::GetChildren,
+		"FindChild", &Actor::FindChild,
 		"SetTag", &Actor::SetTag,
 		"GetID", &Actor::GetID,
+		"GetGUID", [](Actor& p_actor) { return std::format("{:016X}", p_actor.GetGUID()); },
 		"GetParent", &Actor::GetParent,
 		"SetParent", &Actor::SetParent,
 		"DetachFromParent", &Actor::DetachFromParent,
@@ -70,7 +76,29 @@ void BindLuaActor(sol::state& p_luaState)
 
 		/* Behaviours relatives */
 		"GetBehaviour", [](Actor& p_this, const std::string& p_name) -> sol::table {
-			if (auto behaviour = p_this.GetBehaviour(p_name))
+			// First try matching by script name (stem without path or extension)
+			OvCore::ECS::Components::Behaviour* behaviour = nullptr;
+			for (auto& [key, b] : p_this.GetBehaviours())
+			{
+				if (std::filesystem::path(b.name).stem().string() == p_name)
+				{
+					behaviour = &b;
+					break;
+				}
+			}
+
+			// Fall back to path-based match: try as-is, then with .lua appended if no extension given
+			if (!behaviour)
+			{
+				behaviour = p_this.GetBehaviour(p_name);
+			}
+
+			if (!behaviour && std::filesystem::path(p_name).extension().empty())
+			{
+				behaviour = p_this.GetBehaviour(p_name + ".lua");
+			}
+
+			if (behaviour)
 			{
 				if (auto script = behaviour->GetScript())
 				{

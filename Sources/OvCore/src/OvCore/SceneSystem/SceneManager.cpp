@@ -5,14 +5,21 @@
 */
 
 #include <tinyxml2.h>
+
+#include <OvCore/SceneSystem/SceneManager.h>
+#include <OvCore/ECS/Components/CDirectionalLight.h>
+#include <OvCore/ECS/Components/CAmbientSphereLight.h>
+#include <OvCore/ECS/Components/CCamera.h>
+#include <OvDebug/Logger.h>
+#include <OvTools/Utils/PathParser.h>
 #include <OvWindowing/Dialogs/MessageBox.h>
 
-#include "OvCore/SceneSystem/SceneManager.h"
-#include "OvCore/ECS/Components/CDirectionalLight.h"
-#include "OvCore/ECS/Components/CAmbientSphereLight.h"
-#include "OvCore/ECS/Components/CCamera.h"
-
-OvCore::SceneSystem::SceneManager::SceneManager(const std::string& p_sceneRootFolder) : m_sceneRootFolder(p_sceneRootFolder)
+OvCore::SceneSystem::SceneManager::SceneManager(
+	const std::string& p_sceneRootFolder,
+	const std::string& p_engineAssetsFolder
+) :
+	m_sceneRootFolder(p_sceneRootFolder),
+	m_engineAssetsFolder(p_engineAssetsFolder)
 {
 	LoadEmptyScene();
 }
@@ -45,14 +52,14 @@ void OvCore::SceneSystem::SceneManager::LoadAndPlayDelayed(const std::string& p_
 void OvCore::SceneSystem::SceneManager::LoadEmptyScene()
 {
 	UnloadCurrentScene();
-	m_currentScene.reset(new Scene());
+	m_currentScene.reset(new Scene(m_sceneRootFolder, m_engineAssetsFolder));
 	SceneLoadEvent.Invoke();
 }
 
 void OvCore::SceneSystem::SceneManager::LoadDefaultScene()
 {
 	UnloadCurrentScene();
-	m_currentScene.reset(new Scene());
+	m_currentScene.reset(new Scene(m_sceneRootFolder, m_engineAssetsFolder));
 	m_currentScene->AddDefaultCamera();
 	m_currentScene->AddDefaultLights();
 	m_currentScene->AddDefaultReflections();
@@ -68,10 +75,14 @@ bool OvCore::SceneSystem::SceneManager::LoadScene(const std::string& p_path, boo
 		std::filesystem::current_path() :
 		std::filesystem::path{ m_sceneRootFolder };
 
-	path /= p_path;
+	path /= OvTools::Utils::PathParser::MakeNonWindowsStyle(p_path);
 
 	tinyxml2::XMLDocument doc;
-	doc.LoadFile(path.string().c_str());
+	if (doc.LoadFile(path.string().c_str()) != tinyxml2::XMLError::XML_SUCCESS)
+	{
+		OVLOG_ERROR(std::format("Failed to load scene: {}", path.string()));
+		return false;
+	}
 
 	if (LoadSceneFromMemory(doc))
 	{

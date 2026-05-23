@@ -14,16 +14,19 @@ project "ImGui"
 
 	includedirs {
 		-- Dependencies
+		dependdir .. "freetype/include",
 		dependdir .. "glfw/include",
 
 		-- Current Project
 		"include"
 	}
 
+	defines { "IMGUI_ENABLE_FREETYPE" }
+
 	filter { "configurations:Debug" }
 		defines { "DEBUG", "_DEBUG" }
 		symbols "On"
 
-	filter { "configurations:Release" }
+	filter { "configurations:Release or configurations:Publish" }
 		defines { "NDEBUG" }
 		optimize "On"

@@ -10,6 +10,7 @@
 #include <memory>
 
 #include <OvTools/Eventing/Event.h>
+#include <OvTools/Utils/GUID.h>
 
 #include "OvCore/ECS/Components/AComponent.h"
 #include "OvCore/ECS/Components/CTransform.h"
@@ -85,9 +86,57 @@ namespace OvCore::ECS
 		void SetID(int64_t p_id);
 
 		/**
+		* Defines a new GUID for the actor
+		* @note DO NOTE USE unless you know what you're doing!
+		* @param p_guid
+		*/
+		void SetGUID(uint64_t p_guid);
+
+		/**
 		* Returns the ID of the actor
 		*/
 		int64_t GetID() const;
+
+		/**
+		* Returns the globally unique identifier of this actor.
+		* Assigned once at creation and preserved through serialization.
+		*/
+		uint64_t GetGUID() const;
+
+		/**
+		* Defines the prefab source path for this actor.
+		* An empty path means this actor is not linked to a prefab source.
+		* @param p_prefabSource
+		*/
+		void SetPrefabSource(const std::string& p_prefabSource);
+
+		/**
+		* Returns the prefab source path for this actor.
+		*/
+		const std::string& GetPrefabSource() const;
+
+		/**
+		* Returns true if this actor is linked to a prefab source.
+		*/
+		bool HasPrefabSource() const;
+
+		/**
+		* Defines the prefab node GUID for this actor.
+		* This GUID identifies which prefab node this actor instance comes from.
+		* @param p_prefabNodeGUID
+		*/
+		void SetPrefabNodeGUID(uint64_t p_prefabNodeGUID);
+
+		/**
+		* Returns the prefab node GUID for this actor.
+		* A value of 0 means no prefab node GUID is assigned.
+		*/
+		uint64_t GetPrefabNodeGUID() const;
+
+		/**
+		* Returns true if this actor has a prefab node GUID assigned.
+		*/
+		bool HasPrefabNodeGUID() const;
 
 		/**
 		* Set an actor as the parent of this actor
@@ -125,6 +174,13 @@ namespace OvCore::ECS
 		* Returns the children of this actor
 		*/
 		std::vector<Actor*>& GetChildren();
+
+		/**
+		* Finds a child actor by name
+		* @param p_name
+		* @param p_recursive
+		*/
+		Actor* FindChild(const std::string& p_name, bool p_recursive) const;
 
 		/**
 		* Mark the Actor as "Destroyed". A "Destroyed" actor will be removed from the scene by the scene itself
@@ -290,6 +346,13 @@ namespace OvCore::ECS
 		bool RemoveBehaviour(const std::string& p_name);
 
 		/**
+		* Rename a behaviour, preserving its position in the ordering
+		* @param p_previousName
+		* @param p_newName
+		*/
+		bool RenameBehaviour(const std::string& p_previousName, const std::string& p_newName);
+
+		/**
 		* Try to get the given behaviour (Returns nullptr on failure)
 		* @param p_name
 		*/
@@ -299,6 +362,11 @@ namespace OvCore::ECS
 		* Returns a reference to the vector of behaviours
 		*/
 		std::unordered_map<std::string, Components::Behaviour>& GetBehaviours();
+
+		/**
+		* Returns the ordered list of behaviour names (display/serialization order)
+		*/
+		std::vector<std::string>& GetBehavioursOrder();
 
 		/**
 		* Serialize all the components
@@ -341,8 +409,11 @@ namespace OvCore::ECS
 		bool&			m_playing;
 
 		/* Internal settings */
-		int64_t	m_actorID;
-		bool	m_destroyed = false;
+		int64_t		m_actorID;
+		uint64_t	m_guid;
+		std::string	m_prefabSource;
+		uint64_t	m_prefabNodeGUID = 0;
+		bool		m_destroyed = false;
 		bool	m_sleeping = true;
 		bool	m_awaked = false;
 		bool	m_started = false;
@@ -356,6 +427,7 @@ namespace OvCore::ECS
 		/* Actors components */
 		std::vector<std::shared_ptr<Components::AComponent>> m_components;
 		std::unordered_map<std::string, Components::Behaviour> m_behaviours;
+		std::vector<std::string> m_behavioursOrder;
 
 	public:
 		Components::CTransform& transform;

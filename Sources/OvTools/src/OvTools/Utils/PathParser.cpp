@@ -30,6 +30,16 @@ std::string OvTools::Utils::PathParser::MakeNonWindowsStyle(const std::string & 
 	return result;
 }
 
+std::string OvTools::Utils::PathParser::GetFriendlyPath(const std::string& p_path)
+{
+	const std::string normalized = MakeNonWindowsStyle(p_path);
+
+	if (!normalized.empty() && normalized[0] == ':')
+		return "{ENGINE}/" + normalized.substr(1);
+
+	return normalized;
+}
+
 std::string OvTools::Utils::PathParser::GetContainingFolder(const std::string & p_path)
 {
 	std::string result;
@@ -92,10 +102,22 @@ std::string OvTools::Utils::PathParser::FileTypeToString(EFileType p_fileType)
 	case OvTools::Utils::PathParser::EFileType::MATERIAL:	return "Material";
 	case OvTools::Utils::PathParser::EFileType::SOUND:		return "Sound";
 	case OvTools::Utils::PathParser::EFileType::SCENE:		return "Scene";
+	case OvTools::Utils::PathParser::EFileType::PREFAB:	return "Prefab";
 	case OvTools::Utils::PathParser::EFileType::SCRIPT:		return "Script";
 	case OvTools::Utils::PathParser::EFileType::FONT:		return "Font";
 	default:												return "Unknown";
 	}
+}
+
+OvTools::Utils::PathParser::EFileType OvTools::Utils::PathParser::StringToFileType(const std::string& p_type)
+{
+	if (p_type == "Model")    return EFileType::MODEL;
+	if (p_type == "Texture")  return EFileType::TEXTURE;
+	if (p_type == "Shader")   return EFileType::SHADER;
+	if (p_type == "Material") return EFileType::MATERIAL;
+	if (p_type == "Sound")    return EFileType::SOUND;
+	if (p_type == "Prefab")   return EFileType::PREFAB;
+	return EFileType::UNKNOWN;
 }
 
 OvTools::Utils::PathParser::EFileType OvTools::Utils::PathParser::GetFileType(const std::string & p_path)
@@ -110,8 +132,25 @@ OvTools::Utils::PathParser::EFileType OvTools::Utils::PathParser::GetFileType(co
 	else if (ext == "ovmat") return EFileType::MATERIAL;
 	else if (ext == "wav" || ext == "mp3" || ext == "ogg") return EFileType::SOUND;
 	else if (ext == "ovscene") return EFileType::SCENE;
+	else if (ext == "ovprefab") return EFileType::PREFAB;
 	else if (ext == "lua" || ext == "ovscript") return EFileType::SCRIPT;
 	else if (ext == "ttf") return EFileType::FONT;
 
 	return EFileType::UNKNOWN;
+}
+
+std::filesystem::path OvTools::Utils::PathParser::GetRealPath(
+	const std::filesystem::path& p_path,
+	const std::filesystem::path& p_enginePath,
+	const std::filesystem::path& p_projectPath
+)
+{
+	const std::string normalizedPath = MakeNonWindowsStyle(p_path.string());
+
+	if (!normalizedPath.empty() && normalizedPath[0] == ':')
+	{
+		return (p_enginePath / normalizedPath.substr(1)).lexically_normal();
+	}
+
+	return (p_projectPath / normalizedPath).lexically_normal();
 }

@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <filesystem>
+#include <span>
 #include <string>
 
 
@@ -40,6 +43,21 @@ namespace OvTools::Utils
 		static void RunProgram(const std::string& p_file, const std::string& p_workingDir = "");
 
 		/**
+		* Apply the given icon image to an executable icon resource.
+		* @note No-op on Linux, as executable files don't embed icons.
+		* @param p_executablePath
+		* @param p_iconData
+		* @param p_iconWidth
+		* @param p_iconHeight
+		*/
+		static bool SetExecutableIcon(
+			const std::filesystem::path& p_executablePath,
+			std::span<const uint8_t> p_iconData,
+			uint32_t p_iconWidth,
+			uint32_t p_iconHeight
+		);
+
+		/**
 		* Open the given file for edition with the default application
 		* @param p_file
 		*/
@@ -55,5 +73,11 @@ namespace OvTools::Utils
 		* Return the path to APPDATA
  		*/
 		static std::string GetPathToAppdata();
+
+		/**
+		* Execute a custom command. Returns true if the command invocation succeeded
+		* @param p_command
+		*/
+		static bool ExecuteCommand(const std::string_view p_command);
 	};
 }

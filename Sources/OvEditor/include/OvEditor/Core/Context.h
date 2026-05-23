@@ -6,7 +6,9 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
+#include <variant>
 
 #include <OvAudio/Core/AudioEngine.h>
 #include <OvCore/ResourceManagement/MaterialManager.h>
@@ -35,6 +37,13 @@ namespace OvEditor::Core
 	class Context
 	{
 	public:
+		struct ActorCopyBuffer
+		{
+			uint64_t guid = 0;
+		};
+
+		using CopyBuffer = std::variant<std::monostate, ActorCopyBuffer>;
+
 		/**
 		* Constructor
 		* @param p_projectFolder (including the .ovproject file)
@@ -67,7 +76,6 @@ namespace OvEditor::Core
 		const std::filesystem::path projectFile;
 		const std::filesystem::path engineAssetsPath;
 		const std::filesystem::path projectAssetsPath;
-		const std::filesystem::path projectScriptsPath;
 		const std::filesystem::path editorAssetsPath;
 
 		std::unique_ptr<OvWindowing::Context::Device> device;
@@ -93,5 +101,7 @@ namespace OvEditor::Core
 		OvWindowing::Settings::WindowSettings windowSettings;
 
 		OvTools::Filesystem::IniFile projectSettings;
+
+		CopyBuffer copyBuffer;
 	};
 }

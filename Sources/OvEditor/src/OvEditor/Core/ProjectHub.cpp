@@ -17,6 +17,7 @@
 #include <OvTools/Utils/PathParser.h>
 #include <OvTools/Utils/SystemCalls.h>
 
+#include <OvUI/Styling/Style.h>
 #include <OvUI/Widgets/Buttons/Button.h>
 #include <OvUI/Widgets/InputFields/InputText.h>
 #include <OvUI/Widgets/Layout/Columns.h>
@@ -45,10 +46,14 @@ namespace OvEditor::Core
 			SetSize({ 1000, 580 });
 			SetPosition({ 0.f, 0.f });
 
-			auto& openProjectButton = CreateWidget<OvUI::Widgets::Buttons::Button>("Open Project");
-			auto& newProjectButton = CreateWidget<OvUI::Widgets::Buttons::Button>("New Project");
-			auto& pathField = CreateWidget<OvUI::Widgets::InputFields::InputText>("");
-			m_goButton = &CreateWidget<OvUI::Widgets::Buttons::Button>("GO");
+			auto& actionBar = CreateWidget<OvUI::Widgets::Layout::Group>();
+			actionBar.horizontal = true;
+			actionBar.stretchWidget = 2;
+
+			auto& openProjectButton = actionBar.CreateWidget<OvUI::Widgets::Buttons::Button>("Open Project");
+			auto& newProjectButton = actionBar.CreateWidget<OvUI::Widgets::Buttons::Button>("New Project");
+			auto& pathField = actionBar.CreateWidget<OvUI::Widgets::InputFields::InputText>("");
+			m_goButton = &actionBar.CreateWidget<OvUI::Widgets::Buttons::Button>("GO");
 
 			pathField.ContentChangedEvent += [this, &pathField](std::string p_content) {
 				pathField.content = std::filesystem::path{
@@ -60,8 +65,12 @@ namespace OvEditor::Core
 
 			_UpdateGoButton({});
 
-			openProjectButton.idleBackgroundColor = { 0.7f, 0.5f, 0.f };
-			newProjectButton.idleBackgroundColor = { 0.f, 0.5f, 0.0f };
+			openProjectButton.backgroundColor = OVUI_STYLE(WarningButton);
+			openProjectButton.hoveredBackgroundColor = OVUI_STYLE(WarningButtonHovered);
+			openProjectButton.clickedBackgroundColor = OVUI_STYLE(WarningButtonActive);
+			newProjectButton.backgroundColor = OVUI_STYLE(SuccessButton);
+			newProjectButton.hoveredBackgroundColor = OVUI_STYLE(SuccessButtonHovered);
+			newProjectButton.clickedBackgroundColor = OVUI_STYLE(SuccessButtonActive);
 
 			openProjectButton.ClickedEvent += [this] {
 				OvWindowing::Dialogs::OpenFileDialog dialog("Open project");
@@ -118,7 +127,7 @@ namespace OvEditor::Core
 
 			auto& columns = CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
 
-			columns.widths = { 750, 500 };
+			columns.widths = { -1, 0 };
 
 			// Sanitize the project registry before displaying it, so we avoid showing
 			// corrupted/deleted projects.
@@ -132,8 +141,12 @@ namespace OvEditor::Core
 				auto& openButton = actions.CreateWidget<OvUI::Widgets::Buttons::Button>("Open");
 				auto& deleteButton = actions.CreateWidget<OvUI::Widgets::Buttons::Button>("Delete");
 
-				openButton.idleBackgroundColor = { 0.7f, 0.5f, 0.f };
-				deleteButton.idleBackgroundColor = { 0.5f, 0.f, 0.f };
+				openButton.backgroundColor = OVUI_STYLE(WarningButton);
+				openButton.hoveredBackgroundColor = OVUI_STYLE(WarningButtonHovered);
+				openButton.clickedBackgroundColor = OVUI_STYLE(WarningButtonActive);
+				deleteButton.backgroundColor = OVUI_STYLE(DangerButton);
+				deleteButton.hoveredBackgroundColor = OVUI_STYLE(DangerButtonHovered);
+				deleteButton.clickedBackgroundColor = OVUI_STYLE(DangerButtonActive);
 
 				openButton.ClickedEvent += [this, &text, &actions, project] {
 					if (!_TryFinish({ project }))
@@ -162,18 +175,17 @@ namespace OvEditor::Core
 		void Draw() override
 		{
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 50.f, 50.f });
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
-
 			OvUI::Panels::PanelWindow::Draw();
-
-			ImGui::PopStyleVar(2);
+			ImGui::PopStyleVar(1);
 		}
 
 	private:
 		void _UpdateGoButton(const std::string& p_path)
 		{
 			const bool validPath = !p_path.empty();
-			m_goButton->idleBackgroundColor = validPath ? OvUI::Types::Color{ 0.f, 0.5f, 0.0f } : OvUI::Types::Color{ 0.1f, 0.1f, 0.1f };
+			m_goButton->backgroundColor = validPath ? OVUI_STYLE(SuccessButton) : OVUI_STYLE(Button);
+			m_goButton->hoveredBackgroundColor = validPath ? OVUI_STYLE(SuccessButtonHovered) : OVUI_STYLE(ButtonHovered);
+			m_goButton->clickedBackgroundColor = validPath ? OVUI_STYLE(SuccessButtonActive) : OVUI_STYLE(ButtonActive);
 			m_goButton->disabled = !validPath;
 		}
 
@@ -281,19 +293,43 @@ void OvEditor::Core::ProjectHub::SetupContext()
 	/* Graphics context creation */
 	m_driver = std::make_unique<OvRendering::Context::Driver>(OvRendering::Settings::DriverSettings{ false });
 
-	m_uiManager = std::make_unique<OvUI::Core::UIManager>(m_window->GetGlfwWindow(),
+	// DPI awareness BETA option
+	const auto windowContentScale = m_window->GetContentScale();
+	const auto unifiedWindowContentScale = std::max(windowContentScale.first, windowContentScale.second);
+
+	if (!Settings::EditorSettings::BetaDpiAwarenessDialogPresented.Get() && unifiedWindowContentScale > 1.0f)
+	{
+		Settings::EditorSettings::BetaDpiAwarenessDialogPresented.Set(true);
+		const auto dpiAwarenessDialog = OvWindowing::Dialogs::MessageBox(
+			"High DPI Monitor Detected",
+			"Overload has detected that you might be running the editor from a high DPI monitor.\n\n"
+			"Support for automatic DPI-scaling is currently in BETA and might result in weird spacings, "
+			"icon sizes, layouts, and window sizes.\n\n"
+			"Do you want to enable automatic DPI scaling anyway?\n\n"
+			"(You can change this setting anytime from the menu bar: Settings > Appearance)",
+			OvWindowing::Dialogs::MessageBox::EMessageType::QUESTION,
+			OvWindowing::Dialogs::MessageBox::EButtonLayout::YES_NO
+		);
+		switch (dpiAwarenessDialog.GetUserAction())
+		{
+			case OvWindowing::Dialogs::MessageBox::EUserAction::YES:
+				Settings::EditorSettings::UIScale.Set(0);
+			default: break;
+		}
+	}
+
+	m_uiManager = std::make_unique<OvUI::Core::UIManager>(
+		*m_window,
 		static_cast<OvUI::Styling::EStyle>(OvEditor::Settings::EditorSettings::ColorTheme.Get())
 	);
 
-	const auto fontPath = std::filesystem::current_path() / "Data" / "Editor" / "Fonts" / "Ruda-Bold.ttf";
+	const auto fontPath = std::filesystem::current_path() / "Data" / "Editor" / "Fonts" / "Roboto-Regular.ttf";
 
-	m_uiManager->LoadFont(std::string{ Settings::GetFontID(Settings::EFontSize::BIG) }, fontPath.string(), 20);
-	m_uiManager->LoadFont(std::string{ Settings::GetFontID(Settings::EFontSize::MEDIUM) }, fontPath.string(), 18);
-	m_uiManager->LoadFont(std::string{ Settings::GetFontID(Settings::EFontSize::SMALL) }, fontPath.string(), 16);
-	m_uiManager->UseFont(std::string{ Settings::GetFontID(
-		static_cast<Settings::EFontSize>(Settings::EditorSettings::FontSize.Get())
-	) });
-
+	m_uiManager->LoadFont("Roboto", fontPath.string(), 18.0f);
+	m_uiManager->UseFont("Roboto");
+	const int uiScale = Settings::EditorSettings::UIScale.Get();
+	m_uiManager->SetScale(uiScale == 0 ? std::nullopt : std::make_optional(uiScale / 100.0f));
 	m_uiManager->EnableEditorLayoutSave(false);
 	m_uiManager->EnableDocking(false);
 }
+

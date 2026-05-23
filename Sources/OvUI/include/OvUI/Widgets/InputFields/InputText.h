@@ -32,6 +32,9 @@ namespace OvUI::Widgets::InputFields
 		std::string content;
 		std::string label;
 		bool selectAllOnClick = false;
+		bool focusOnNextDraw = false;
+		bool fullWidth = false;
+		uint32_t iconTextureID = 0;
 		OvTools::Eventing::Event<std::string> ContentChangedEvent;
 		OvTools::Eventing::Event<std::string> EnterPressedEvent;
 	};

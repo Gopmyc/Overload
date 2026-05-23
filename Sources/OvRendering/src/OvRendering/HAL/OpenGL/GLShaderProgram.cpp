@@ -114,9 +114,9 @@ template<> \
 template<> \
 void OvRendering::HAL::GLShaderProgram::SetUniform<type>(const std::string& p_name, const type& value) \
 { \
-	if (m_context.uniformsLocationCache.contains(p_name)) \
+	if (auto it = m_context.uniformsLocationCache.find(p_name); it != m_context.uniformsLocationCache.end()) \
 	{ \
-		func(m_context.uniformsLocationCache.at(p_name), __VA_ARGS__); \
+		func(it->second, __VA_ARGS__); \
 	} \
 }
 
@@ -137,6 +137,8 @@ void OvRendering::HAL::GLShaderProgram::QueryUniforms()
 
 	GLint activeUniformCount = 0;
 	glGetProgramiv(m_context.id, GL_ACTIVE_UNIFORMS, &activeUniformCount);
+
+	uint32_t textureSlotCounter = 0;
 
 	for (GLint i = 0; i < activeUniformCount; ++i)
 	{
@@ -180,10 +182,15 @@ void OvRendering::HAL::GLShaderProgram::QueryUniforms()
 		// Only add the uniform if it has a value (unsupported uniform types will be ignored)
 		if (uniformValue.has_value())
 		{
+			const bool isTexture =
+				uniformType == Settings::EUniformType::SAMPLER_2D ||
+				uniformType == Settings::EUniformType::SAMPLER_CUBE;
+
 			m_context.uniforms.emplace(name, Settings::UniformInfo{
 				.type = uniformType,
 				.name = name,
-				.defaultValue = uniformValue
+				.defaultValue = uniformValue,
+				.textureSlot = isTexture ? textureSlotCounter++ : 0
 			});
 		}
 	}
@@ -221,9 +228,9 @@ OvRendering::Settings::ShaderLinkingResult OvRendering::HAL::GLShaderProgram::Li
 template<>
 OvTools::Utils::OptRef<const OvRendering::Settings::UniformInfo> OvRendering::HAL::GLShaderProgram::GetUniformInfo(const std::string& p_name) const
 {
-	if (m_context.uniforms.contains(p_name))
+	if (auto it = m_context.uniforms.find(p_name); it != m_context.uniforms.end())
 	{
-		return m_context.uniforms.at(p_name);
+		return it->second;
 	}
 
 	return std::nullopt;

@@ -9,6 +9,8 @@
 #include <string>
 #include <optional>
 
+#include <OvTools/Eventing/Event.h>
+
 #include <OvWindowing/Context/Device.h>
 #include <OvWindowing/Cursor/ECursorShape.h>
 #include <OvWindowing/Cursor/ECursorMode.h>
@@ -33,6 +35,7 @@ namespace OvWindowing
 		/* Window events */
 		OvTools::Eventing::Event<uint16_t, uint16_t> ResizeEvent;
 		OvTools::Eventing::Event<uint16_t, uint16_t> FramebufferResizeEvent;
+		OvTools::Eventing::Event<float, float> ContentScaleChangedEvent;
 		OvTools::Eventing::Event<int16_t, int16_t> MoveEvent;
 		OvTools::Eventing::Event<int16_t, int16_t> CursorMoveEvent;
 		OvTools::Eventing::Event<> MinimizeEvent;
@@ -56,8 +59,9 @@ namespace OvWindowing
 		/**
 		* Set Icon
 		* @param p_filePath
+		* @return True if the icon has been loaded and applied
 		*/
-		void SetIcon(const std::string& p_filePath);
+		bool SetIcon(const std::string& p_filePath);
 
 		/**
 		* Set Icon from memory
@@ -283,6 +287,11 @@ namespace OvWindowing
 		int32_t GetRefreshRate() const;
 
 		/**
+		* Returns the window content scale (ratio between current DPI and platform's default DPI)
+		*/
+		std::pair<float, float> GetContentScale() const;
+
+		/**
 		* Return GLFW window
 		*/
 		GLFWwindow* GetGlfwWindow() const;
@@ -296,6 +305,7 @@ namespace OvWindowing
 		void BindScrollCallback() const;
 		void BindResizeCallback() const;
 		void BindFramebufferResizeCallback() const;
+		void BindContentScaleCallback() const;
 		void BindCursorMoveCallback() const;
 		void BindMoveCallback() const;
 		void BindIconifyCallback() const;

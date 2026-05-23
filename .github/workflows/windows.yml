@@ -3,6 +3,7 @@ name: Windows
 on:
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - main
@@ -19,13 +20,13 @@ jobs:
 
     strategy:
       matrix:
-        configuration: [Debug, Release]
+        configuration: [Debug, Release, Publish]
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v2
+      uses: microsoft/setup-msbuild@v3
 
     - name: Generate premake5 solution
       working-directory: ${{env.SOLUTION_FILE_PATH}}
@@ -34,3 +35,7 @@ jobs:
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: msbuild /m /p:Configuration=${{ matrix.configuration }} ${{env.SOLUTION_FILE_PATH}} /p:Platform=x64
+
+    - name: Run Lua API tests
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: .\Bin\${{ matrix.configuration }}\OvLuaApiTests\OvLuaApiTests.exe

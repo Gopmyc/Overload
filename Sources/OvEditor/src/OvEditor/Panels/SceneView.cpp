@@ -61,6 +61,7 @@ OvEditor::Panels::SceneView::SceneView
 			case SCENE: OnSceneDropped(path); break;
 			case MODEL: OnModelDropped(path); break;
 			case MATERIAL: OnMaterialDropped(path); break;
+			case PREFAB: OnPrefabDropped(path); break;
 			default: break;
 		}
 	};
@@ -249,7 +250,7 @@ void OvEditor::Panels::SceneView::HandleActorPicking()
 
 		auto mousePosition = EDITOR_CONTEXT(inputManager)->GetMousePosition();
 
-		m_gizmoOperations.SetCurrentMouse({ static_cast<float>(mousePosition.first - m_position.x), static_cast<float>(mousePosition.second - m_position.y) });
+		m_gizmoOperations.SetCurrentMouse({ static_cast<float>(mousePosition.first - m_position.x), static_cast<float>(mousePosition.second - m_position.y - ImGui::GetFrameHeight()) });
 		m_gizmoOperations.ApplyOperation(m_camera.GetViewMatrix(), m_camera.GetProjectionMatrix(), m_camera.GetPosition(), { static_cast<float>(winWidth), static_cast<float>(winHeight) });
 		m_highlightedGizmoDirection = m_gizmoOperations.GetDirection();
 	}
@@ -260,7 +261,7 @@ OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Panels::SceneVie
 	auto [mouseX, mouseY] = EDITOR_CONTEXT(inputManager)->GetMousePosition();
 	mouseX -= m_position.x;
 	mouseY -= m_position.y;
-	mouseY = GetSafeSize().second - mouseY + 25;
+	mouseY = GetSafeSize().second - mouseY + ImGui::GetFrameHeight();
 
 	auto& scene = *GetScene();
 
@@ -298,5 +299,13 @@ void OvEditor::Panels::SceneView::OnMaterialDropped(const std::string& p_path)
 				materialRenderer->SetMaterialAtIndex(0, *material);
 			}
 		}
+	}
+}
+
+void OvEditor::Panels::SceneView::OnPrefabDropped(const std::string& p_path)
+{
+	if (auto* actor = EDITOR_EXEC(InstantiatePrefab(p_path)); actor)
+	{
+		EDITOR_EXEC(SelectActor(*actor));
 	}
 }

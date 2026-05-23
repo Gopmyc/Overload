@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <functional>
 #include <vector>
 
 #include <OvTools/Eventing/Event.h>
@@ -21,6 +22,15 @@ namespace OvUI::Widgets::Layout
 	{
 	public:
 		/**
+		* Represents a clickable icon button drawn inside the collapsable header
+		*/
+		struct HeaderAction
+		{
+			uint32_t textureID;
+			std::function<void()> callback;
+		};
+
+		/**
 		* Constructor
 		* @param p_name
 		*/
@@ -33,8 +43,13 @@ namespace OvUI::Widgets::Layout
 		std::string name;
 		bool closable = false;
 		bool opened = true;
-		bool collapsed = false;
+		bool reorderable = false;
+		bool canMoveUp = true;
+		bool canMoveDown = true;
+		std::vector<HeaderAction> actions;
 		OvTools::Eventing::Event<> CloseEvent;
 		OvTools::Eventing::Event<> OpenEvent;
+		OvTools::Eventing::Event<> MoveUpEvent;
+		OvTools::Eventing::Event<> MoveDownEvent;
 	};
 }

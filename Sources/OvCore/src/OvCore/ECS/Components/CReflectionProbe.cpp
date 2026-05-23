@@ -118,7 +118,7 @@ float OvCore::ECS::Components::CReflectionProbe::GetBrightness() const
 void OvCore::ECS::Components::CReflectionProbe::SetCubemapResolution(uint32_t p_resolution)
 {
 	OVASSERT(p_resolution > 0, "Cubemap resolution must be greater than 0");
-	OVASSERT((p_resolution & (p_resolution - 1)) == 0 > 0, "Cubemap resolution must be a power of 2");
+	OVASSERT((p_resolution & (p_resolution - 1)) == 0, "Cubemap resolution must be a power of 2");
 
 	if (p_resolution != m_resolution)
 	{
@@ -333,7 +333,6 @@ void OvCore::ECS::Components::CReflectionProbe::OnInspector(OvUI::Internal::Widg
 	};
 
 	p_root.CreateWidget<OvUI::Widgets::Visual::Separator>();
-	p_root.CreateWidget<OvUI::Widgets::Layout::Dummy>(); // Necessary to fill the "value" column
 
 	Helpers::GUIDrawer::CreateTitle(p_root, "Reflection Probe Debugging");
 

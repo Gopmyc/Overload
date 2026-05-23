@@ -7,6 +7,10 @@
 #include "OvEditor/Panels/Hierarchy.h"
 #include "OvEditor/Core/EditorActions.h"
 
+#include <algorithm>
+#include <cstdint>
+
+#include <OvUI/Styling/Style.h>
 #include <OvUI/Widgets/Buttons/Button.h>
 #include <OvUI/Widgets/Selection/CheckBox.h>
 #include <OvUI/Widgets/Visual/Separator.h>
@@ -16,6 +20,8 @@
 #include <OvDebug/Logger.h>
 
 #include <OvCore/Global/ServiceLocator.h>
+#include <OvCore/Helpers/GUIHelpers.h>
+#include <OvCore/Helpers/GUIDrawer.h>
 
 #include <OvCore/ECS/Components/CCamera.h>
 #include <OvCore/ECS/Components/CPointLight.h>
@@ -30,14 +36,44 @@
 #include <OvCore/ECS/Components/CAudioListener.h>
 
 #include <OvUI/Plugins/ContextualMenu.h>
+#include <OvWindowing/Dialogs/MessageBox.h>
+#include <OvWindowing/Dialogs/SaveFileDialog.h>
 
+#include <OvTools/Utils/PathParser.h>
+
+#include "OvEditor/Core/EditorResources.h"
 #include "OvEditor/Utils/ActorCreationMenu.h"
+
+namespace
+{
+	const OvCore::ECS::Actor* GetPrefabInstanceRoot(const OvCore::ECS::Actor& p_actor)
+	{
+		const OvCore::ECS::Actor* current = &p_actor;
+
+		while (current)
+		{
+			if (current->HasPrefabSource())
+			{
+				return current;
+			}
+
+			current = current->GetParent();
+		}
+
+		return nullptr;
+	}
+
+	bool IsPartOfPrefabInstance(const OvCore::ECS::Actor& p_actor)
+	{
+		return GetPrefabInstanceRoot(p_actor) != nullptr;
+	}
+}
 
 class ActorContextualMenu : public OvUI::Plugins::ContextualMenu
 {
 public:
 	ActorContextualMenu(OvCore::ECS::Actor* p_target, OvUI::Widgets::Layout::TreeNode* p_treeNode = nullptr, bool p_panelMenu = false) :
-		m_target(p_target),
+		m_targetActor(p_target),
 		m_treeNode(p_treeNode)
 	{
 		using namespace OvUI::Panels;
@@ -45,24 +81,110 @@ public:
 		using namespace OvUI::Widgets::Menu;
 		using namespace OvCore::ECS::Components;
 
-		if (m_target)
+		if (m_targetActor)
 		{
 			auto& focusButton = CreateWidget<OvUI::Widgets::Menu::MenuItem>("Focus");
 			focusButton.ClickedEvent += [this]
 			{
-				EDITOR_EXEC(MoveToTarget(*m_target));
+				if (auto* target = GetTargetActor())
+				{
+					EDITOR_EXEC(MoveToTarget(*target));
+				}
+			};
+
+			auto& copyButton = CreateWidget<OvUI::Widgets::Menu::MenuItem>("Copy");
+			copyButton.ClickedEvent += [this]
+			{
+				if (auto* target = GetTargetActor())
+				{
+					EDITOR_EXEC(CopyActor(*target));
+				}
 			};
 
 			auto& duplicateButton = CreateWidget<OvUI::Widgets::Menu::MenuItem>("Duplicate");
 			duplicateButton.ClickedEvent += [this]
 			{
-				EDITOR_EXEC(DelayAction(EDITOR_BIND(DuplicateActor, std::ref(*m_target), nullptr, true), 0));
+				if (auto* target = GetTargetActor())
+				{
+					EDITOR_EXEC(DelayAction(EDITOR_BIND(DuplicateActor, std::ref(*target), nullptr, true, true), 0));
+				}
+			};
+
+			auto& pasteButton = CreateWidget<OvUI::Widgets::Menu::MenuItem>("Paste");
+			pasteButton.ClickedEvent += [this]
+			{
+				if (auto* target = GetTargetActor())
+				{
+					EDITOR_EXEC(DelayAction(EDITOR_BIND(PasteActor, target), 0));
+				}
+			};
+			
+			auto& saveAsPrefabButton = CreateWidget<OvUI::Widgets::Menu::MenuItem>("Save as Prefab...");
+			saveAsPrefabButton.ClickedEvent += [this]
+			{
+				auto* target = GetTargetActor();
+				if (!target)
+				{
+					return;
+				}
+
+				OvWindowing::Dialogs::SaveFileDialog dialog("Save Prefab");
+				dialog.SetInitialDirectory(EDITOR_CONTEXT(projectAssetsPath).string());
+				dialog.SetInitialFilename(target->GetName());
+				dialog.DefineExtension("Overload Prefab", ".ovprefab");
+				dialog.Show();
+
+				if (!dialog.HasSucceeded())
+				{
+					return;
+				}
+
+				if (dialog.IsFileExisting())
+				{
+					OvWindowing::Dialogs::MessageBox message(
+						"File already exists!",
+						"The file \"" + dialog.GetSelectedFileName() + "\" already exists.\n\nOverwriting this file will replace the previous prefab content.\n\nAre you ok with that?",
+						OvWindowing::Dialogs::MessageBox::EMessageType::WARNING,
+						OvWindowing::Dialogs::MessageBox::EButtonLayout::YES_NO,
+						true
+					);
+
+					if (message.GetUserAction() != OvWindowing::Dialogs::MessageBox::EUserAction::YES)
+					{
+						return;
+					}
+				}
+
+				EDITOR_EXEC(SaveActorAsPrefab(*target, dialog.GetSelectedFilePath()));
+			};
+
+			auto& applyToPrefabButton = CreateWidget<OvUI::Widgets::Menu::MenuItem>("Apply to Prefab");
+			m_applyToPrefabButton = &applyToPrefabButton;
+			applyToPrefabButton.ClickedEvent += [this]
+			{
+				if (auto* target = GetTargetActor())
+				{
+					EDITOR_EXEC(ApplyActorToPrefab(*target));
+				}
+			};
+
+			auto& revertToPrefabButton = CreateWidget<OvUI::Widgets::Menu::MenuItem>("Revert to Prefab");
+			m_revertToPrefabButton = &revertToPrefabButton;
+			revertToPrefabButton.ClickedEvent += [this]
+			{
+				if (auto* target = GetTargetActor())
+				{
+					EDITOR_EXEC(RevertActorToPrefab(*target));
+				}
 			};
 
 			auto& deleteButton = CreateWidget<OvUI::Widgets::Menu::MenuItem>("Delete");
 			deleteButton.ClickedEvent += [this]
 			{
-				EDITOR_EXEC(DestroyActor(std::ref(*m_target)));
+				if (auto* target = GetTargetActor())
+				{
+					EDITOR_EXEC(DestroyActor(std::ref(*target)));
+				}
 			};
 
 			auto& renameMenu = CreateWidget<OvUI::Widgets::Menu::MenuList>("Rename to...");
@@ -72,12 +194,26 @@ public:
 
 			renameMenu.ClickedEvent += [this, &nameEditor]
 			{
-				nameEditor.content = m_target->GetName();
+				if (auto* target = GetTargetActor())
+				{
+					nameEditor.content = target->GetName();
+				}
 			};
 
 			nameEditor.EnterPressedEvent += [this](std::string p_newName)
 			{
-				m_target->SetName(p_newName);
+				if (auto* target = GetTargetActor())
+				{
+					target->SetName(p_newName);
+				}
+			};
+		}
+		else
+		{
+			auto& pasteButton = CreateWidget<OvUI::Widgets::Menu::MenuItem>("Paste");
+			pasteButton.ClickedEvent += [this]
+			{
+				EDITOR_EXEC(DelayAction(EDITOR_BIND(PasteActor, nullptr), 0));
 			};
 		}
 
@@ -90,18 +226,60 @@ public:
 			) :
 			std::nullopt;
 
-		OvEditor::Utils::ActorCreationMenu::GenerateActorCreationMenu(createActor, m_target, onItemClicked);
+		OvEditor::Utils::ActorCreationMenu::GenerateActorCreationMenu(
+			createActor,
+			m_targetActor,
+			onItemClicked
+		);
 	}
 
 	virtual void Execute(OvUI::Plugins::EPluginExecutionContext p_context) override
 	{
+		if (m_applyToPrefabButton || m_revertToPrefabButton)
+		{
+			auto* target = GetTargetActor();
+			const bool canEditPrefab = target && GetPrefabInstanceRoot(*target) != nullptr;
+
+			if (m_applyToPrefabButton)
+			{
+				m_applyToPrefabButton->enabled = canEditPrefab;
+			}
+
+			if (m_revertToPrefabButton)
+			{
+				m_revertToPrefabButton->enabled = canEditPrefab;
+			}
+		}
+
 		if (m_widgets.size() > 0)
 			OvUI::Plugins::ContextualMenu::Execute(p_context);
 	}
 
 private:
-	OvCore::ECS::Actor* m_target;
+	OvCore::ECS::Actor* GetTargetActor() const
+	{
+		if (!m_targetActor)
+		{
+			return nullptr;
+		}
+
+		auto* currentScene = EDITOR_CONTEXT(sceneManager).GetCurrentScene();
+		if (!currentScene)
+		{
+			return nullptr;
+		}
+
+		const auto& actors = currentScene->GetActors();
+		const bool actorIsStillInScene =
+			std::find(actors.begin(), actors.end(), m_targetActor) != actors.end();
+
+		return actorIsStillInScene ? m_targetActor : nullptr;
+	}
+
+	OvCore::ECS::Actor* m_targetActor = nullptr;
 	OvUI::Widgets::Layout::TreeNode* m_treeNode;
+	OvUI::Widgets::Menu::MenuItem* m_applyToPrefabButton = nullptr;
+	OvUI::Widgets::Menu::MenuItem* m_revertToPrefabButton = nullptr;
 };
 
 void ExpandTreeNode(OvUI::Widgets::Layout::TreeNode& p_toExpand)
@@ -149,7 +327,13 @@ OvEditor::Panels::Hierarchy::Hierarchy
 	m_actions(CreateWidget<OvUI::Widgets::Layout::Group>()),
 	m_actors(CreateWidget<OvUI::Widgets::Layout::Group>())
 {
-	auto& searchBar = m_actions.CreateWidget<OvUI::Widgets::InputFields::InputText>();
+	const uint32_t searchIconID = []{
+		if (auto* tex = EDITOR_CONTEXT(editorResources)->GetTexture("Search"))
+			return tex->GetTexture().GetID();
+		return 0u;
+	}();
+
+	auto& searchBar = OvCore::Helpers::GUIDrawer::DrawSearchBar(m_actions, searchIconID);
 	searchBar.ContentChangedEvent += [this](const std::string& p_content)
 	{
 		founds.clear();
@@ -334,10 +518,21 @@ void OvEditor::Panels::Hierarchy::AddActorByInstance(OvCore::ECS::Actor & p_acto
 {
 	auto& textSelectable = m_actors.CreateWidget<OvUI::Widgets::Layout::TreeNode>(p_actor.GetName(), true);
 	textSelectable.leaf = true;
+
+	const uint32_t actorIconID = OvCore::Helpers::GUIHelpers::GetActorIconID();
+	const uint32_t prefabIconID = OvCore::Helpers::GUIHelpers::GetIconForFileType(OvTools::Utils::PathParser::EFileType::PREFAB);
+
+	textSelectable.iconTextureID = IsPartOfPrefabInstance(p_actor) && prefabIconID != 0 ? prefabIconID : actorIconID;
+
 	textSelectable.AddPlugin<ActorContextualMenu>(&p_actor, &textSelectable);
 	textSelectable.AddPlugin<OvUI::Plugins::DDSource<std::pair<OvCore::ECS::Actor*, OvUI::Widgets::Layout::TreeNode*>>>("Actor", "Attach to...", std::make_pair(&p_actor, &textSelectable));
 	textSelectable.AddPlugin<OvUI::Plugins::DDTarget<std::pair<OvCore::ECS::Actor*, OvUI::Widgets::Layout::TreeNode*>>>("Actor").DataReceivedEvent += [&p_actor, &textSelectable](std::pair<OvCore::ECS::Actor*, OvUI::Widgets::Layout::TreeNode*> p_element)
 	{
+		if (&p_actor == p_element.first)
+		{
+			return;
+		}
+
 		if (p_actor.IsDescendantOf(p_element.first))
 		{
 			OVLOG_WARNING("Cannot attach \"" + p_element.first->GetName() + "\" to \"" + p_actor.GetName() + "\" because it is a descendant of the latter.");
@@ -349,7 +544,17 @@ void OvEditor::Panels::Hierarchy::AddActorByInstance(OvCore::ECS::Actor & p_acto
 	auto& dispatcher = textSelectable.AddPlugin<OvUI::Plugins::DataDispatcher<std::string>>();
 
 	OvCore::ECS::Actor* targetPtr = &p_actor;
-	dispatcher.RegisterGatherer([targetPtr] { return targetPtr->GetName(); });
+	dispatcher.RegisterGatherer([targetPtr, &textSelectable, actorIconID, prefabIconID]
+	{
+		const bool isActive = targetPtr->IsActive();
+		textSelectable.labelColor = isActive
+			? OVUI_STYLE(Text)
+			: OVUI_STYLE(TextDisabled);
+
+		textSelectable.iconTextureID = IsPartOfPrefabInstance(*targetPtr) && prefabIconID != 0 ? prefabIconID : actorIconID;
+
+		return targetPtr->GetName();
+	});
 
 	m_widgetActorLink[targetPtr] = &textSelectable;
 

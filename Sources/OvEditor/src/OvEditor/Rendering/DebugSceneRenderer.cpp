@@ -612,8 +612,8 @@ protected:
 		if (auto capsuleColliderComponent = p_actor.GetComponent<OvCore::ECS::Components::CPhysicalCapsule>(); capsuleColliderComponent)
 		{
 			FVector3 actorScale = p_actor.transform.GetWorldScale();
-			float radius = abs(capsuleColliderComponent->GetRadius() * std::max(std::max(actorScale.x, actorScale.z), 0.f));
-			float height = abs(capsuleColliderComponent->GetHeight() * actorScale.y);
+			float radius = std::abs(capsuleColliderComponent->GetRadius() * std::max(std::max(actorScale.x, actorScale.z), 0.f));
+			float height = std::abs(capsuleColliderComponent->GetHeight() * actorScale.y);
 
 			m_debugShapeFeature.DrawCapsule(
 				pso,
@@ -706,7 +706,13 @@ protected:
 			const auto& actorRotation = actor.transform.GetWorldRotation();
 			const auto& actorPosition = actor.transform.GetWorldPosition();
 
-			const float radiusScale = std::max(std::max(std::max(actorScale.x, actorScale.y), actorScale.z), 0.0f);
+			float radiusScale = std::max(std::max(std::max(actorScale.x, actorScale.y), actorScale.z), 0.0f);
+
+			const auto skinnedMeshRenderer = actor.GetComponent<CSkinnedMeshRenderer>();
+			if (skinnedMeshRenderer && skinnedMeshRenderer->HasSkinningData())
+			{
+				radiusScale *= skinnedMeshRenderer->GetMeshBoundsScale();
+			}
 
 			auto drawBounds = [&](const OvRendering::Geometry::BoundingSphere& p_bounds) {
 				const float scaledRadius = p_bounds.radius * radiusScale;

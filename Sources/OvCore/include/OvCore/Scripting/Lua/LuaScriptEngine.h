@@ -30,7 +30,8 @@ namespace OvCore::Scripting
 	struct LuaScriptEngineContext
 	{
 		std::unique_ptr<sol::state> luaState;
-		std::filesystem::path scriptRootFolder;
+		std::filesystem::path projectAssetsPath;
+		std::filesystem::path engineAssetsPath;
 		std::vector<std::reference_wrapper<OvCore::ECS::Components::Behaviour>> behaviours;
 		uint32_t errorCount;
 	};
@@ -44,9 +45,14 @@ namespace OvCore::Scripting
 	{
 	public:
 		/**
-		* Constructor of the Lua script engine
+		* Constructor of the lua script engine
+		* @param p_projectAssetsPath
+		* @param p_engineAssetsPath
 		*/
-		LuaScriptEngine();
+		LuaScriptEngine(
+			const std::filesystem::path& p_projectAssetsPath,
+			const std::filesystem::path& p_engineAssetsPath
+		);
 
 		/**
 		* Destructor of the Lua script engine

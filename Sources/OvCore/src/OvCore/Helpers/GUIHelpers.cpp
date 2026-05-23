@@ -1,0 +1,147 @@
+/**
+ * @project: Overload
+ * @author: Overload Tech.
+ * @licence: MIT
+ */
+
+#include <OvRendering/Resources/Texture.h>
+
+#include "OvCore/Helpers/GUIHelpers.h"
+
+namespace
+{
+	OvRendering::Resources::Texture* __EMPTY_TEXTURE = nullptr;
+	OvCore::Helpers::GUIHelpers::FileItemBuilderCallback __FILE_ITEM_BUILDER;
+	OvCore::Helpers::GUIHelpers::PickerProviderCallback __PICKER_PROVIDER;
+	OvCore::Helpers::GUIHelpers::PickerSearchTextProviderCallback __PICKER_SEARCH_TEXT_PROVIDER;
+	OvCore::Helpers::GUIHelpers::IconProviderCallback __ICON_PROVIDER;
+	OvCore::Helpers::GUIHelpers::OpenProviderCallback __OPEN_PROVIDER;
+	OvCore::Helpers::GUIHelpers::ActorSelectionProviderCallback __ACTOR_SELECTION_PROVIDER;
+	OvCore::Helpers::GUIHelpers::AssetExistsCallback __ASSET_EXISTS_CHECKER;
+	uint32_t __ACTOR_ICON_ID = 0;
+
+	std::string TitleFromFileType(OvTools::Utils::PathParser::EFileType p_type)
+	{
+		using EFileType = OvTools::Utils::PathParser::EFileType;
+		switch (p_type)
+		{
+		case EFileType::MODEL:    return "Pick Model";
+		case EFileType::TEXTURE:  return "Pick Texture";
+		case EFileType::SHADER:   return "Pick Shader";
+		case EFileType::MATERIAL: return "Pick Material";
+		case EFileType::SOUND:    return "Pick Sound";
+		case EFileType::SCRIPT:   return "Pick Script";
+		case EFileType::SCENE:    return "Pick Scene";
+		case EFileType::PREFAB:   return "Pick Prefab";
+		default:                  return "Pick Asset";
+		}
+	}
+}
+
+void OvCore::Helpers::GUIHelpers::ProvideEmptyTexture(OvRendering::Resources::Texture& p_emptyTexture)
+{
+	__EMPTY_TEXTURE = &p_emptyTexture;
+}
+
+OvRendering::Resources::Texture* OvCore::Helpers::GUIHelpers::GetEmptyTexture()
+{
+	return __EMPTY_TEXTURE;
+}
+
+void OvCore::Helpers::GUIHelpers::SetFileItemBuilder(FileItemBuilderCallback p_builder)
+{
+	__FILE_ITEM_BUILDER = std::move(p_builder);
+}
+
+void OvCore::Helpers::GUIHelpers::OpenAssetPicker(
+	OvTools::Utils::PathParser::EFileType p_fileType,
+	std::function<void(std::string)> p_onSelect,
+	bool p_searchProjectFiles,
+	bool p_searchEngineFiles
+)
+{
+	if (!__FILE_ITEM_BUILDER || !__PICKER_PROVIDER)
+		return;
+
+	auto assetItems = __FILE_ITEM_BUILDER(p_fileType, p_onSelect, p_searchProjectFiles, p_searchEngineFiles);
+
+	PickerItemList items;
+	items.Add({ "__none__", "None", "Clear the current selection", 0, [p_onSelect] { p_onSelect(""); } });
+	for (const auto& item : assetItems.Items())
+		items.Add(item);
+
+	__PICKER_PROVIDER(std::move(items), TitleFromFileType(p_fileType));
+}
+
+void OvCore::Helpers::GUIHelpers::SetOpenProvider(OpenProviderCallback p_provider)
+{
+	__OPEN_PROVIDER = std::move(p_provider);
+}
+
+void OvCore::Helpers::GUIHelpers::Open(const std::string& p_path)
+{
+	if (__OPEN_PROVIDER && !p_path.empty())
+		__OPEN_PROVIDER(p_path);
+}
+
+void OvCore::Helpers::GUIHelpers::SetIconProvider(IconProviderCallback p_provider)
+{
+	__ICON_PROVIDER = std::move(p_provider);
+}
+
+uint32_t OvCore::Helpers::GUIHelpers::GetIconForFileType(OvTools::Utils::PathParser::EFileType p_fileType)
+{
+	return __ICON_PROVIDER ? __ICON_PROVIDER(p_fileType) : 0;
+}
+
+void OvCore::Helpers::GUIHelpers::SetPickerProvider(PickerProviderCallback p_provider)
+{
+	__PICKER_PROVIDER = std::move(p_provider);
+}
+
+void OvCore::Helpers::GUIHelpers::OpenPicker(PickerItemList p_items, std::string p_title)
+{
+	if (__PICKER_PROVIDER)
+		__PICKER_PROVIDER(std::move(p_items), std::move(p_title));
+}
+
+void OvCore::Helpers::GUIHelpers::SetPickerSearchTextProvider(PickerSearchTextProviderCallback p_provider)
+{
+	__PICKER_SEARCH_TEXT_PROVIDER = std::move(p_provider);
+}
+
+std::string OvCore::Helpers::GUIHelpers::GetPickerSearchText()
+{
+	return __PICKER_SEARCH_TEXT_PROVIDER ? __PICKER_SEARCH_TEXT_PROVIDER() : "";
+}
+
+void OvCore::Helpers::GUIHelpers::SetActorIconID(uint32_t p_id)
+{
+	__ACTOR_ICON_ID = p_id;
+}
+
+uint32_t OvCore::Helpers::GUIHelpers::GetActorIconID()
+{
+	return __ACTOR_ICON_ID;
+}
+
+void OvCore::Helpers::GUIHelpers::SetActorSelectionProvider(ActorSelectionProviderCallback p_provider)
+{
+	__ACTOR_SELECTION_PROVIDER = std::move(p_provider);
+}
+
+void OvCore::Helpers::GUIHelpers::SelectActor(uint64_t p_guid)
+{
+	if (__ACTOR_SELECTION_PROVIDER)
+		__ACTOR_SELECTION_PROVIDER(p_guid);
+}
+
+void OvCore::Helpers::GUIHelpers::SetAssetExistsChecker(AssetExistsCallback p_checker)
+{
+	__ASSET_EXISTS_CHECKER = std::move(p_checker);
+}
+
+bool OvCore::Helpers::GUIHelpers::AssetExists(const std::string& p_path)
+{
+	return __ASSET_EXISTS_CHECKER && __ASSET_EXISTS_CHECKER(p_path);
+}

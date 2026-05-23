@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <filesystem>
+
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvEditor/Core/Context.h>
 #include <OvEditor/Core/PanelsManager.h>
@@ -26,6 +28,19 @@ namespace tinyxml2
 namespace OvEditor::Core
 {
 	enum class EGizmoOperation;
+
+	enum class EBuildType : int
+	{
+		Debug = 0,
+		Release = 1,
+		Publish = 2
+	};
+
+	/**
+	* Returns the name of a build type
+	* @param p_buildType
+	*/
+	std::string GetBuildTypeName(EBuildType p_buildType);
 
 	/**
 	* A set of editor actions
@@ -207,12 +222,60 @@ namespace OvEditor::Core
 		* Duplicate an actor
 		* @param p_toDuplicate
 		* @param p_forcedParent
-		* @param bool
+		* @param p_focus
+		* @param p_keepSourceParentIfNoForcedParent
 		*/
-		void DuplicateActor(OvCore::ECS::Actor& p_toDuplicate, OvCore::ECS::Actor* p_forcedParent = nullptr, bool p_focus = true);
+		void DuplicateActor
+		(
+			OvCore::ECS::Actor& p_toDuplicate,
+			OvCore::ECS::Actor* p_forcedParent = nullptr,
+			bool p_focus = true,
+			bool p_keepSourceParentIfNoForcedParent = true
+		);
+
+		/**
+		* Save an actor hierarchy to a prefab file
+		* @param p_actor
+		* @param p_path
+		*/
+		void SaveActorAsPrefab(OvCore::ECS::Actor& p_actor, const std::string& p_path);
+
+		/**
+		* Instantiate a prefab file in the current scene
+		* @param p_path
+		*/
+		OvCore::ECS::Actor* InstantiatePrefab(const std::string& p_path);
+
+		/**
+		* Apply the current actor hierarchy state to its prefab source.
+		* Returns true on success.
+		* @param p_actor
+		*/
+		bool ApplyActorToPrefab(OvCore::ECS::Actor& p_actor);
+
+		/**
+		* Revert an actor hierarchy from its prefab source.
+		* Keeps existing actor GUIDs to preserve scene/script references.
+		* Returns true on success.
+		* @param p_actor
+		*/
+		bool RevertActorToPrefab(OvCore::ECS::Actor& p_actor);
 		#pragma endregion
 
 		#pragma region ACTOR_MANIPULATION
+		/**
+		* Copy the given actor in the editor copy buffer
+		* @param p_actor
+		*/
+		void CopyActor(OvCore::ECS::Actor& p_actor);
+
+		/**
+		* Paste the copied actor next to the given actor (same parent), or at root if null.
+		* If the target actor is at root, the pasted actor is also pasted at root.
+		* @param p_parent
+		*/
+		void PasteActor(OvCore::ECS::Actor* p_parent = nullptr);
+
 		/**
 		* Select an actor and show him in inspector
 		* @param p_target
@@ -253,15 +316,44 @@ namespace OvEditor::Core
 		void CompileShader(OvRendering::Resources::Shader& p_shader);
 
 		/**
+		* Compile the shader at the given resource path
+		*/
+		void CompileShader(const std::filesystem::path& p_shaderPath);
+
+		/**
 		* Save every materials to their respective files
 		*/
 		void SaveMaterials();
+
+		/**
+		* Regenerate project files for the scripting backend
+		*/
+		void RegenerateScriptingProjectFiles();
 		
+		/**
+		* Open the given path in the code editor.
+		* Returns true if the operation was successful
+		* @param p_path
+		* @param p_workdir (optional) working directory
+		*/
+		bool OpenInCodeEditor(
+			const std::filesystem::path& p_path,
+			OvTools::Utils::OptRef<const std::filesystem::path> p_workdir = std::nullopt
+		);
+
 		/**
 		* Import an asset
 		* @param p_initialDestinationDirectory
 		*/
 		bool ImportAsset(const std::string& p_initialDestinationDirectory);
+
+		/**
+		* Open a save dialog to create a new script file at a user-chosen location.
+		* Returns the absolute path of the created script, or empty on cancellation.
+		* @param p_initialDirectory  Directory the dialog opens in
+		* @param p_initialName       Suggested filename (without extension)
+		*/
+		std::string CreateScript(const std::string& p_initialDirectory, const std::string& p_initialName);
 
 		/**
 		* Import an asset at location
@@ -283,10 +375,17 @@ namespace OvEditor::Core
 		std::string GetResourcePath(const std::string& p_path, bool p_isFromEngine = false);
 
 		/**
-		* Returns the script path of a file
+		* Returns the script path of a file (relative to projectAssetsPath, forward-slash separated)
 		* @param p_path
 		*/
 		std::string GetScriptPath(const std::string& p_path);
+
+		/**
+		* Migrates scripts from a legacy Scripts/ folder into Assets/Scripts/.
+		* If a Scripts/ folder is found in the project root, prompts the user and
+		* moves it into Assets/, updating all scene files accordingly.
+		*/
+		void MigrateScripts();
 
 		/**
 		* Propagate the folder rename everywhere (Resource manager, scenes, materials...)
@@ -300,13 +399,6 @@ namespace OvEditor::Core
 		* @param p_folderPath
 		*/
 		void PropagateFolderDestruction(std::string p_folderPath);
-
-		/**
-		* Propagate the script rename in scenes and inspector
-		* @param p_previousName
-		* @param p_newName
-		*/
-		void PropagateScriptRename(std::string p_previousName, std::string p_newName);
 
 		/**
 		* Propagate the file rename everywhere it is used
@@ -382,11 +474,15 @@ namespace OvEditor::Core
 
 		/**
 		* Build the current project at the given location
-		* @param p_configuration
+		* @param p_buildType
 		* @param p_buildPath
 		* @param p_autoRun
 		*/
-		void BuildAtLocation(const std::string& p_configuration, const std::filesystem::path&, bool p_autoRun = false);
+		void BuildAtLocation(
+			EBuildType p_buildType,
+			const std::filesystem::path&,
+			bool p_autoRun = false
+		);
 		#pragma endregion
 
 		#pragma region PROFILNIG

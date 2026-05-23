@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include "OvUI/Widgets/Layout/Group.h"
 #include <OvCore/Helpers/GUIDrawer.h>
 #include <OvCore/Resources/Loaders/MaterialLoader.h>
 
@@ -11,15 +12,14 @@
 #include <OvEditor/Panels/AssetView.h>
 #include <OvEditor/Panels/MaterialEditor.h>
 
+#include <OvRendering/Resources/Parsers/EmbeddedAssetPath.h>
 #include <OvTools/Utils/SystemCalls.h>
 
+#include <OvUI/Styling/Style.h>
 #include <OvUI/Widgets/Buttons/Button.h>
-#include <OvUI/Widgets/Buttons/ButtonSmall.h>
 #include <OvUI/Widgets/Layout/Columns.h>
 #include <OvUI/Widgets/Layout/GroupCollapsable.h>
-#include <OvUI/Widgets/Selection/ColorEdit.h>
 #include <OvUI/Widgets/Selection/ComboBox.h>
-#include <OvUI/Widgets/Texts/TextColored.h>
 #include <OvUI/Widgets/Visual/Separator.h>
 
 using namespace OvUI::Panels;
@@ -67,74 +67,11 @@ namespace
 		return result;
 	}
 
-	void DrawHybridVec3(OvUI::Internal::WidgetContainer& p_root, const std::string& p_name, OvMaths::FVector3& p_data, float p_step, float p_min, float p_max)
+	bool IsReadyOnlyMaterial(const OvCore::Resources::Material& p_material)
 	{
-		OvCore::Helpers::GUIDrawer::CreateTitle(p_root, p_name);
-
-		auto& rightSide = p_root.CreateWidget<OvUI::Widgets::Layout::Group>();
-
-		auto& xyzWidget = rightSide.CreateWidget<OvUI::Widgets::Drags::DragMultipleScalars<float, 3>>(OvCore::Helpers::GUIDrawer::GetDataType<float>(), p_min, p_max, 0.f, p_step, "", OvCore::Helpers::GUIDrawer::GetFormat<float>());
-		auto& xyzDispatcher = xyzWidget.AddPlugin<OvUI::Plugins::DataDispatcher<std::array<float, 3>>>();
-		xyzDispatcher.RegisterReference(reinterpret_cast<std::array<float, 3>&>(p_data));
-		xyzWidget.lineBreak = false;
-
-		auto& rgbWidget = rightSide.CreateWidget<OvUI::Widgets::Selection::ColorEdit>(false, OvUI::Types::Color{ p_data.x, p_data.y, p_data.z });
-		auto& rgbDispatcher = rgbWidget.AddPlugin<OvUI::Plugins::DataDispatcher<OvUI::Types::Color>>();
-		rgbDispatcher.RegisterReference(reinterpret_cast<OvUI::Types::Color&>(p_data));
-		rgbWidget.enabled = false;
-		rgbWidget.lineBreak = false;
-
-		auto& xyzButton = rightSide.CreateWidget<OvUI::Widgets::Buttons::Button>("XYZ");
-		xyzButton.idleBackgroundColor = { 0.7f, 0.5f, 0.0f };
-		xyzButton.lineBreak = false;
-
-		auto& rgbButton = rightSide.CreateWidget<OvUI::Widgets::Buttons::Button>("RGB");
-		rgbButton.idleBackgroundColor = { 0.7f, 0.5f, 0.0f };
-
-		xyzButton.ClickedEvent += [&] {
-			xyzWidget.enabled = true;
-			rgbWidget.enabled = false;
-		};
-
-		rgbButton.ClickedEvent += [&] {
-			xyzWidget.enabled = false;
-			rgbWidget.enabled = true;
-		};
-	}
-
-	void DrawHybridVec4(OvUI::Internal::WidgetContainer& p_root, const std::string& p_name, OvMaths::FVector4& p_data, float p_step, float p_min, float p_max)
-	{
-		OvCore::Helpers::GUIDrawer::CreateTitle(p_root, p_name);
-
-		auto& rightSide = p_root.CreateWidget<OvUI::Widgets::Layout::Group>();
-
-		auto& xyzWidget = rightSide.CreateWidget<OvUI::Widgets::Drags::DragMultipleScalars<float, 4>>(OvCore::Helpers::GUIDrawer::GetDataType<float>(), p_min, p_max, 0.f, p_step, "", OvCore::Helpers::GUIDrawer::GetFormat<float>());
-		auto& xyzDispatcher = xyzWidget.AddPlugin<OvUI::Plugins::DataDispatcher<std::array<float, 4>>>();
-		xyzDispatcher.RegisterReference(reinterpret_cast<std::array<float, 4>&>(p_data));
-		xyzWidget.lineBreak = false;
-
-		auto& rgbaWidget = rightSide.CreateWidget<OvUI::Widgets::Selection::ColorEdit>(true, OvUI::Types::Color{ p_data.x, p_data.y, p_data.z, p_data.w });
-		auto& rgbaDispatcher = rgbaWidget.AddPlugin<OvUI::Plugins::DataDispatcher<OvUI::Types::Color>>();
-		rgbaDispatcher.RegisterReference(reinterpret_cast<OvUI::Types::Color&>(p_data));
-		rgbaWidget.enabled = false;
-		rgbaWidget.lineBreak = false;
-
-		auto& xyzwButton = rightSide.CreateWidget<OvUI::Widgets::Buttons::Button>("XYZW");
-		xyzwButton.idleBackgroundColor = { 0.7f, 0.5f, 0.0f };
-		xyzwButton.lineBreak = false;
-
-		auto& rgbaButton = rightSide.CreateWidget<OvUI::Widgets::Buttons::Button>("RGBA");
-		rgbaButton.idleBackgroundColor = { 0.7f, 0.5f, 0.0f };
-
-		xyzwButton.ClickedEvent += [&] {
-			xyzWidget.enabled = true;
-			rgbaWidget.enabled = false;
-		};
-
-		rgbaButton.ClickedEvent += [&] {
-			xyzWidget.enabled = false;
-			rgbaWidget.enabled = true;
-		};
+		return
+			p_material.path.starts_with(":") || // check if the material is an engine material
+			OvRendering::Resources::Parsers::ParseEmbeddedAssetPath(p_material.path).has_value();
 	}
 }
 
@@ -146,7 +83,7 @@ OvEditor::Panels::MaterialEditor::MaterialEditor(
 	PanelWindow(p_title, p_opened, p_windowSettings)
 {
 	CreateHeaderButtons();
-	CreateWidget<OvUI::Widgets::Visual::Separator>();
+	CreateWidget<Visual::Separator>();
 	CreateMaterialSelector();
 	m_settings = &CreateWidget<Layout::Group>();
 	CreateShaderSelector();
@@ -182,7 +119,7 @@ OvCore::Resources::Material * OvEditor::Panels::MaterialEditor::GetTarget() cons
 void OvEditor::Panels::MaterialEditor::RemoveTarget()
 {
 	m_target = nullptr;
-	m_targetMaterialText->content = "Empty";
+	m_targetMaterialText->content.clear();
 	OnMaterialDropped();
 }
 
@@ -209,12 +146,14 @@ void OvEditor::Panels::MaterialEditor::Reset()
 
 void OvEditor::Panels::MaterialEditor::OnMaterialDropped()
 {
+	disabled = m_target && IsReadyOnlyMaterial(*m_target);
 	m_settings->enabled = m_target; // Enable m_settings group if the target material is non-null
 
 	if (m_settings->enabled)
 	{
 		GenerateMaterialSettingsContent();
-		m_shaderText->content = m_target->GetShader() ? m_target->GetShader()->path : "Empty";
+		const auto shader = m_target->GetShader();
+		m_shaderText->content = shader ? shader->path : std::string{};
 		m_shader = m_target->GetShader();
 	}
 	else
@@ -257,7 +196,9 @@ void OvEditor::Panels::MaterialEditor::OnShaderDropped()
 void OvEditor::Panels::MaterialEditor::CreateHeaderButtons()
 {
 	auto& saveButton = CreateWidget<Buttons::Button>("Save");
-	saveButton.idleBackgroundColor = { 0.0f, 0.5f, 0.0f };
+	saveButton.backgroundColor = OVUI_STYLE(SuccessButton);
+	saveButton.hoveredBackgroundColor = OVUI_STYLE(SuccessButtonHovered);
+	saveButton.clickedBackgroundColor = OVUI_STYLE(SuccessButtonActive);
 	saveButton.tooltip = "Save the current material to file";
 	saveButton.lineBreak = false;
 	saveButton.ClickedEvent += [this] {
@@ -268,6 +209,7 @@ void OvEditor::Panels::MaterialEditor::CreateHeaderButtons()
 	};
 
 	auto& reloadButton = CreateWidget<Buttons::Button>("Reload");
+	reloadButton.neverDisabled = true;
 	reloadButton.tooltip = "Reload the current material from file";
 	reloadButton.lineBreak = false;
 	reloadButton.ClickedEvent += [this] {
@@ -281,6 +223,7 @@ void OvEditor::Panels::MaterialEditor::CreateHeaderButtons()
 
 	auto& compileButton = CreateWidget<Buttons::Button>("Compile");
 	m_compileShaderButton = &compileButton;
+	compileButton.neverDisabled = true;
 	compileButton.tooltip = "Compile the shader of the current material";
 	compileButton.lineBreak = false;
 	compileButton.ClickedEvent += [this] {
@@ -289,8 +232,6 @@ void OvEditor::Panels::MaterialEditor::CreateHeaderButtons()
 			if (const auto shader = m_target->GetShader())
 			{
 				EDITOR_EXEC(CompileShader(*shader));
-				m_target->UpdateProperties();
-				OnShaderDropped();
 			}
 		}
 	};
@@ -311,12 +252,15 @@ void OvEditor::Panels::MaterialEditor::CreateHeaderButtons()
 	};
 
 	auto& previewButton = CreateWidget<Buttons::Button>("Preview");
+	previewButton.neverDisabled = true;
 	previewButton.tooltip = "Preview the current material in the Asset View";
 	previewButton.lineBreak = false;
 	previewButton.ClickedEvent += std::bind(&MaterialEditor::Preview, this);
 
 	auto& resetButton = CreateWidget<Buttons::Button>("Reset");
-	resetButton.idleBackgroundColor = { 0.5f, 0.0f, 0.0f };
+	resetButton.backgroundColor = OVUI_STYLE(DangerButton);
+	resetButton.hoveredBackgroundColor = OVUI_STYLE(DangerButtonHovered);
+	resetButton.clickedBackgroundColor = OVUI_STYLE(DangerButtonActive);
 	resetButton.tooltip = "Reset the current material to its default state";
 	resetButton.ClickedEvent += std::bind(&MaterialEditor::Reset, this);
 }
@@ -324,40 +268,47 @@ void OvEditor::Panels::MaterialEditor::CreateHeaderButtons()
 void OvEditor::Panels::MaterialEditor::CreateMaterialSelector()
 {
 	auto& columns = CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
-	columns.widths[0] = 150;
+	columns.widths[0] = 150 * OVUI_SCALE;
 	m_targetMaterialText = &GUIDrawer::DrawMaterial(columns, "Material", m_target, &m_materialDroppedEvent);
+	const auto& widgets = columns.GetWidgets();
+	widgets[widgets.size() - 1].first->neverDisabled = true;
+	widgets[widgets.size() - 2].first->neverDisabled = true;
 }
 
 void OvEditor::Panels::MaterialEditor::CreateShaderSelector()
 {
 	auto& columns = m_settings->CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
-	columns.widths[0] = 150;
+	columns.widths[0] = 150 * OVUI_SCALE;
 	m_shaderText = &GUIDrawer::DrawShader(columns, "Shader", m_shader, &m_shaderDroppedEvent);
 }
 
 void OvEditor::Panels::MaterialEditor::CreateMaterialSettings()
 {
 	m_materialPipelineState = &m_settings->CreateWidget<Layout::GroupCollapsable>("Pipeline State");
+	m_materialPipelineState->neverDisabled = true;
 	m_materialPipelineStateColumns = &m_materialPipelineState->CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
-	m_materialPipelineStateColumns->widths[0] = 150;
+	m_materialPipelineStateColumns->widths[0] = 150 * OVUI_SCALE;
 
 	m_materialSettings = &m_settings->CreateWidget<Layout::GroupCollapsable>("Settings");
+	m_materialSettings->neverDisabled = true;
 	m_materialSettingsColumns = &m_materialSettings->CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
-	m_materialSettingsColumns->widths[0] = 150;
+	m_materialSettingsColumns->widths[0] = 150 * OVUI_SCALE;
 }
 
 void OvEditor::Panels::MaterialEditor::CreateMaterialFeatures()
 {
 	m_materialFeatures = &m_settings->CreateWidget<Layout::GroupCollapsable>("Features");
+	m_materialFeatures->neverDisabled = true;
 	m_materialFeaturesColumns = &m_materialFeatures->CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
-	m_materialFeaturesColumns->widths[0] = 150;
+	m_materialFeaturesColumns->widths[0] = 150 * OVUI_SCALE;
 }
 
 void OvEditor::Panels::MaterialEditor::CreateMaterialProperties()
 {
 	m_materialProperties = &m_settings->CreateWidget<Layout::GroupCollapsable>("Properties");
+	m_materialProperties->neverDisabled = true;
 	m_materialPropertiesColumns = &m_materialProperties->CreateWidget<OvUI::Widgets::Layout::Columns<2>>();
-	m_materialPropertiesColumns->widths[0] = 150;
+	m_materialPropertiesColumns->widths[0] = 150 * OVUI_SCALE;
 }
 
 void OvEditor::Panels::MaterialEditor::GenerateMaterialSettingsContent()
@@ -514,11 +465,11 @@ void OvEditor::Panels::MaterialEditor::GenerateMaterialPropertiesContent()
 			}
 			else if constexpr (std::is_same_v<T, OvMaths::FVector3>)
 			{
-				DrawHybridVec3(*m_materialPropertiesColumns, formattedType, arg, 0.01f, GUIDrawer::_MIN_FLOAT, GUIDrawer::_MAX_FLOAT);
+				GUIDrawer::DrawHybridVec3(*m_materialPropertiesColumns, formattedType, arg, 0.01f, GUIDrawer::_MIN_FLOAT, GUIDrawer::_MAX_FLOAT);
 			}
 			else if constexpr (std::is_same_v<T, OvMaths::FVector4>)
 			{
-				DrawHybridVec4(*m_materialPropertiesColumns, formattedType, arg, 0.01f, GUIDrawer::_MIN_FLOAT, GUIDrawer::_MAX_FLOAT);
+				GUIDrawer::DrawHybridVec4(*m_materialPropertiesColumns, formattedType, arg, 0.01f, GUIDrawer::_MIN_FLOAT, GUIDrawer::_MAX_FLOAT);
 			}
 			else if constexpr (std::is_same_v<T, Texture*>)
 			{

@@ -6,14 +6,10 @@
 
 #include <OvCore/ECS/Actor.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
-#include <OvCore/ECS/Components/CMaterialRenderer.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
-#include <OvCore/Global/ServiceLocator.h>
-#include <OvCore/ResourceManagement/ModelManager.h>
-#include <OvCore/ResourceManagement/ShaderManager.h>
-#include <OvCore/ResourceManagement/TextureManager.h>
 
 #include <OvUI/Plugins/DDTarget.h>
+#include <OvUI/Styling/Style.h>
 #include <OvUI/Widgets/Drags/DragFloat.h>
 #include <OvUI/Widgets/Selection/CheckBox.h>
 #include <OvUI/Widgets/Selection/ComboBox.h>
@@ -23,11 +19,8 @@
 
 OvCore::ECS::Components::CModelRenderer::CModelRenderer(ECS::Actor& p_owner) : AComponent(p_owner)
 {
-	m_modelChangedEvent += [this]
+	m_modelChangedEvent += [this]()
 	{
-		if (auto materialRenderer = owner.GetComponent<CMaterialRenderer>())
-			materialRenderer->UpdateMaterialList();
-
 		if (auto skinnedMeshRenderer = owner.GetComponent<CSkinnedMeshRenderer>())
 			skinnedMeshRenderer->NotifyModelChanged();
 	};
@@ -87,6 +80,7 @@ void OvCore::ECS::Components::CModelRenderer::OnDeserialize(tinyxml2::XMLDocumen
 	OvRendering::Resources::Model* model = nullptr;
 	OvCore::Helpers::Serializer::DeserializeModel(p_doc, p_node, "model", model);
 	SetModel(model);
+
 	OvCore::Helpers::Serializer::DeserializeInt(p_doc, p_node, "frustum_behaviour", reinterpret_cast<int&>(m_frustumBehaviour));
 	OvCore::Helpers::Serializer::DeserializeVec3(p_doc, p_node, "custom_bounding_sphere_position", m_customBoundingSphere.position);
 	OvCore::Helpers::Serializer::DeserializeFloat(p_doc, p_node, "custom_bounding_sphere_radius", m_customBoundingSphere.radius);
@@ -107,12 +101,12 @@ void OvCore::ECS::Components::CModelRenderer::OnInspector(OvUI::Internal::Widget
 	auto& boundingModeDispatcher = boundingMode.AddPlugin<OvUI::Plugins::DataDispatcher<int>>();
 	boundingModeDispatcher.RegisterReference(reinterpret_cast<int&>(m_frustumBehaviour));
 
-	auto& centerLabel = p_root.CreateWidget<OvUI::Widgets::Texts::TextColored>("Bounding Sphere Center", GUIDrawer::TitleColor);
+	auto& centerLabel = p_root.CreateWidget<OvUI::Widgets::Texts::TextColored>("Bounding Sphere Center", OVUI_STYLE(InspectorTitle));
 	auto& centerWidget = p_root.CreateWidget<OvUI::Widgets::Drags::DragMultipleScalars<float, 3>>(GUIDrawer::GetDataType<float>(), GUIDrawer::_MIN_FLOAT, GUIDrawer::_MAX_FLOAT, 0.f, 0.05f, "", GUIDrawer::GetFormat<float>());
 	auto& centerDispatcher = centerWidget.AddPlugin<OvUI::Plugins::DataDispatcher<std::array<float, 3>>>();
 	centerDispatcher.RegisterReference(reinterpret_cast<std::array<float, 3>&>(m_customBoundingSphere.position));
 
-	auto& radiusLabel = p_root.CreateWidget<OvUI::Widgets::Texts::TextColored>("Bounding Sphere Radius", GUIDrawer::TitleColor);
+	auto& radiusLabel = p_root.CreateWidget<OvUI::Widgets::Texts::TextColored>("Bounding Sphere Radius", OVUI_STYLE(InspectorTitle));
 	auto& radiusWidget = p_root.CreateWidget<OvUI::Widgets::Drags::DragFloat>(0.0f, GUIDrawer::_MAX_FLOAT, 0.f, 0.1f);
 	auto& radiusDispatcher = radiusWidget.AddPlugin<OvUI::Plugins::DataDispatcher<float>>();
 	radiusDispatcher.RegisterReference(m_customBoundingSphere.radius);

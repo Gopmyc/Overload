@@ -22,8 +22,11 @@
 #include <OvUI/Widgets/Sliders/SliderInt.h>
 #include <OvUI/Widgets/Sliders/SliderFloat.h>
 #include <OvUI/Widgets/Drags/DragFloat.h>
+#include <OvUI/Widgets/InputFields/InputText.h>
 #include <OvUI/Widgets/Selection/ColorEdit.h>
 #include <OvUI/Widgets/Selection/ComboBox.h>
+#include <filesystem>
+#include <optional>
 
 #include "OvEditor/Core/EditorActions.h"
 #include "OvEditor/Panels/AssetView.h"
@@ -32,6 +35,7 @@
 #include "OvEditor/Panels/SceneView.h"
 #include "OvEditor/Settings/EditorSettings.h"
 #include "OvEditor/Utils/ActorCreationMenu.h"
+#include "OvUI/Widgets/Selection/CheckBox.h"
 
 using namespace OvUI::Panels;
 using namespace OvUI::Widgets;
@@ -72,10 +76,10 @@ void OvEditor::Panels::MenuBar::HandleShortcuts(float p_deltaTime)
 
 void OvEditor::Panels::MenuBar::InitializeSettingsMenu()
 {
-	auto& themeButton = m_settingsMenu->CreateWidget<MenuList>("Editor Theme");
-	themeButton.CreateWidget<Texts::Text>("Some themes may require a restart");
+	auto& appearanceButton = m_settingsMenu->CreateWidget<MenuList>("Appearance");
+	appearanceButton.CreateWidget<Texts::Text>("Some themes may require a restart");
 
-	auto& colorTheme = themeButton.CreateWidget<Selection::ComboBox>(static_cast<int>(Settings::EditorSettings::ColorTheme.Get()));
+	auto& colorTheme = appearanceButton.CreateWidget<Selection::ComboBox>(static_cast<int>(Settings::EditorSettings::ColorTheme.Get()));
 	colorTheme.choices = {
 		{ static_cast<int>(OvUI::Styling::EStyle::IM_CLASSIC_STYLE), "ImGui Classic"},
 		{ static_cast<int>(OvUI::Styling::EStyle::IM_DARK_STYLE), "ImGui Dark"},
@@ -90,17 +94,16 @@ void OvEditor::Panels::MenuBar::InitializeSettingsMenu()
 		EDITOR_CONTEXT(uiManager)->ApplyStyle(static_cast<OvUI::Styling::EStyle>(p_value));
 	};
 
-	auto& fontSizeMenu = m_settingsMenu->CreateWidget<MenuList>("Font Size");
-	auto& fontSizeSelector = fontSizeMenu.CreateWidget<Selection::ComboBox>(static_cast<int>(Settings::EditorSettings::FontSize.Get()));
-	fontSizeSelector.choices = {
-		{ static_cast<int>(Settings::EFontSize::SMALL), "Small"},
-		{ static_cast<int>(Settings::EFontSize::MEDIUM), "Medium"},
-		{ static_cast<int>(Settings::EFontSize::BIG), "Big"}
+	auto& uiScale = appearanceButton.CreateWidget<Selection::ComboBox>(static_cast<int>(Settings::EditorSettings::UIScale.Get()));
+	uiScale.choices = {
+		{ 0, "[BETA] Automatic (DPI Aware)"},
+		{ 100, "100%"},
+		{ 150, "150%"},
+		{ 200, "200%"},
 	};
-	fontSizeSelector.ValueChangedEvent += [this](int p_value) {
-		Settings::EditorSettings::FontSize = p_value;
-		const auto fontID = std::string{ Settings::GetFontID(static_cast<Settings::EFontSize>(p_value)) };
-		EDITOR_CONTEXT(uiManager)->UseFont(fontID);
+	uiScale.ValueChangedEvent += [this](int p_value) {
+		Settings::EditorSettings::UIScale = p_value;
+		EDITOR_CONTEXT(uiManager)->SetScale(p_value == 0 ? std::nullopt : std::make_optional(p_value / 100.0f));
 	};
 
 	m_settingsMenu->CreateWidget<MenuItem>("Spawn actors at origin", "", true, true).ValueChangedEvent += EDITOR_BIND(SetActorSpawnAtOrigin, std::placeholders::_1);
@@ -184,6 +187,9 @@ void OvEditor::Panels::MenuBar::InitializeSettingsMenu()
 	debuggingMenu.CreateWidget<MenuItem>("Editor Frustum Geometry Culling", "", true, Settings::EditorSettings::EditorFrustumGeometryCulling).ValueChangedEvent += [this](bool p_value) { Settings::EditorSettings::EditorFrustumGeometryCulling = p_value; };
 	debuggingMenu.CreateWidget<MenuItem>("Editor Frustum Light Culling", "", true, Settings::EditorSettings::EditorFrustumLightCulling).ValueChangedEvent += [this](bool p_value) { Settings::EditorSettings::EditorFrustumLightCulling = p_value; };
 	
+	auto& scriptingMenu = m_settingsMenu->CreateWidget<MenuList>("Scripting");
+	scriptingMenu.CreateWidget<MenuItem>("Regenerate Scripting Project Files On Startup", "", true, Settings::EditorSettings::RegenerateScriptingProjectFilesOnStartup).ValueChangedEvent += [this](bool p_value) { Settings::EditorSettings::RegenerateScriptingProjectFilesOnStartup = p_value; };
+
 	auto& consoleSettingsMenu = m_settingsMenu->CreateWidget<MenuList>("Console Settings");
 	auto& consoleMaxLogsSlider = consoleSettingsMenu.CreateWidget<OvUI::Widgets::Sliders::SliderInt>(1, 1000, Settings::EditorSettings::ConsoleMaxLogs.Get(), OvUI::Widgets::Sliders::ESliderOrientation::HORIZONTAL, "Max Logs");
 	consoleMaxLogsSlider.ValueChangedEvent += [this](int p_value) { 
@@ -191,6 +197,14 @@ void OvEditor::Panels::MenuBar::InitializeSettingsMenu()
 		EDITOR_PANEL(Panels::Console, "Console").TruncateLogs();
 	};
 
+	auto& codeEditorMenu = m_settingsMenu->CreateWidget<MenuList>("Code Editor Command");
+	codeEditorMenu.CreateWidget<Texts::Text>("Use {workdir} to retrieve the project folder.");
+	codeEditorMenu.CreateWidget<Texts::Text>("Use {path} to retrieve the file/folder path.");
+	auto& codeEditorInput = codeEditorMenu.CreateWidget<OvUI::Widgets::InputFields::InputText>(Settings::EditorSettings::CodeEditorCommand.Get());
+	codeEditorInput.ContentChangedEvent += [](const std::string& p_value)
+	{
+		Settings::EditorSettings::CodeEditorCommand = p_value;
+	};
 }
 
 void OvEditor::Panels::MenuBar::CreateFileMenu()
@@ -233,6 +247,7 @@ void OvEditor::Panels::MenuBar::CreateResourcesMenu()
 	auto& resourcesMenu = CreateWidget<MenuList>("Resources");
 	resourcesMenu.CreateWidget<MenuItem>("Compile shaders").ClickedEvent += EDITOR_BIND(CompileShaders);
 	resourcesMenu.CreateWidget<MenuItem>("Save materials").ClickedEvent += EDITOR_BIND(SaveMaterials);
+	resourcesMenu.CreateWidget<MenuItem>("Regenerate Scripting Project Files").ClickedEvent += EDITOR_BIND(RegenerateScriptingProjectFiles);
 }
 
 void OvEditor::Panels::MenuBar::CreateToolsMenu()
@@ -264,16 +279,13 @@ void OvEditor::Panels::MenuBar::CreateHelpMenu()
 	auto& helpMenu = CreateWidget<MenuList>("Help");
 	helpMenu.CreateWidget<MenuItem>("GitHub").ClickedEvent += [repoURL] {OvTools::Utils::SystemCalls::OpenURL(repoURL); };
 	helpMenu.CreateWidget<MenuItem>("Wiki").ClickedEvent += [repoURL] {OvTools::Utils::SystemCalls::OpenURL(repoURL + "/wiki"); };
-	helpMenu.CreateWidget<MenuItem>("API Reference").ClickedEvent += [repoURL] {
-		// FIXME: Workaround to be removed once the version following 1.8 is released.
-		// This ensures the first few commits before the next release still have the "API Reference"
-		// button point to a valid URL.
-		const std::string tag =
-			std::string(OVERLOAD_VERSION) == "1.8" ?
-			"main" :
-			"v" + std::string(OVERLOAD_VERSION);
+	helpMenu.CreateWidget<MenuItem>("Lua Reference").ClickedEvent += [] {
+		const std::filesystem::path luaDefinitions = EDITOR_CONTEXT(engineAssetsPath) / "Lua";
+		if (!EDITOR_EXEC(OpenInCodeEditor(luaDefinitions, luaDefinitions)))
+		{
+			OvTools::Utils::SystemCalls::ShowInExplorer(luaDefinitions.string());
 
-		OvTools::Utils::SystemCalls::OpenURL(repoURL + std::format("/tree/{}/API", tag));
+		}
 	};
 	helpMenu.CreateWidget<Visual::Separator>();
 	helpMenu.CreateWidget<MenuItem>("Bug Report").ClickedEvent += [repoURL] {OvTools::Utils::SystemCalls::OpenURL(repoURL + "/issues/new?assignees=&labels=Bug&template=bug_report.md&title="); };

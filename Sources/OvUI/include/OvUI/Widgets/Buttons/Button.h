@@ -10,8 +10,9 @@
 
 #include <OvMaths/FVector2.h>
 
-#include "OvUI/Widgets/Buttons/AButton.h"
-#include "OvUI/Types/Color.h"
+#include <OvUI/Widgets/Buttons/AButton.h>
+#include <OvUI/Types/ColorEffector.h>
+#include <OvUI/Styling/Style.h>
 
 namespace OvUI::Widgets::Buttons
 {
@@ -37,10 +38,9 @@ namespace OvUI::Widgets::Buttons
 		OvMaths::FVector2 size;
 		bool disabled = false;
 
-		Types::Color idleBackgroundColor;
-		Types::Color hoveredBackgroundColor;
-		Types::Color clickedBackgroundColor;
-
-		Types::Color textColor;
+		Types::ColorEffector backgroundColor = OVUI_STYLE(Button);
+		Types::ColorEffector hoveredBackgroundColor = OVUI_STYLE(ButtonHovered);
+		Types::ColorEffector clickedBackgroundColor = OVUI_STYLE(ButtonActive);
+		Types::ColorEffector textColor = OVUI_STYLE(Text);
 	};
 }

@@ -3,6 +3,7 @@ name: Linux
 on:
   workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - main
@@ -19,10 +20,10 @@ jobs:
 
     strategy:
       matrix:
-        configuration: [Debug, Release]
+        configuration: [Debug, Release, Publish]
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: Install Dependencies
       run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev
@@ -36,3 +37,7 @@ jobs:
       run: |
         CONFIG_LOWER=$(echo "${{ matrix.configuration }}" | tr '[:upper:]' '[:lower:]')
         make -j$(nproc) config=${CONFIG_LOWER}_x64
+
+    - name: Run Lua API tests
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: ./Bin/${{ matrix.configuration }}/OvLuaApiTests/OvLuaApiTests

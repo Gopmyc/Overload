@@ -44,6 +44,7 @@ OvTools::Eventing::Event<OvCore::ECS::Actor&> OvCore::ECS::Actor::DettachEvent;
 
 OvCore::ECS::Actor::Actor(int64_t p_actorID, const std::string & p_name, const std::string & p_tag, bool& p_playing) :
 	m_actorID(p_actorID),
+	m_guid(OvTools::Utils::GenerateGUID()),
 	m_name(p_name),
 	m_tag(p_tag),
 	m_playing(p_playing),
@@ -124,9 +125,56 @@ void OvCore::ECS::Actor::SetID(int64_t p_id)
 	m_actorID = p_id;
 }
 
+void OvCore::ECS::Actor::SetGUID(uint64_t p_guid)
+{
+	m_guid = p_guid;
+}
+
 int64_t OvCore::ECS::Actor::GetID() const
 {
 	return m_actorID;
+}
+
+uint64_t OvCore::ECS::Actor::GetGUID() const
+{
+	return m_guid;
+}
+
+void OvCore::ECS::Actor::SetPrefabSource(const std::string& p_prefabSource)
+{
+	if (p_prefabSource == "?")
+	{
+		m_prefabSource.clear();
+	}
+	else
+	{
+		m_prefabSource = p_prefabSource;
+	}
+}
+
+const std::string& OvCore::ECS::Actor::GetPrefabSource() const
+{
+	return m_prefabSource;
+}
+
+bool OvCore::ECS::Actor::HasPrefabSource() const
+{
+	return !m_prefabSource.empty();
+}
+
+void OvCore::ECS::Actor::SetPrefabNodeGUID(uint64_t p_prefabNodeGUID)
+{
+	m_prefabNodeGUID = p_prefabNodeGUID;
+}
+
+uint64_t OvCore::ECS::Actor::GetPrefabNodeGUID() const
+{
+	return m_prefabNodeGUID;
+}
+
+bool OvCore::ECS::Actor::HasPrefabNodeGUID() const
+{
+	return m_prefabNodeGUID != 0;
 }
 
 void OvCore::ECS::Actor::SetParent(Actor& p_parent)
@@ -197,6 +245,30 @@ int64_t OvCore::ECS::Actor::GetParentID() const
 std::vector<OvCore::ECS::Actor*>& OvCore::ECS::Actor::GetChildren()
 {
 	return m_children;
+}
+
+OvCore::ECS::Actor* OvCore::ECS::Actor::FindChild(const std::string& p_name, bool p_recursive) const
+{
+	for (auto child : m_children)
+	{
+		if (child->GetName() == p_name)
+		{
+			return child;
+		}
+	}
+
+	if (p_recursive)
+	{
+		for (auto child : m_children)
+		{
+			if (auto found = child->FindChild(p_name, true); found)
+			{
+				return found;
+			}
+		}
+	}
+
+	return nullptr;
 }
 
 void OvCore::ECS::Actor::MarkAsDestroy()
@@ -335,9 +407,10 @@ std::vector<std::shared_ptr<OvCore::ECS::Components::AComponent>>& OvCore::ECS::
 OvCore::ECS::Components::Behaviour & OvCore::ECS::Actor::AddBehaviour(const std::string & p_name)
 {
 	m_behaviours.try_emplace(p_name, *this, p_name);
+	m_behavioursOrder.push_back(p_name);
 	Components::Behaviour& newInstance = m_behaviours.at(p_name);
 	BehaviourAddedEvent.Invoke(newInstance);
-	if (m_playing && IsActive())
+	if (m_playing && !m_sleeping && IsActive())
 	{
 		newInstance.OnAwake();
 		newInstance.OnEnable();
@@ -370,13 +443,45 @@ bool OvCore::ECS::Actor::RemoveBehaviour(const std::string & p_name)
 	Components::Behaviour* found = GetBehaviour(p_name);
 	if (found)
 	{
+		const std::string nameCopy = p_name;
 		BehaviourRemovedEvent.Invoke(*found);
-		return m_behaviours.erase(p_name);
+		m_behaviours.erase(p_name);
+		auto it = std::find(m_behavioursOrder.begin(), m_behavioursOrder.end(), nameCopy);
+		if (it != m_behavioursOrder.end())
+			m_behavioursOrder.erase(it);
+		return true;
 	}
 	else
 	{
 		return false;
 	}
+}
+
+bool OvCore::ECS::Actor::RenameBehaviour(const std::string& p_previousName, const std::string& p_newName)
+{
+	auto orderIt = std::find(m_behavioursOrder.begin(), m_behavioursOrder.end(), p_previousName);
+	if (orderIt == m_behavioursOrder.end())
+		return false;
+
+	Components::Behaviour* found = GetBehaviour(p_previousName);
+	if (!found)
+		return false;
+
+	BehaviourRemovedEvent.Invoke(*found);
+	m_behaviours.erase(p_previousName);
+
+	*orderIt = p_newName;
+
+	m_behaviours.try_emplace(p_newName, *this, p_newName);
+	Components::Behaviour& newInstance = m_behaviours.at(p_newName);
+	BehaviourAddedEvent.Invoke(newInstance);
+	if (m_playing && !m_sleeping && IsActive())
+	{
+		newInstance.OnAwake();
+		newInstance.OnEnable();
+		newInstance.OnStart();
+	}
+	return true;
 }
 
 OvCore::ECS::Components::Behaviour* OvCore::ECS::Actor::GetBehaviour(const std::string& p_name)
@@ -392,6 +497,11 @@ std::unordered_map<std::string, OvCore::ECS::Components::Behaviour>& OvCore::ECS
 	return m_behaviours;
 }
 
+std::vector<std::string>& OvCore::ECS::Actor::GetBehavioursOrder()
+{
+	return m_behavioursOrder;
+}
+
 void OvCore::ECS::Actor::OnSerialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_actorsRoot)
 {
 	tinyxml2::XMLNode* actorNode = p_doc.NewElement("actor");
@@ -401,6 +511,9 @@ void OvCore::ECS::Actor::OnSerialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XM
 	OvCore::Helpers::Serializer::SerializeString(p_doc, actorNode, "tag", m_tag);
 	OvCore::Helpers::Serializer::SerializeBoolean(p_doc, actorNode, "active", m_active);
 	OvCore::Helpers::Serializer::SerializeInt64(p_doc, actorNode, "id", m_actorID);
+	OvCore::Helpers::Serializer::SerializeUInt64(p_doc, actorNode, "guid", m_guid);
+	OvCore::Helpers::Serializer::SerializeString(p_doc, actorNode, "prefab_source", m_prefabSource);
+	OvCore::Helpers::Serializer::SerializeUInt64(p_doc, actorNode, "prefab_node_guid", m_prefabNodeGUID);
 	OvCore::Helpers::Serializer::SerializeInt64(p_doc, actorNode, "parent", m_parentID);
 
 	tinyxml2::XMLNode* componentsNode = p_doc.NewElement("components");
@@ -426,21 +539,25 @@ void OvCore::ECS::Actor::OnSerialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XM
 	tinyxml2::XMLNode* behavioursNode = p_doc.NewElement("behaviours");
 	actorNode->InsertEndChild(behavioursNode);
 
-	for (auto& behaviour : m_behaviours)
+	for (auto& name : m_behavioursOrder)
 	{
+		auto it = m_behaviours.find(name);
+		if (it == m_behaviours.end()) continue;
+		auto& behaviour = it->second;
+
 		/* Current behaviour root */
 		tinyxml2::XMLNode* behaviourNode = p_doc.NewElement("behaviour");
 		behavioursNode->InsertEndChild(behaviourNode);
 
 		/* Behaviour type */
-		OvCore::Helpers::Serializer::SerializeString(p_doc, behaviourNode, "type", behaviour.first);
+		OvCore::Helpers::Serializer::SerializeString(p_doc, behaviourNode, "type", name);
 
 		/* Data node (Will be passed to the behaviour) */
 		tinyxml2::XMLElement* data = p_doc.NewElement("data");
 		behaviourNode->InsertEndChild(data);
 
 		/* Data serialization of the behaviour */
-		behaviour.second.OnSerialize(p_doc, data);
+		behaviour.OnSerialize(p_doc, data);
 	}
 }
 
@@ -450,6 +567,13 @@ void OvCore::ECS::Actor::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::
 	OvCore::Helpers::Serializer::DeserializeString(p_doc, p_actorsRoot, "tag", m_tag);
 	OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, p_actorsRoot, "active", m_active);
 	OvCore::Helpers::Serializer::DeserializeInt64(p_doc, p_actorsRoot, "id", m_actorID);
+	OvCore::Helpers::Serializer::DeserializeUInt64(p_doc, p_actorsRoot, "guid", m_guid);
+	std::string prefabSource;
+	OvCore::Helpers::Serializer::DeserializeString(p_doc, p_actorsRoot, "prefab_source", prefabSource);
+	SetPrefabSource(prefabSource);
+	uint64_t prefabNodeGUID = 0;
+	OvCore::Helpers::Serializer::DeserializeUInt64(p_doc, p_actorsRoot, "prefab_node_guid", prefabNodeGUID);
+	SetPrefabNodeGUID(prefabNodeGUID);
 	OvCore::Helpers::Serializer::DeserializeInt64(p_doc, p_actorsRoot, "parent", m_parentID);
 
 	{

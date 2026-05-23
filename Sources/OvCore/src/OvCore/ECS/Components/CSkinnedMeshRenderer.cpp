@@ -17,6 +17,8 @@
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/Helpers/GUIDrawer.h>
 #include <OvCore/Helpers/Serializer.h>
+#include <OvDebug/Logger.h>
+#include <OvMaths/FMatrix3.h>
 #include <OvMaths/FTransform.h>
 #include <OvUI/Plugins/DataDispatcher.h>
 #include <OvUI/Widgets/Selection/ComboBox.h>
@@ -100,11 +102,212 @@ namespace
 		const auto& next = *nextIt;
 		return interpolate(prev, next, next.time - prev.time);
 	}
+
+	void DecomposeLocalTransform(
+		const OvMaths::FMatrix4& p_matrix,
+		OvMaths::FVector3& p_position,
+		OvMaths::FQuaternion& p_rotation,
+		OvMaths::FVector3& p_scale
+	)
+	{
+		p_position.x = p_matrix.data[3];
+		p_position.y = p_matrix.data[7];
+		p_position.z = p_matrix.data[11];
+
+		OvMaths::FVector3 columns[3] =
+		{
+			{ p_matrix.data[0], p_matrix.data[4], p_matrix.data[8] },
+			{ p_matrix.data[1], p_matrix.data[5], p_matrix.data[9] },
+			{ p_matrix.data[2], p_matrix.data[6], p_matrix.data[10] }
+		};
+
+		p_scale.x = OvMaths::FVector3::Length(columns[0]);
+		p_scale.y = OvMaths::FVector3::Length(columns[1]);
+		p_scale.z = OvMaths::FVector3::Length(columns[2]);
+
+		if (p_scale.x > 0.0f)
+		{
+			columns[0] /= p_scale.x;
+		}
+
+		if (p_scale.y > 0.0f)
+		{
+			columns[1] /= p_scale.y;
+		}
+
+		if (p_scale.z > 0.0f)
+		{
+			columns[2] /= p_scale.z;
+		}
+
+		const OvMaths::FMatrix3 rotationMatrix(
+			columns[0].x, columns[1].x, columns[2].x,
+			columns[0].y, columns[1].y, columns[2].y,
+			columns[0].z, columns[1].z, columns[2].z
+		);
+
+		p_rotation = OvMaths::FQuaternion(rotationMatrix);
+	}
+
+	bool AreMatricesClose(const OvMaths::FMatrix4& p_left, const OvMaths::FMatrix4& p_right)
+	{
+		constexpr float kSkeletonTransformTolerance = 0.0001f;
+
+		for (uint8_t i = 0; i < 16; ++i)
+		{
+			if (std::abs(p_left.data[i] - p_right.data[i]) > kSkeletonTransformTolerance)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool CollectRequiredSkinningNodes(
+		const OvRendering::Animation::Skeleton& p_skeleton,
+		std::vector<bool>& p_requiredNodes
+	)
+	{
+		p_requiredNodes.assign(p_skeleton.nodes.size(), false);
+
+		for (const auto& bone : p_skeleton.bones)
+		{
+			if (bone.nodeIndex >= p_skeleton.nodes.size())
+			{
+				return false;
+			}
+
+			int32_t nodeIndex = static_cast<int32_t>(bone.nodeIndex);
+			while (nodeIndex >= 0)
+			{
+				const auto currentNodeIndex = static_cast<size_t>(nodeIndex);
+				if (currentNodeIndex >= p_skeleton.nodes.size())
+				{
+					return false;
+				}
+
+				if (p_requiredNodes[currentNodeIndex])
+				{
+					break;
+				}
+
+				p_requiredNodes[currentNodeIndex] = true;
+				nodeIndex = p_skeleton.nodes[currentNodeIndex].parentIndex;
+			}
+		}
+
+		return true;
+	}
+
+	bool BuildAnimationNodeMap(
+		const OvRendering::Animation::Skeleton& p_targetSkeleton,
+		const OvRendering::Animation::Skeleton& p_sourceSkeleton,
+		std::vector<int32_t>& p_nodeMap
+	)
+	{
+		p_nodeMap.assign(p_sourceSkeleton.nodes.size(), -1);
+
+		if (p_targetSkeleton.nodes.empty() || p_sourceSkeleton.nodes.empty() || p_targetSkeleton.bones.empty())
+		{
+			return false;
+		}
+
+		std::vector<bool> requiredNodes;
+		if (!CollectRequiredSkinningNodes(p_targetSkeleton, requiredNodes))
+		{
+			return false;
+		}
+
+		for (size_t targetNodeIndex = 0; targetNodeIndex < requiredNodes.size(); ++targetNodeIndex)
+		{
+			if (!requiredNodes[targetNodeIndex])
+			{
+				continue;
+			}
+
+			const auto& targetNode = p_targetSkeleton.nodes[targetNodeIndex];
+			const auto sourceNodeIndex = p_sourceSkeleton.FindNodeIndex(targetNode.name);
+			if (!sourceNodeIndex.has_value() || *sourceNodeIndex >= p_sourceSkeleton.nodes.size())
+			{
+				return false;
+			}
+
+			const auto& sourceNode = p_sourceSkeleton.nodes[*sourceNodeIndex];
+			const int32_t targetParentIndex = targetNode.parentIndex;
+			const int32_t sourceParentIndex = sourceNode.parentIndex;
+			const bool hasRequiredTargetParent =
+				targetParentIndex >= 0 &&
+				static_cast<size_t>(targetParentIndex) < requiredNodes.size() &&
+				requiredNodes[static_cast<size_t>(targetParentIndex)];
+
+			if (targetParentIndex >= 0 && static_cast<size_t>(targetParentIndex) >= requiredNodes.size())
+			{
+				return false;
+			}
+
+			if (hasRequiredTargetParent)
+			{
+				if (
+					sourceParentIndex < 0 ||
+					static_cast<size_t>(sourceParentIndex) >= p_sourceSkeleton.nodes.size() ||
+					p_sourceSkeleton.nodes[static_cast<size_t>(sourceParentIndex)].name != p_targetSkeleton.nodes[static_cast<size_t>(targetParentIndex)].name
+				)
+				{
+					return false;
+				}
+			}
+			else if (sourceParentIndex >= 0)
+			{
+				return false;
+			}
+
+			if (!AreMatricesClose(targetNode.localBindTransform, sourceNode.localBindTransform))
+			{
+				return false;
+			}
+
+			p_nodeMap[*sourceNodeIndex] = static_cast<int32_t>(targetNodeIndex);
+		}
+
+		if (!p_sourceSkeleton.bones.empty())
+		{
+			if (p_sourceSkeleton.bones.size() != p_targetSkeleton.bones.size())
+			{
+				return false;
+			}
+
+			for (const auto& targetBone : p_targetSkeleton.bones)
+			{
+				const auto sourceBoneIndex = p_sourceSkeleton.FindBoneIndex(targetBone.name);
+				if (!sourceBoneIndex.has_value() || *sourceBoneIndex >= p_sourceSkeleton.bones.size())
+				{
+					return false;
+				}
+
+				const auto& sourceBone = p_sourceSkeleton.bones[*sourceBoneIndex];
+				if (
+					sourceBone.nodeIndex >= p_nodeMap.size() ||
+					p_nodeMap[sourceBone.nodeIndex] != static_cast<int32_t>(targetBone.nodeIndex)
+				)
+				{
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
 }
 
 OvCore::ECS::Components::CSkinnedMeshRenderer::CSkinnedMeshRenderer(ECS::Actor& p_owner) :
 	AComponent(p_owner)
 {
+	m_animationSourceChangedEvent += [this]()
+	{
+		RebuildRuntimeData();
+	};
+
 	NotifyModelChanged();
 }
 
@@ -126,7 +329,9 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::NotifyModelChanged()
 
 bool OvCore::ECS::Components::CSkinnedMeshRenderer::HasSkinningData() const
 {
-	return HasCompatibleModel() && m_animationIndex.has_value() && !m_boneMatrices.empty();
+	return HasCompatibleModel() &&
+		!m_boneMatrices.empty() &&
+		((m_animationIndex.has_value() && HasCompatibleAnimationSource()) || m_manualPoseOverride);
 }
 
 void OvCore::ECS::Components::CSkinnedMeshRenderer::Play()
@@ -146,6 +351,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::Stop()
 	m_playing = false;
 	m_currentTimeTicks = 0.0f;
 	m_poseEvaluationAccumulator = 0.0f;
+	m_manualPoseOverride = false;
 	EvaluatePose();
 }
 
@@ -174,14 +380,24 @@ float OvCore::ECS::Components::CSkinnedMeshRenderer::GetPlaybackSpeed() const
 	return m_playbackSpeed;
 }
 
+float OvCore::ECS::Components::CSkinnedMeshRenderer::GetMeshBoundsScale() const
+{
+	return m_meshBoundsScale;
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::SetMeshBoundsScale(float p_scale)
+{
+	m_meshBoundsScale = std::max(1.0f, p_scale);
+}
+
 void OvCore::ECS::Components::CSkinnedMeshRenderer::SetTime(float p_timeSeconds)
 {
-	if (!HasCompatibleModel() || !m_animationIndex.has_value())
+	if (!HasCompatibleAnimationSource() || !m_animationIndex.has_value())
 	{
 		return;
 	}
 
-	const auto& animation = m_model->GetAnimations().at(*m_animationIndex);
+	const auto& animation = GetAnimationModel()->GetAnimations().at(*m_animationIndex);
 	const float ticksPerSecond = animation.GetEffectiveTicksPerSecond();
 
 	m_currentTimeTicks = p_timeSeconds * ticksPerSecond;
@@ -200,14 +416,35 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::SetTime(float p_timeSeconds)
 
 float OvCore::ECS::Components::CSkinnedMeshRenderer::GetTime() const
 {
-	if (!HasCompatibleModel() || !m_animationIndex.has_value())
+	if (!HasCompatibleAnimationSource() || !m_animationIndex.has_value())
 	{
 		return 0.0f;
 	}
 
-	const auto& animation = m_model->GetAnimations().at(*m_animationIndex);
+	const auto& animation = GetAnimationModel()->GetAnimations().at(*m_animationIndex);
 	const float ticksPerSecond = animation.GetEffectiveTicksPerSecond();
 	return m_currentTimeTicks / ticksPerSecond;
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::SetAnimationSourceModel(OvRendering::Resources::Model* p_model)
+{
+	if (m_animationSourceModel == p_model)
+	{
+		return;
+	}
+
+	m_animationSourceModel = p_model;
+	RebuildRuntimeData();
+}
+
+OvRendering::Resources::Model* OvCore::ECS::Components::CSkinnedMeshRenderer::GetAnimationSourceModel() const
+{
+	return m_animationSourceModel;
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::IsAnimationSourceCompatible() const
+{
+	return HasCompatibleAnimationSource();
 }
 
 uint32_t OvCore::ECS::Components::CSkinnedMeshRenderer::GetAnimationCount() const
@@ -232,11 +469,12 @@ bool OvCore::ECS::Components::CSkinnedMeshRenderer::SetAnimation(std::optional<u
 		m_animationIndex = std::nullopt;
 		m_currentTimeTicks = 0.0f;
 		m_poseEvaluationAccumulator = 0.0f;
+		m_manualPoseOverride = false;
 		EvaluatePose();
 		return true;
 	}
 
-	if (!HasCompatibleModel() || *p_index >= m_model->GetAnimations().size())
+	if (!HasCompatibleAnimationSource() || *p_index >= GetAnimationModel()->GetAnimations().size())
 	{
 		return false;
 	}
@@ -244,18 +482,19 @@ bool OvCore::ECS::Components::CSkinnedMeshRenderer::SetAnimation(std::optional<u
 	m_animationIndex = p_index;
 	m_currentTimeTicks = 0.0f;
 	m_poseEvaluationAccumulator = 0.0f;
+	m_manualPoseOverride = false;
 	EvaluatePose();
 	return true;
 }
 
 bool OvCore::ECS::Components::CSkinnedMeshRenderer::SetAnimation(const std::string& p_name)
 {
-	if (!HasCompatibleModel())
+	if (!HasCompatibleAnimationSource())
 	{
 		return false;
 	}
 
-	const auto& animations = m_model->GetAnimations();
+	const auto& animations = GetAnimationModel()->GetAnimations();
 
 	const auto found = std::find_if(animations.begin(), animations.end(), [&p_name](const auto& p_animation)
 	{
@@ -283,6 +522,147 @@ std::optional<std::string> OvCore::ECS::Components::CSkinnedMeshRenderer::GetAct
 	}
 
 	return GetAnimationName(m_animationIndex.value());
+}
+
+uint32_t OvCore::ECS::Components::CSkinnedMeshRenderer::GetBoneCount() const
+{
+	if (!HasCompatibleModel())
+	{
+		return 0;
+	}
+
+	return static_cast<uint32_t>(m_model->GetSkeleton().value().bones.size());
+}
+
+std::optional<std::string> OvCore::ECS::Components::CSkinnedMeshRenderer::GetBoneName(uint32_t p_index) const
+{
+	if (!HasCompatibleModel())
+	{
+		return std::nullopt;
+	}
+
+	const auto& bones = m_model->GetSkeleton().value().bones;
+	if (p_index >= bones.size())
+	{
+		return std::nullopt;
+	}
+
+	return bones[p_index].name;
+}
+
+std::optional<uint32_t> OvCore::ECS::Components::CSkinnedMeshRenderer::GetBoneIndex(const std::string& p_name) const
+{
+	if (!HasCompatibleModel())
+	{
+		return std::nullopt;
+	}
+
+	return m_model->GetSkeleton().value().FindBoneIndex(p_name);
+}
+
+std::optional<OvMaths::FVector3> OvCore::ECS::Components::CSkinnedMeshRenderer::GetBoneLocalPosition(uint32_t p_boneIndex) const
+{
+	const auto nodeIndex = GetNodeIndexFromBoneIndex(p_boneIndex);
+	if (!nodeIndex.has_value())
+	{
+		return std::nullopt;
+	}
+
+	OvMaths::FVector3 position;
+	OvMaths::FQuaternion rotation;
+	OvMaths::FVector3 scale;
+	DecomposeLocalTransform(m_localPose[*nodeIndex], position, rotation, scale);
+	return position;
+}
+
+std::optional<OvMaths::FQuaternion> OvCore::ECS::Components::CSkinnedMeshRenderer::GetBoneLocalRotation(uint32_t p_boneIndex) const
+{
+	const auto nodeIndex = GetNodeIndexFromBoneIndex(p_boneIndex);
+	if (!nodeIndex.has_value())
+	{
+		return std::nullopt;
+	}
+
+	OvMaths::FVector3 position;
+	OvMaths::FQuaternion rotation;
+	OvMaths::FVector3 scale;
+	DecomposeLocalTransform(m_localPose[*nodeIndex], position, rotation, scale);
+	return rotation;
+}
+
+std::optional<OvMaths::FVector3> OvCore::ECS::Components::CSkinnedMeshRenderer::GetBoneLocalScale(uint32_t p_boneIndex) const
+{
+	const auto nodeIndex = GetNodeIndexFromBoneIndex(p_boneIndex);
+	if (!nodeIndex.has_value())
+	{
+		return std::nullopt;
+	}
+
+	OvMaths::FVector3 position;
+	OvMaths::FQuaternion rotation;
+	OvMaths::FVector3 scale;
+	DecomposeLocalTransform(m_localPose[*nodeIndex], position, rotation, scale);
+	return scale;
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::SetBoneLocalPosition(uint32_t p_boneIndex, const OvMaths::FVector3& p_position)
+{
+	const auto nodeIndex = GetNodeIndexFromBoneIndex(p_boneIndex);
+	if (!nodeIndex.has_value())
+	{
+		return false;
+	}
+
+	OvMaths::FVector3 currentPosition;
+	OvMaths::FQuaternion currentRotation;
+	OvMaths::FVector3 currentScale;
+	DecomposeLocalTransform(m_localPose[*nodeIndex], currentPosition, currentRotation, currentScale);
+
+	const OvMaths::FTransform transform(p_position, currentRotation, currentScale);
+	m_localPose[*nodeIndex] = transform.GetLocalMatrix();
+	m_manualPoseOverride = true;
+	RecomputeBoneMatricesFromLocalPose();
+	return true;
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::SetBoneLocalRotation(uint32_t p_boneIndex, const OvMaths::FQuaternion& p_rotation)
+{
+	const auto nodeIndex = GetNodeIndexFromBoneIndex(p_boneIndex);
+	if (!nodeIndex.has_value())
+	{
+		return false;
+	}
+
+	OvMaths::FVector3 currentPosition;
+	OvMaths::FQuaternion currentRotation;
+	OvMaths::FVector3 currentScale;
+	DecomposeLocalTransform(m_localPose[*nodeIndex], currentPosition, currentRotation, currentScale);
+
+	const OvMaths::FTransform transform(currentPosition, p_rotation, currentScale);
+	m_localPose[*nodeIndex] = transform.GetLocalMatrix();
+	m_manualPoseOverride = true;
+	RecomputeBoneMatricesFromLocalPose();
+	return true;
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::SetBoneLocalScale(uint32_t p_boneIndex, const OvMaths::FVector3& p_scale)
+{
+	const auto nodeIndex = GetNodeIndexFromBoneIndex(p_boneIndex);
+	if (!nodeIndex.has_value())
+	{
+		return false;
+	}
+
+	OvMaths::FVector3 currentPosition;
+	OvMaths::FQuaternion currentRotation;
+	OvMaths::FVector3 currentScale;
+	DecomposeLocalTransform(m_localPose[*nodeIndex], currentPosition, currentRotation, currentScale);
+
+	const OvMaths::FTransform transform(currentPosition, currentRotation, p_scale);
+	m_localPose[*nodeIndex] = transform.GetLocalMatrix();
+	m_manualPoseOverride = true;
+	RecomputeBoneMatricesFromLocalPose();
+	return true;
 }
 
 const std::vector<OvMaths::FMatrix4>& OvCore::ECS::Components::CSkinnedMeshRenderer::GetBoneMatricesTransposed() const
@@ -347,8 +727,10 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnSerialize(tinyxml2::XMLDoc
 	OvCore::Helpers::Serializer::SerializeBoolean(p_doc, p_node, "playing", m_playing);
 	OvCore::Helpers::Serializer::SerializeBoolean(p_doc, p_node, "looping", m_looping);
 	OvCore::Helpers::Serializer::SerializeFloat(p_doc, p_node, "playback_speed", m_playbackSpeed);
+	OvCore::Helpers::Serializer::SerializeFloat(p_doc, p_node, "mesh_bounds_scale", m_meshBoundsScale);
 	OvCore::Helpers::Serializer::SerializeFloat(p_doc, p_node, "pose_eval_rate", m_poseEvaluationRate);
 	OvCore::Helpers::Serializer::SerializeFloat(p_doc, p_node, "time_ticks", m_currentTimeTicks);
+	OvCore::Helpers::Serializer::SerializeModel(p_doc, p_node, "animation_source", m_animationSourceModel);
 	OvCore::Helpers::Serializer::SerializeString(p_doc, p_node, "animation", GetActiveAnimationName().value_or(std::string{}));
 }
 
@@ -357,9 +739,12 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnDeserialize(tinyxml2::XMLD
 	OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "playing", m_playing);
 	OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "looping", m_looping);
 	OvCore::Helpers::Serializer::DeserializeFloat(p_doc, p_node, "playback_speed", m_playbackSpeed);
+	OvCore::Helpers::Serializer::DeserializeFloat(p_doc, p_node, "mesh_bounds_scale", m_meshBoundsScale);
 	OvCore::Helpers::Serializer::DeserializeFloat(p_doc, p_node, "pose_eval_rate", m_poseEvaluationRate);
 	OvCore::Helpers::Serializer::DeserializeFloat(p_doc, p_node, "time_ticks", m_currentTimeTicks);
+	OvCore::Helpers::Serializer::DeserializeModel(p_doc, p_node, "animation_source", m_animationSourceModel);
 	OvCore::Helpers::Serializer::DeserializeString(p_doc, p_node, "animation", m_deserializedAnimationName);
+	SetMeshBoundsScale(m_meshBoundsScale);
 	m_poseEvaluationRate = std::max(0.0f, m_poseEvaluationRate);
 	m_poseEvaluationAccumulator = 0.0f;
 
@@ -375,6 +760,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnInspector(OvUI::Internal::
 	GUIDrawer::DrawBoolean(p_root, "Playing", m_playing);
 	GUIDrawer::DrawBoolean(p_root, "Looping", m_looping);
 	GUIDrawer::DrawScalar<float>(p_root, "Playback Speed", m_playbackSpeed, 0.01f, -10.0f, 10.0f);
+	GUIDrawer::DrawScalar<float>(p_root, "Mesh Bounds Scale", m_meshBoundsScale, 0.05f, 1.0f, 10.0f);
 	GUIDrawer::DrawScalar<float>(p_root, "Pose Eval Rate", m_poseEvaluationRate, 1.0f, 0.0f, 240.0f);
 	m_poseEvaluationRate = std::max(0.0f, m_poseEvaluationRate);
 	GUIDrawer::DrawScalar<float>(
@@ -387,19 +773,23 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnInspector(OvUI::Internal::
 		std::max(GetAnimationDurationSeconds(), 3600.0f)
 	);
 
+	GUIDrawer::DrawMesh(p_root, "Animation Source", m_animationSourceModel, &m_animationSourceChangedEvent);
+
 	GUIDrawer::CreateTitle(p_root, "Active Animation");
 	const int currentAnimIndex = GetActiveAnimationIndex().has_value() ? static_cast<int>(*GetActiveAnimationIndex()) : -1;
 	auto& animationChoice = p_root.CreateWidget<OvUI::Widgets::Selection::ComboBox>(currentAnimIndex);
-	animationChoice.choices.emplace(-1, "<None>");
-
-	for (size_t i = 0; i < m_animationNames.size(); ++i)
-	{
-		animationChoice.choices.emplace(static_cast<int>(i), m_animationNames[i]);
-	}
 
 	auto& animDispatcher = animationChoice.AddPlugin<OvUI::Plugins::DataDispatcher<int>>();
-	animDispatcher.RegisterGatherer([this]
+	animDispatcher.RegisterGatherer([this, &animationChoice]
 	{
+		animationChoice.choices.clear();
+		animationChoice.choices.emplace(-1, "<None>");
+
+		for (size_t i = 0; i < m_animationNames.size(); ++i)
+		{
+			animationChoice.choices.emplace(static_cast<int>(i), m_animationNames[i]);
+		}
+
 		return GetActiveAnimationIndex().has_value() ? static_cast<int>(*GetActiveAnimationIndex()) : -1;
 	});
 	animDispatcher.RegisterProvider([this](int p_choice)
@@ -411,15 +801,35 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnInspector(OvUI::Internal::
 	{
 		p_root.CreateWidget<OvUI::Widgets::Texts::Text>("No skinned model assigned");
 	}
+	else if (m_animationSourceModel && !HasCompatibleAnimationSource())
+	{
+		p_root.CreateWidget<OvUI::Widgets::Texts::Text>("Animation source skeleton is not compatible with model");
+	}
 	else if (m_animationNames.empty())
 	{
-		p_root.CreateWidget<OvUI::Widgets::Texts::Text>("Model has no animation clips");
+		p_root.CreateWidget<OvUI::Widgets::Texts::Text>(m_animationSourceModel ? "Animation source has no animation clips" : "Model has no animation clips");
 	}
 }
 
 bool OvCore::ECS::Components::CSkinnedMeshRenderer::HasCompatibleModel() const
 {
 	return m_model && m_model->IsSkinned() && m_model->GetSkeleton().has_value();
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::HasCompatibleAnimationSource() const
+{
+	if (!HasCompatibleModel())
+	{
+		return false;
+	}
+
+	const auto animationModel = GetAnimationModel();
+	return animationModel && animationModel->GetSkeleton().has_value() && !m_animationNodeMap.empty();
+}
+
+const OvRendering::Resources::Model* OvCore::ECS::Components::CSkinnedMeshRenderer::GetAnimationModel() const
+{
+	return m_animationSourceModel ? m_animationSourceModel : m_model;
 }
 
 void OvCore::ECS::Components::CSkinnedMeshRenderer::SyncWithModel()
@@ -443,6 +853,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 	const std::string requestedAnimationName = m_deserializedAnimationName;
 
 	m_animationNames.clear();
+	m_animationNodeMap.clear();
 	m_localPose.clear();
 	m_globalPose.clear();
 	m_boneMatrices.clear();
@@ -450,6 +861,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 	m_animationIndex = std::nullopt;
 	m_currentTimeTicks = preservedTimeTicks;
 	m_poseEvaluationAccumulator = 0.0f;
+	m_manualPoseOverride = false;
 
 	if (!HasCompatibleModel())
 	{
@@ -457,20 +869,35 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 	}
 
 	const auto& skeleton = m_model->GetSkeleton().value();
-	const auto& animations = m_model->GetAnimations();
+	const auto animationModel = GetAnimationModel();
 
 	m_localPose.resize(skeleton.nodes.size(), OvMaths::FMatrix4::Identity);
 	m_globalPose.resize(skeleton.nodes.size(), OvMaths::FMatrix4::Identity);
 	m_boneMatrices.resize(skeleton.bones.size(), OvMaths::FMatrix4::Identity);
 	m_boneMatricesTransposed.resize(skeleton.bones.size(), OvMaths::FMatrix4::Identity);
 
-	m_animationNames.reserve(animations.size());
-	for (const auto& animation : animations)
+	if (
+		animationModel &&
+		animationModel->GetSkeleton().has_value() &&
+		BuildAnimationNodeMap(skeleton, animationModel->GetSkeleton().value(), m_animationNodeMap)
+	)
 	{
-		m_animationNames.push_back(animation.name);
+		const auto& animations = animationModel->GetAnimations();
+
+		m_animationNames.reserve(animations.size());
+		for (const auto& animation : animations)
+		{
+			m_animationNames.push_back(animation.name);
+		}
+	}
+	else if (m_animationSourceModel)
+	{
+		OVLOG_WARNING("SkinnedMeshRenderer: Animation source model '" + m_animationSourceModel->path + "' is not compatible with target model '" + m_model->path + "'.");
 	}
 
-	if (!animations.empty())
+	const auto& animations = GetAnimationModel()->GetAnimations();
+
+	if (!m_animationNames.empty())
 	{
 		if (!requestedAnimationName.empty())
 		{
@@ -479,13 +906,13 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 				std::optional<uint32_t>{ static_cast<uint32_t>(std::distance(m_animationNames.begin(), found)) } :
 				std::optional<uint32_t>{ 0 };
 		}
-		else if (preservedAnimationIndex.has_value() && *preservedAnimationIndex < animations.size())
+		else if (preservedAnimationIndex.has_value() && *preservedAnimationIndex < m_animationNames.size())
 		{
 			m_animationIndex = *preservedAnimationIndex;
 		}
 	}
 
-	if (m_animationIndex.has_value() && *m_animationIndex < animations.size())
+	if (HasCompatibleAnimationSource() && m_animationIndex.has_value() && *m_animationIndex < animations.size())
 	{
 		const auto& animation = animations.at(*m_animationIndex);
 		if (m_looping)
@@ -520,9 +947,11 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 		m_localPose[nodeIndex] = skeleton.nodes[nodeIndex].localBindTransform;
 	}
 
-	if (m_animationIndex.has_value() && *m_animationIndex < m_model->GetAnimations().size())
+	const auto animationModel = GetAnimationModel();
+	if (HasCompatibleAnimationSource() && m_animationIndex.has_value() && *m_animationIndex < animationModel->GetAnimations().size())
 	{
-		const auto& animation = m_model->GetAnimations().at(*m_animationIndex);
+		const auto& animation = animationModel->GetAnimations().at(*m_animationIndex);
+		const auto& animationSkeleton = animationModel->GetSkeleton().value();
 		const float duration = std::max(animation.duration, 0.0f);
 		const float sampleTime =
 			duration > 0.0f ?
@@ -531,12 +960,18 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 
 		for (const auto& track : animation.tracks)
 		{
-			if (track.nodeIndex >= m_localPose.size())
+			if (track.nodeIndex >= animationSkeleton.nodes.size() || track.nodeIndex >= m_animationNodeMap.size())
 			{
 				continue;
 			}
 
-			const auto& node = skeleton.nodes[track.nodeIndex];
+			const int32_t targetNodeIndex = m_animationNodeMap[track.nodeIndex];
+			if (targetNodeIndex < 0 || static_cast<size_t>(targetNodeIndex) >= m_localPose.size())
+			{
+				continue;
+			}
+
+			const auto& node = skeleton.nodes[static_cast<size_t>(targetNodeIndex)];
 
 			const OvMaths::FVector3 sampledPosition = SampleKeys(
 				track.positionKeys,
@@ -566,8 +1001,52 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 			);
 
 			const OvMaths::FTransform sampled(sampledPosition, sampledRotation, sampledScale);
-			m_localPose[track.nodeIndex] = sampled.GetLocalMatrix();
+			m_localPose[static_cast<size_t>(targetNodeIndex)] = sampled.GetLocalMatrix();
 		}
+	}
+
+	m_manualPoseOverride = false;
+	RecomputeBoneMatricesFromLocalPose();
+}
+
+std::optional<uint32_t> OvCore::ECS::Components::CSkinnedMeshRenderer::GetNodeIndexFromBoneIndex(uint32_t p_boneIndex) const
+{
+	if (!HasCompatibleModel())
+	{
+		return std::nullopt;
+	}
+
+	const auto& skeleton = m_model->GetSkeleton().value();
+	if (p_boneIndex >= skeleton.bones.size())
+	{
+		return std::nullopt;
+	}
+
+	const uint32_t nodeIndex = skeleton.bones[p_boneIndex].nodeIndex;
+	if (nodeIndex >= m_localPose.size())
+	{
+		return std::nullopt;
+	}
+
+	return nodeIndex;
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::RecomputeBoneMatricesFromLocalPose()
+{
+	if (!HasCompatibleModel())
+	{
+		return;
+	}
+
+	const auto& skeleton = m_model->GetSkeleton().value();
+	if (
+		m_localPose.size() != skeleton.nodes.size() ||
+		m_globalPose.size() != skeleton.nodes.size() ||
+		m_boneMatrices.size() != skeleton.bones.size() ||
+		m_boneMatricesTransposed.size() != skeleton.bones.size()
+	)
+	{
+		return;
 	}
 
 	for (size_t nodeIndex = 0; nodeIndex < skeleton.nodes.size(); ++nodeIndex)
@@ -595,23 +1074,23 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 
 float OvCore::ECS::Components::CSkinnedMeshRenderer::GetAnimationDurationSeconds() const
 {
-	if (!HasCompatibleModel() || !m_animationIndex.has_value())
+	if (!HasCompatibleAnimationSource() || !m_animationIndex.has_value())
 	{
 		return 0.0f;
 	}
 
-	const auto& animation = m_model->GetAnimations().at(*m_animationIndex);
+	const auto& animation = GetAnimationModel()->GetAnimations().at(*m_animationIndex);
 	return animation.GetDurationSeconds();
 }
 
 void OvCore::ECS::Components::CSkinnedMeshRenderer::UpdatePlayback(float p_deltaTime)
 {
-	if (!HasCompatibleModel() || !m_animationIndex.has_value())
+	if (!HasCompatibleAnimationSource() || !m_animationIndex.has_value())
 	{
 		return;
 	}
 
-	const auto& animation = m_model->GetAnimations().at(*m_animationIndex);
+	const auto& animation = GetAnimationModel()->GetAnimations().at(*m_animationIndex);
 	if (animation.duration <= 0.0f)
 	{
 		return;

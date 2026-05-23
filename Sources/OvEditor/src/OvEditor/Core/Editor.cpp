@@ -4,10 +4,26 @@
 * @licence: MIT
 */
 
+#include "OvEditor/Core/EditorActions.h"
 #include <tracy/Tracy.hpp>
+
+#include <filesystem>
+
+#include <OvCore/Helpers/GUIDrawer.h>
+#include <OvCore/Helpers/GUIHelpers.h>
+
+#include <OvCore/ResourceManagement/MaterialManager.h>
+#include <OvCore/ResourceManagement/ModelManager.h>
+#include <OvCore/ResourceManagement/TextureManager.h>
+
+#include <OvRendering/Resources/Parsers/EmbeddedAssetPath.h>
+
+#include <OvTools/Utils/PathParser.h>
+#include <OvTools/Utils/SystemCalls.h>
 
 #include <OvEditor/Core/Editor.h>
 #include <OvEditor/Panels/AssetBrowser.h>
+#include <OvEditor/Panels/ItemPicker.h>
 #include <OvEditor/Panels/AssetProperties.h>
 #include <OvEditor/Panels/AssetView.h>
 #include <OvEditor/Panels/Console.h>
@@ -24,13 +40,14 @@
 #include <OvEditor/Panels/Toolbar.h>
 #include <OvEditor/Settings/EditorSettings.h>
 #include <OvPhysics/Core/PhysicsEngine.h>
+#include <OvUI/Settings/PanelWindowSettings.h>
 
 using namespace OvCore::ResourceManagement;
 using namespace OvEditor::Panels;
 using namespace OvRendering::Resources::Loaders;
 using namespace OvRendering::Resources::Parsers;
 
-OvEditor::Core::Editor::Editor(Context& p_context) : 
+OvEditor::Core::Editor::Editor(Context& p_context) :
 	m_context(p_context),
 	m_panelsManager(m_canvas),
 	m_editorActions(m_context, m_panelsManager)
@@ -53,6 +70,123 @@ void OvEditor::Core::Editor::SetupUI()
 	settings.collapsable = true;
 	settings.dockable = true;
 
+	OvCore::Helpers::GUIHelpers::SetPickerProvider(
+		[this](OvCore::Helpers::GUIHelpers::PickerItemList p_items, std::string p_title) {
+			m_itemPicker->Open(std::move(p_items), std::move(p_title));
+		}
+	);
+
+	OvCore::Helpers::GUIHelpers::SetPickerSearchTextProvider(
+		[this]() { return m_itemPicker->GetSearchText(); }
+	);
+
+	OvCore::Helpers::GUIHelpers::SetIconProvider(
+		[this](OvTools::Utils::PathParser::EFileType p_fileType) -> uint32_t {
+			auto* texture = m_context.editorResources->GetTexture(OvTools::Utils::PathParser::FileTypeToString(p_fileType));
+			return texture ? texture->GetTexture().GetID() : 0;
+		}
+	);
+
+	OvCore::Helpers::GUIHelpers::SetOpenProvider(
+		[this](const std::string& p_path)
+		{
+			using EFileType = OvTools::Utils::PathParser::EFileType;
+			const auto fileType = OvTools::Utils::PathParser::GetFileType(p_path);
+			const auto path = OvTools::Utils::PathParser::MakeNonWindowsStyle(p_path);
+			const auto embeddedAssetPath = ParseEmbeddedAssetPath(path);
+			const bool isEmbeddedTexture = embeddedAssetPath && ParseEmbeddedTextureIndex(embeddedAssetPath->assetName).has_value();
+
+			auto openInAssetView = [&](auto* p_resource)
+			{
+				if (!p_resource) return;
+				auto& assetView = EDITOR_PANEL(AssetView, "Asset View");
+				assetView.SetResource(AssetView::ViewableResource{ p_resource });
+				assetView.Open();
+				assetView.Focus();
+			};
+
+			if (fileType == EFileType::TEXTURE || isEmbeddedTexture)
+			{
+				openInAssetView(OVSERVICE(TextureManager).GetResource(path));
+			}
+			else if (fileType == EFileType::MODEL)
+			{
+				openInAssetView(OVSERVICE(ModelManager).GetResource(path));
+			}
+			else if (fileType == EFileType::MATERIAL)
+			{
+				auto* material = OVSERVICE(MaterialManager).GetResource(path);
+				openInAssetView(material);
+				if (material)
+				{
+					auto& materialEditor = EDITOR_PANEL(MaterialEditor, "Material Editor");
+					EDITOR_EXEC(DelayAction([material, &materialEditor]() {
+						materialEditor.SetTarget(*material);
+						materialEditor.Open();
+						materialEditor.Focus();
+					}));
+				}
+			}
+			else if (fileType == EFileType::SCENE)
+			{
+				EDITOR_EXEC(LoadSceneFromDisk(path));
+			}
+			else if (fileType == EFileType::SCRIPT || fileType == EFileType::SHADER || fileType == EFileType::SHADER_PART)
+			{
+				EDITOR_EXEC(OpenInCodeEditor(m_editorActions.GetRealPath(path)));
+			}
+			else
+			{
+				// SOUND, FONT, UNKNOWN → open with OS default
+				OvTools::Utils::SystemCalls::OpenFile(EDITOR_EXEC(GetRealPath(path)));
+			}
+		}
+	);
+
+	// Provide the actor icon ID for ActorField widgets.
+	if (auto* actorTexture = m_context.editorResources->GetTexture("Actor"))
+		OvCore::Helpers::GUIHelpers::SetActorIconID(actorTexture->GetTexture().GetID());
+
+	// Provide asset existence checker so AssetFields show "(Missing Reference)" for invalid paths.
+	OvCore::Helpers::GUIHelpers::SetAssetExistsChecker(
+		[this](const std::string& p_path)
+		{
+			const std::string path = OvTools::Utils::PathParser::MakeNonWindowsStyle(p_path);
+
+			if (const auto embeddedAssetPath = ParseEmbeddedAssetPath(path); embeddedAssetPath)
+			{
+				const bool isEmbeddedMaterial = ParseEmbeddedMaterialIndex(embeddedAssetPath->assetName).has_value();
+				const bool isEmbeddedTexture = ParseEmbeddedTextureIndex(embeddedAssetPath->assetName).has_value();
+
+				if (isEmbeddedMaterial || isEmbeddedTexture)
+				{
+					return std::filesystem::exists(m_editorActions.GetRealPath(embeddedAssetPath->modelPath));
+				}
+
+				return false;
+			}
+
+			return std::filesystem::exists(m_editorActions.GetRealPath(path));
+		}
+	);
+
+	// Provide actor selection so double-clicking an ActorField selects it in the inspector.
+	OvCore::Helpers::GUIHelpers::SetActorSelectionProvider(
+		[this](uint64_t p_guid)
+		{
+			// Defer to next frame — selecting an actor rebuilds the inspector widget tree,
+			// which would corrupt iteration if called directly from within DrawWidgets().
+			EDITOR_EXEC(DelayAction([this, p_guid]()
+			{
+				auto* scene = m_context.sceneManager.GetCurrentScene();
+				if (!scene) return;
+				auto* actor = scene->FindActorByGUID(p_guid);
+				if (actor)
+					EDITOR_EXEC(SelectActor(*actor));
+			}));
+		}
+	);
+
 	m_panelsManager.CreatePanel<Panels::MenuBar>("Menu Bar");
 	m_panelsManager.CreatePanel<Panels::AssetBrowser>("Asset Browser", true, settings);
 	m_panelsManager.CreatePanel<Panels::HardwareInfo>("Hardware Info", false, settings);
@@ -74,6 +208,13 @@ void OvEditor::Core::Editor::SetupUI()
 
 	m_canvas.MakeDockspace(true);
 	m_context.uiManager->SetCanvas(m_canvas);
+
+	m_itemPicker = std::make_unique<OvEditor::Panels::ItemPicker>(
+		false,
+		OvUI::Settings::PanelWindowSettings{ .closable = true }
+	);
+
+	m_canvas.AddPanel(*m_itemPicker);
 }
 
 void OvEditor::Core::Editor::PreUpdate()
@@ -84,16 +225,9 @@ void OvEditor::Core::Editor::PreUpdate()
 
 void OvEditor::Core::Editor::Update(float p_deltaTime)
 {
-	// Disable ImGui mouse update if the mouse cursor is disabled.
-	// i.e. when locked during gameplay, or when a view is being interacted
-	if (m_context.window->GetCursorMode() == OvWindowing::Cursor::ECursorMode::DISABLED)
-	{
-		ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
-	}
-	else
-	{
-		ImGui::GetIO().ConfigFlags &= ~(ImGuiConfigFlags_NoMouse);
-	}
+	// Disable mouse input when the cursor is locked during gameplay or view interaction.
+	const bool mouseEnabled = m_context.window->GetCursorMode() != OvWindowing::Cursor::ECursorMode::DISABLED;
+	m_context.uiManager->EnableMouse(mouseEnabled);
 
 	HandleGlobalShortcuts();
 	UpdateCurrentEditorMode(p_deltaTime);
@@ -105,10 +239,39 @@ void OvEditor::Core::Editor::Update(float p_deltaTime)
 
 void OvEditor::Core::Editor::HandleGlobalShortcuts()
 {
+	auto& sceneView = EDITOR_PANEL(SceneView, "Scene View");
+	auto& hierarchy = EDITOR_PANEL(Hierarchy, "Hierarchy");
+	const bool isSceneViewFocused = sceneView.IsFocused();
+	const bool isHierarchyFocused = hierarchy.IsFocused();
+
 	// If the [Del] key is pressed while an actor is selected and the Scene View or Hierarchy is focused
-	if (m_context.inputManager->IsKeyPressed(OvWindowing::Inputs::EKey::KEY_DELETE) && EDITOR_EXEC(IsAnyActorSelected()) && (EDITOR_PANEL(SceneView, "Scene View").IsFocused() || EDITOR_PANEL(Hierarchy, "Hierarchy").IsFocused()))
+	if (m_context.inputManager->IsKeyPressed(OvWindowing::Inputs::EKey::KEY_DELETE) && EDITOR_EXEC(IsAnyActorSelected()) && (isSceneViewFocused || isHierarchyFocused))
 	{
 		EDITOR_EXEC(DestroyActor(EDITOR_EXEC(GetSelectedActor())));
+	}
+
+	const bool isControlPressed =
+		m_context.inputManager->GetKeyState(OvWindowing::Inputs::EKey::KEY_LEFT_CONTROL) == OvWindowing::Inputs::EKeyState::KEY_DOWN ||
+		m_context.inputManager->GetKeyState(OvWindowing::Inputs::EKey::KEY_RIGHT_CONTROL) == OvWindowing::Inputs::EKeyState::KEY_DOWN;
+
+	if (isControlPressed && (isSceneViewFocused || isHierarchyFocused))
+	{
+		if (m_context.inputManager->IsKeyPressed(OvWindowing::Inputs::EKey::KEY_C) && EDITOR_EXEC(IsAnyActorSelected()))
+		{
+			EDITOR_EXEC(CopyActor(EDITOR_EXEC(GetSelectedActor())));
+		}
+
+		if (m_context.inputManager->IsKeyPressed(OvWindowing::Inputs::EKey::KEY_V))
+		{
+			OvCore::ECS::Actor* parent = nullptr;
+
+			if (EDITOR_EXEC(IsAnyActorSelected()))
+			{
+				parent = &EDITOR_EXEC(GetSelectedActor());
+			}
+
+			EDITOR_EXEC(PasteActor(parent));
+		}
 	}
 }
 
