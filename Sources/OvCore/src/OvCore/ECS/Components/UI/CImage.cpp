@@ -4,7 +4,6 @@
 * @licence: MIT
 */
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -24,18 +23,12 @@
 
 namespace
 {
-	constexpr float kMinimumSize = 0.0001f;
 	constexpr const char* kTextureUniform = "u_Image";
 	constexpr const char* kTintUniform = "u_Tint";
 
 	OvMaths::FVector2 GetDefaultImageSize()
 	{
 		return { 100.0f, 100.0f };
-	}
-
-	float ClampFinite(float p_value, float p_min)
-	{
-		return std::isfinite(p_value) ? std::max(p_value, p_min) : p_min;
 	}
 
 	float KeepFinite(float p_value, float p_fallback)
@@ -79,10 +72,10 @@ AComponent(p_owner)
 	{
 		m_textureReferenceDirty = m_texture != nullptr;
 		m_materialTextureDirty = true;
+		RebuildMesh();
 	};
 
 	owner.transform.EnableUIData();
-	EnsureTransformSize();
 	RebuildMesh();
 }
 
@@ -106,6 +99,7 @@ void OvCore::ECS::Components::UI::CImage::SetTexture(OvRendering::Resources::Tex
 	m_texture = p_texture;
 	m_textureReferenceDirty = p_texture != nullptr;
 	m_materialTextureDirty = true;
+	RebuildMesh();
 }
 
 OvRendering::Resources::Texture* OvCore::ECS::Components::UI::CImage::GetTexture() const
@@ -115,25 +109,33 @@ OvRendering::Resources::Texture* OvCore::ECS::Components::UI::CImage::GetTexture
 
 void OvCore::ECS::Components::UI::CImage::SetSize(const OvMaths::FVector2& p_size)
 {
-	owner.transform.SetUISize({
-		ClampFinite(p_size.x, kMinimumSize),
-		ClampFinite(p_size.y, kMinimumSize)
-	});
+	owner.transform.SetUISize(p_size);
 }
 
 OvMaths::FVector2 OvCore::ECS::Components::UI::CImage::GetSize() const
 {
 	const auto& transformSize = owner.transform.GetUISize();
-	const auto defaultSize = GetDefaultImageSize();
+	const auto intrinsicSize = GetIntrinsicSize();
 
 	return {
-		transformSize.x > 0.0f ? transformSize.x : defaultSize.x,
-		transformSize.y > 0.0f ? transformSize.y : defaultSize.y
+		transformSize.x > 0.0f ? transformSize.x : intrinsicSize.x,
+		transformSize.y > 0.0f ? transformSize.y : intrinsicSize.y
 	};
 }
 
 OvMaths::FVector2 OvCore::ECS::Components::UI::CImage::GetIntrinsicSize() const
 {
+	if (m_texture && IsRegisteredTexture(m_texture))
+	{
+		const auto& textureDesc = m_texture->GetTexture().GetDesc();
+		const auto defaultSize = GetDefaultImageSize();
+
+		return {
+			textureDesc.width > 0 ? static_cast<float>(textureDesc.width) : defaultSize.x,
+			textureDesc.height > 0 ? static_cast<float>(textureDesc.height) : defaultSize.y
+		};
+	}
+
 	return GetDefaultImageSize();
 }
 
@@ -200,30 +202,6 @@ void OvCore::ECS::Components::UI::CImage::OnInspector(OvUI::Internal::WidgetCont
 	);
 }
 
-void OvCore::ECS::Components::UI::CImage::EnsureTransformSize()
-{
-	auto uiSize = owner.transform.GetUISize();
-	const auto defaultSize = GetDefaultImageSize();
-	bool hasChanges = false;
-
-	if (uiSize.x <= 0.0f)
-	{
-		uiSize.x = defaultSize.x;
-		hasChanges = true;
-	}
-
-	if (uiSize.y <= 0.0f)
-	{
-		uiSize.y = defaultSize.y;
-		hasChanges = true;
-	}
-
-	if (hasChanges)
-	{
-		owner.transform.SetUISize(uiSize);
-	}
-}
-
 void OvCore::ECS::Components::UI::CImage::RebuildMesh()
 {
 	const auto size = GetIntrinsicSize();
@@ -251,6 +229,7 @@ void OvCore::ECS::Components::UI::CImage::ValidateTextureReference()
 	{
 		m_texture = nullptr;
 		m_materialTextureDirty = true;
+		RebuildMesh();
 	}
 }
 
