@@ -99,10 +99,12 @@ function SkinnedMeshRenderer:SetTime(timeSeconds, layer) end
 ---@return number
 function SkinnedMeshRenderer:GetTime(layer) end
 
---- Sets the external model used as animation source by a layer, or nil to use the rendered model
----@param model Model|nil
----@param layer? integer
-function SkinnedMeshRenderer:SetAnimationSourceModel(model, layer) end
+--- Sets the external model used as animation source by a layer, or nil to use the rendered model.
+--- Accepts either a Model returned by GetAnimationSourceModel, or an asset reference whose path is
+--- resolved (and loaded on first use) through the model manager
+---@overload fun(self: SkinnedMeshRenderer, model: Model|nil, layer?: integer)
+---@overload fun(self: SkinnedMeshRenderer, asset: AssetRef, layer?: integer)
+function SkinnedMeshRenderer:SetAnimationSourceModel(...) end
 
 --- Returns the external animation source model of a layer, or nil when the rendered model is used
 ---@param layer? integer

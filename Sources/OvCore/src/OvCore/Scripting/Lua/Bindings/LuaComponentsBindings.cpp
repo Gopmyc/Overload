@@ -21,9 +21,12 @@
 #include <OvCore/ECS/Components/CPointLight.h>  
 #include <OvCore/ECS/Components/CPostProcessStack.h>  
 #include <OvCore/ECS/Components/CReflectionProbe.h>  
-#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>  
-#include <OvCore/ECS/Components/CSpotLight.h>  
+#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
+#include <OvCore/ECS/Components/CSpotLight.h>
 #include <OvCore/ECS/Components/CTransform.h>
+#include <OvCore/Global/ServiceLocator.h>
+#include <OvCore/ResourceManagement/ModelManager.h>
+#include <OvCore/Scripting/Common/ScriptPropertyValue.h>
 
 void BindLuaComponents(sol::state& p_luaState)
 {
@@ -111,7 +114,20 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetMeshBoundsScale", &CSkinnedMeshRenderer::GetMeshBoundsScale,
 		"SetTime", [](CSkinnedMeshRenderer& p_this, float p_timeSeconds, std::optional<uint32_t> p_layer) { p_this.SetTime(p_timeSeconds, p_layer.value_or(0)); },
 		"GetTime", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetTime(p_layer.value_or(0)); },
-		"SetAnimationSourceModel", [](CSkinnedMeshRenderer& p_this, OvRendering::Resources::Model* p_model, std::optional<uint32_t> p_layer) { p_this.SetAnimationSourceModel(p_model, p_layer.value_or(0)); },
+		"SetAnimationSourceModel", sol::overload(
+			[](CSkinnedMeshRenderer& p_this, OvRendering::Resources::Model* p_model, std::optional<uint32_t> p_layer)
+			{
+				p_this.SetAnimationSourceModel(p_model, p_layer.value_or(0));
+			},
+			[](CSkinnedMeshRenderer& p_this, const OvCore::Scripting::AssetRef& p_asset, std::optional<uint32_t> p_layer)
+			{
+				auto* model = p_asset.path.empty() ?
+					nullptr :
+					OvCore::Global::ServiceLocator::Get<OvCore::ResourceManagement::ModelManager>().GetResource(p_asset.path);
+
+				p_this.SetAnimationSourceModel(model, p_layer.value_or(0));
+			}
+		),
 		"GetAnimationSourceModel", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetAnimationSourceModel(p_layer.value_or(0)); },
 		"IsAnimationSourceCompatible", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.IsAnimationSourceCompatible(p_layer.value_or(0)); },
 		"GetAnimationCount", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetAnimationCount(p_layer.value_or(0)); },
