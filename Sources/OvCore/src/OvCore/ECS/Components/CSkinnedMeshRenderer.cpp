@@ -16,8 +16,10 @@
 #include <OvCore/ECS/Actor.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
+#include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Helpers/GUIDrawer.h>
 #include <OvCore/Helpers/Serializer.h>
+#include <OvCore/ResourceManagement/ModelManager.h>
 #include <OvDebug/Logger.h>
 #include <OvMaths/FMatrix3.h>
 #include <OvMaths/FTransform.h>
@@ -554,6 +556,25 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::SetAnimationSourceModel(OvRe
 
 	layer->animationSourceModel = p_model;
 	RebuildRuntimeData();
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::SetAnimationSourceModel(const std::string& p_path, uint32_t p_layer)
+{
+	if (p_path.empty())
+	{
+		SetAnimationSourceModel(static_cast<OvRendering::Resources::Model*>(nullptr), p_layer);
+		return;
+	}
+
+	auto* model = OvCore::Global::ServiceLocator::Get<OvCore::ResourceManagement::ModelManager>().GetResource(p_path);
+
+	if (!model)
+	{
+		OVLOG_WARNING("SkinnedMeshRenderer: Animation source model '" + p_path + "' could not be loaded.");
+		return;
+	}
+
+	SetAnimationSourceModel(model, p_layer);
 }
 
 OvRendering::Resources::Model* OvCore::ECS::Components::CSkinnedMeshRenderer::GetAnimationSourceModel(uint32_t p_layer) const
