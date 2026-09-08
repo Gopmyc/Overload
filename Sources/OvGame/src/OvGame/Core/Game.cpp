@@ -138,6 +138,7 @@ void OvGame::Core::Game::Update(float p_deltaTime)
 		auto& frameInfoRenderFeature = m_sceneRenderer.GetFeature<OvRendering::Features::FrameInfoRenderFeature>();
 		auto& frameInfo = frameInfoRenderFeature.GetFrameInfo();
 		m_frameInfo.Update(frameInfo);
+        m_driverInfo.Update();
 		#endif
 		m_context.uiManager->Render();
 	}

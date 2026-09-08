@@ -8,7 +8,7 @@
 
 #include "OvGame/Debug/DriverInfo.h"
 
-OvGame::Debug::DriverInfo::DriverInfo(OvRendering::Context::Driver& p_driver, OvWindowing::Window& p_window)
+OvGame::Debug::DriverInfo::DriverInfo(OvRendering::Context::Driver& p_driver, OvWindowing::Window& p_window) : m_window(p_window)
 {
 	m_defaultHorizontalAlignment = OvUI::Settings::EHorizontalAlignment::RIGHT;
 	m_defaultVerticalAlignment = OvUI::Settings::EVerticalAlignment::BOTTOM;
@@ -24,6 +24,11 @@ OvGame::Debug::DriverInfo::DriverInfo(OvRendering::Context::Driver& p_driver, Ov
 	CreateWidget<OvUI::Widgets::Texts::TextColored>("Hardware: " + hardware, OvUI::Types::Color::Yellow);
 	CreateWidget<OvUI::Widgets::Texts::TextColored>("OpenGL Version: " + version, OvUI::Types::Color::Yellow);
 	CreateWidget<OvUI::Widgets::Texts::TextColored>("GLSL Version: " + shadingVersion, OvUI::Types::Color::Yellow);
+}
+
+void OvGame::Debug::DriverInfo::Update() {
+    SetPosition({ static_cast<float>(m_window.GetSize().first) - 10.f, static_cast<float>(m_window.GetSize().second) - 10.f });
+    SetAlignment(OvUI::Settings::EHorizontalAlignment::RIGHT, OvUI::Settings::EVerticalAlignment::BOTTOM);
 }
 
 #endif
