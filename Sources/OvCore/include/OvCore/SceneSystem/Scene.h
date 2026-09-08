@@ -144,6 +144,13 @@ namespace OvCore::SceneSystem
 		bool DestroyActor(ECS::Actor& p_target);
 
 		/**
+		* Move the given actor at the end of the actor list, which defines the order in which
+		* actors are stored, updated and serialized
+		* @param p_actor
+		*/
+		void MoveActorToBack(ECS::Actor& p_actor);
+
+		/**
 		* Collect garbages by removing Destroyed-marked actors
 		*/
 		void CollectGarbages();

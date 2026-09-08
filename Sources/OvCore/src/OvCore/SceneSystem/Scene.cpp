@@ -324,6 +324,16 @@ bool OvCore::SceneSystem::Scene::DestroyActor(ECS::Actor& p_target)
 	}
 }
 
+void OvCore::SceneSystem::Scene::MoveActorToBack(ECS::Actor& p_actor)
+{
+	auto found = std::find(m_actors.begin(), m_actors.end(), &p_actor);
+
+	if (found != m_actors.end())
+	{
+		std::rotate(found, found + 1, m_actors.end());
+	}
+}
+
 void OvCore::SceneSystem::Scene::CollectGarbages()
 {
 	m_actors.erase(std::remove_if(m_actors.begin(), m_actors.end(), [this](ECS::Actor* element)
