@@ -896,12 +896,20 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnInspector(OvUI::Internal::
 	GUIDrawer::DrawScalar<float>(p_root, "Pose Eval Rate", m_poseEvaluationRate, 1.0f, 0.0f, 240.0f);
 	m_poseEvaluationRate = std::max(0.0f, m_poseEvaluationRate);
 
-	auto& modelDiagnostic = p_root.CreateWidget<OvUI::Widgets::Texts::TextColored>();
-	modelDiagnostic.AddPlugin<OvUI::Plugins::DataDispatcher<std::string>>().RegisterGatherer([this, &modelDiagnostic]
+	// The inspector lays components out in two columns, so the status lands next to its details,
+	// the way scripts report theirs
+	auto& modelStatus = p_root.CreateWidget<OvUI::Widgets::Texts::TextColored>();
+	modelStatus.AddPlugin<OvUI::Plugins::DataDispatcher<std::string>>().RegisterGatherer([this, &modelStatus]
 	{
 		const bool ready = HasCompatibleModel();
-		modelDiagnostic.color = ready ? OVUI_STYLE(Success) : OVUI_STYLE(TextDisabled);
-		return ready ? std::string{ "Ready" } : std::string{ "No skinned model assigned" };
+		modelStatus.color = ready ? OVUI_STYLE(Success) : OVUI_STYLE(Danger);
+		return ready ? std::string{ "Ready" } : std::string{ "Error" };
+	});
+
+	auto& modelDiagnostic = p_root.CreateWidget<OvUI::Widgets::Texts::TextColored>("", OVUI_STYLE(TextDisabled));
+	modelDiagnostic.AddPlugin<OvUI::Plugins::DataDispatcher<std::string>>().RegisterGatherer([this]
+	{
+		return HasCompatibleModel() ? std::string{ "Compatible skinned model found" } : std::string{ "No skinned model assigned" };
 	});
 
 	// Layers live in their own full-width container so they can be rebuilt in place when one is
