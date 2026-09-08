@@ -955,7 +955,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::BuildLayerWidgets(OvUI::Inte
 		// the layer storage, which moves whenever a layer is added or removed
 		GUIDrawer::DrawAsset(
 			columns,
-			"Animation Source",
+			"Animation Source Override",
 			[this, layerIndex]
 			{
 				const auto model = GetAnimationSourceModel(layerIndex);
