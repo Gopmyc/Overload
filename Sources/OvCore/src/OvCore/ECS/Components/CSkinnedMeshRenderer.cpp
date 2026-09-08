@@ -35,6 +35,16 @@ namespace
 {
 	constexpr float kMinimumLayerWeight = 0.0001f;
 
+	// The inspector reports a layer as a status/details pair, so both cells resolve this once
+	enum class ELayerDiagnostic
+	{
+		STALE,
+		INCOMPATIBLE_SOURCE,
+		SOURCE_WITHOUT_CLIPS,
+		MODEL_WITHOUT_CLIPS,
+		READY
+	};
+
 	// std::clamp propagates NaN, so non-finite weights are rejected before clamping
 	float ClampLayerWeight(float p_value)
 	{
@@ -1041,28 +1051,61 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::BuildLayerWidgets(OvUI::Inte
 		);
 
 		// Gathered every frame, so assigning an incompatible source reports it without a panel refresh
-		auto& diagnostic = layerNode.CreateWidget<OvUI::Widgets::Texts::TextColored>();
-		diagnostic.AddPlugin<OvUI::Plugins::DataDispatcher<std::string>>().RegisterGatherer([this, &diagnostic, layerIndex]
+		const auto resolveDiagnostic = [this, layerIndex]
 		{
 			const auto layer = FindLayer(layerIndex);
 			if (!layer)
 			{
-				return std::string{};
+				return ELayerDiagnostic::STALE;
 			}
 
 			if (layer->animationSourceModel && !IsLayerCompatible(*layer))
 			{
-				diagnostic.color = OVUI_STYLE(Danger);
-				return std::string{ "Animation source skeleton is not compatible with model" };
+				return ELayerDiagnostic::INCOMPATIBLE_SOURCE;
 			}
 
 			if (layer->animationNames.empty())
 			{
-				diagnostic.color = OVUI_STYLE(Warning);
-				return std::string{ layer->animationSourceModel ? "Animation source has no animation clips" : "Model has no animation clips" };
+				return layer->animationSourceModel ? ELayerDiagnostic::SOURCE_WITHOUT_CLIPS : ELayerDiagnostic::MODEL_WITHOUT_CLIPS;
 			}
 
-			return std::string{};
+			return ELayerDiagnostic::READY;
+		};
+
+		auto& layerStatus = columns.CreateWidget<OvUI::Widgets::Texts::TextColored>();
+		layerStatus.AddPlugin<OvUI::Plugins::DataDispatcher<std::string>>().RegisterGatherer([&layerStatus, resolveDiagnostic]
+		{
+			switch (resolveDiagnostic())
+			{
+			case ELayerDiagnostic::INCOMPATIBLE_SOURCE:
+				layerStatus.color = OVUI_STYLE(Danger);
+				return std::string{ "Error" };
+
+			case ELayerDiagnostic::SOURCE_WITHOUT_CLIPS:
+			case ELayerDiagnostic::MODEL_WITHOUT_CLIPS:
+				layerStatus.color = OVUI_STYLE(Warning);
+				return std::string{ "Warning" };
+
+			case ELayerDiagnostic::READY:
+				layerStatus.color = OVUI_STYLE(Success);
+				return std::string{ "Ready" };
+
+			default:
+				return std::string{};
+			}
+		});
+
+		auto& layerDiagnostic = columns.CreateWidget<OvUI::Widgets::Texts::TextColored>("", OVUI_STYLE(TextDisabled));
+		layerDiagnostic.AddPlugin<OvUI::Plugins::DataDispatcher<std::string>>().RegisterGatherer([resolveDiagnostic]
+		{
+			switch (resolveDiagnostic())
+			{
+			case ELayerDiagnostic::INCOMPATIBLE_SOURCE: return std::string{ "Animation source skeleton is not compatible with model" };
+			case ELayerDiagnostic::SOURCE_WITHOUT_CLIPS: return std::string{ "Animation source has no animation clips" };
+			case ELayerDiagnostic::MODEL_WITHOUT_CLIPS: return std::string{ "Model has no animation clips" };
+			case ELayerDiagnostic::READY: return std::string{ "Compatible animation source found" };
+			default: return std::string{};
+			}
 		});
 
 		if (m_layers.size() > 1)
