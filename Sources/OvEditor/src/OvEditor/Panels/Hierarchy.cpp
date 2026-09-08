@@ -396,6 +396,8 @@ OvEditor::Panels::Hierarchy::Hierarchy
 		ConsiderWidget(*p_element.second);
 
 		p_element.first->DetachFromParent();
+
+		EDITOR_CONTEXT(sceneManager).GetCurrentScene()->MoveActorToBack(*p_element.first);
 	};
 
 	AddPlugin<ActorContextualMenu>(nullptr, nullptr);
@@ -540,6 +542,8 @@ void OvEditor::Panels::Hierarchy::AddActorByInstance(OvCore::ECS::Actor & p_acto
 		}
 
 		p_element.first->SetParent(p_actor);
+
+		EDITOR_CONTEXT(sceneManager).GetCurrentScene()->MoveActorToBack(*p_element.first);
 	};
 	auto& dispatcher = textSelectable.AddPlugin<OvUI::Plugins::DataDispatcher<std::string>>();
 
