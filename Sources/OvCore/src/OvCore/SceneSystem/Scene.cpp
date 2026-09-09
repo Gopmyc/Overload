@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <functional>
-#include <iterator>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -467,18 +466,6 @@ void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent&
 std::vector<OvCore::ECS::Actor*>& OvCore::SceneSystem::Scene::GetActors()
 {
 	return m_actors;
-}
-
-bool OvCore::SceneSystem::Scene::MoveActorToEnd(ECS::Actor& p_actor)
-{
-	const auto it = std::find(m_actors.begin(), m_actors.end(), &p_actor);
-	if (it == m_actors.end())
-	{
-		return false;
-	}
-
-	std::rotate(it, std::next(it), m_actors.end());
-	return true;
 }
 
 const OvCore::SceneSystem::Scene::FastAccessComponents& OvCore::SceneSystem::Scene::GetFastAccessComponents() const
