@@ -359,6 +359,10 @@ void OvCore::Scripting::LuaScriptEngine::CreateContext()
 	m_context.luaState = std::make_unique<sol::state>();
 	m_context.luaState->open_libraries(sol::lib::base, sol::lib::math);
 
+	(*m_context.luaState)["dofile"] = sol::nil;
+	(*m_context.luaState)["loadfile"] = sol::nil;
+	(*m_context.luaState)["load"] = sol::nil;
+
 	m_context.luaState->registry()[kLoadedScriptsKey] = m_context.luaState->create_table();
 	m_context.luaState->registry()[kLoadingScriptsKey] = m_context.luaState->create_table();
 
