@@ -21,8 +21,8 @@
 #include <OvCore/ECS/Components/CPointLight.h>  
 #include <OvCore/ECS/Components/CPostProcessStack.h>  
 #include <OvCore/ECS/Components/CReflectionProbe.h>  
-#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
-#include <OvCore/ECS/Components/CSpotLight.h>
+#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>  
+#include <OvCore/ECS/Components/CSpotLight.h>  
 #include <OvCore/ECS/Components/CTransform.h>
 #include <OvCore/Scripting/Common/ScriptPropertyValue.h>
 
@@ -95,7 +95,6 @@ void BindLuaComponents(sol::state& p_luaState)
 	p_luaState.new_usertype<CSkinnedMeshRenderer>("SkinnedMeshRenderer",
 		sol::base_classes, sol::bases<AComponent>(),
 		"GetLayerCount", &CSkinnedMeshRenderer::GetLayerCount,
-		"GetMaxLayerCount", &CSkinnedMeshRenderer::GetMaxLayerCount,
 		"AddLayer", &CSkinnedMeshRenderer::AddLayer,
 		"RemoveLayer", &CSkinnedMeshRenderer::RemoveLayer,
 		"Play", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { p_this.Play(p_layer.value_or(0)); },
