@@ -28,6 +28,15 @@ namespace OvGame::Debug
 		* @param p_window
 		*/
 		DriverInfo(OvRendering::Context::Driver& p_rdriver, OvWindowing::Window& p_window);
+
+
+        /**
+        * Update the data
+        */
+        void Update();
+
+    private:
+        OvWindowing::Window& m_window;
 	};
 }
 
