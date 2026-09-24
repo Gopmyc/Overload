@@ -5,6 +5,7 @@
 */
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
@@ -72,7 +73,7 @@ void OvCore::Rendering::ShadowRenderPass::Draw(OvRendering::Data::PipelineState 
 					light.shadowBuffer->Bind();
 					m_renderer.SetViewport(0, 0, light.shadowMapResolution, light.shadowMapResolution);
 					m_renderer.Clear(true, true, true);
-					_DrawShadows(pso, scene);
+					_DrawShadows(pso, scene, light.shadowCamera->GetFrustum());
 					light.shadowBuffer->Unbind();
 
 					engineBufferRenderFeature.SetCamera(frameDescriptor.camera.value());
@@ -95,7 +96,8 @@ void OvCore::Rendering::ShadowRenderPass::Draw(OvRendering::Data::PipelineState 
 
 void OvCore::Rendering::ShadowRenderPass::_DrawShadows(
 	OvRendering::Data::PipelineState p_pso,
-	OvCore::SceneSystem::Scene& p_scene
+	OvCore::SceneSystem::Scene& p_scene,
+	const OvRendering::Data::Frustum& p_shadowFrustum
 )
 {
 	using namespace OvCore::Rendering;
@@ -123,6 +125,28 @@ void OvCore::Rendering::ShadowRenderPass::_DrawShadows(
 
 					for (auto mesh : model->GetMeshes())
 					{
+						// Skip meshes outside of the light's (orthographic) shadow frustum: they would be clipped anyway.
+						// Skinned meshes are never culled here, since their bounds depend on the current pose.
+						if (!hasSkinning)
+						{
+							using enum OvCore::ECS::Components::CModelRenderer::EFrustumBehaviour;
+
+							const auto bounds = [&]() -> std::optional<OvRendering::Geometry::BoundingSphere> {
+								switch (modelRenderer->GetFrustumBehaviour())
+								{
+								case MESH_BOUNDS: return mesh->GetBoundingSphere();
+								case DEPRECATED_MODEL_BOUNDS: return model->GetBoundingSphere();
+								case CUSTOM_BOUNDS: return modelRenderer->GetCustomBoundingSphere();
+								default: return std::nullopt;
+								}
+							}();
+
+							if (bounds && !p_shadowFrustum.BoundingSphereInFrustum(bounds.value(), actor.transform.GetFTransform()))
+							{
+								continue;
+							}
+						}
+
 						if (auto material = materials.at(mesh->GetMaterialIndex()); material && material->IsValid() && material->IsShadowCaster())
 						{
 							// Skinning is only applied if the original material explicitly supports it.

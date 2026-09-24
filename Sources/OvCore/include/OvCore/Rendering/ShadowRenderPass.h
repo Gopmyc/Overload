@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <OvRendering/Data/Frustum.h>
+
 #include <OvRendering/Entities/Camera.h>
 #include <OvRendering/Features/DebugShapeRenderFeature.h>
 
@@ -36,7 +38,8 @@ namespace OvCore::Rendering
 
 		void _DrawShadows(
 			OvRendering::Data::PipelineState p_pso,
-			OvCore::SceneSystem::Scene& p_scene
+			OvCore::SceneSystem::Scene& p_scene,
+			const OvRendering::Data::Frustum& p_shadowFrustum
 		);
 
 	private:
