@@ -4,6 +4,9 @@
 * @licence: MIT
 */
 
+#include <utility>
+#include <vector>
+
 #include <tracy/Tracy.hpp>
 
 #include <OvCore/ECS/Components/CPostProcessStack.h>
@@ -64,30 +67,45 @@ void OvCore::Rendering::PostProcessRenderPass::Draw(OvRendering::Data::PipelineS
 	{
 		auto& framebuffer = m_renderer.GetFrameDescriptor().outputBuffer.value();
 
-		m_renderer.Blit(p_pso, framebuffer, m_pingPongBuffers[0], m_blitMaterial);
+		std::vector<std::pair<PostProcess::AEffect*, const PostProcess::EffectSettings*>> applicableEffects;
+		applicableEffects.reserve(m_effects.size());
 
 		for (auto& effect : m_effects)
 		{
 			if (effect)
 			{
 				auto& effectRef = *effect;
-				const auto& effectType = typeid(effectRef);
-				const auto& settings = stack->Get(effectType);
+				const auto& settings = stack->Get(typeid(effectRef));
 
 				if (effect->IsApplicable(settings))
 				{
-					effect->Draw(
-						p_pso,
-						m_pingPongBuffers[0],
-						m_pingPongBuffers[1],
-						settings
-					);
-
-					++m_pingPongBuffers;
+					applicableEffects.emplace_back(effect.get(), &settings);
 				}
 			}
 		}
 
-		m_renderer.Blit(p_pso, m_pingPongBuffers[0], framebuffer, m_blitMaterial);
+		// The first effect reads the output framebuffer directly and the last one writes back into it,
+		// so no full-resolution copy is needed to enter or leave the ping-pong chain.
+		auto& [pingBuffer, pongBuffer] = m_pingPongBuffers.GetFramebuffers();
+		baregl::Framebuffer* src = &framebuffer;
+
+		for (size_t i = 0; i < applicableEffects.size(); ++i)
+		{
+			const bool isLastEffect = i + 1 == applicableEffects.size();
+
+			baregl::Framebuffer* dst =
+				isLastEffect && src != &framebuffer ? &framebuffer :
+				src == &pingBuffer ? &pongBuffer :
+				&pingBuffer;
+
+			applicableEffects[i].first->Draw(p_pso, *src, *dst, *applicableEffects[i].second);
+			src = dst;
+		}
+
+		// A single effect can't read from and write to the output framebuffer at the same time
+		if (src != &framebuffer)
+		{
+			m_renderer.Blit(p_pso, *src, framebuffer, m_blitMaterial);
+		}
 	}
 }
