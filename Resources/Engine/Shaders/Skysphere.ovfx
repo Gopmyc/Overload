@@ -21,6 +21,10 @@ void main()
     vs_out.FragPos = geo_Pos;
     vs_out.TexCoords = geo_TexCoords;
     gl_Position = ubo_Projection * ubo_View * vec4(ubo_ViewPos + vs_out.FragPos, 1.0);
+
+    // Push the sky right in front of the far plane: it is drawn after opaque geometry with depth testing,
+    // so only the pixels that are not covered by geometry get shaded.
+    gl_Position.z = gl_Position.w * (1.0 - exp2(-21.0));
 }
 
 #shader fragment
