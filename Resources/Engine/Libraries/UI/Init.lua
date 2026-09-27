@@ -17,6 +17,19 @@
 --- end
 ---
 --- function Menu:OnDestroy() if self.ui then self.ui:Destroy() end end
+---
+--- Panels can also follow the 3D world (see Docs/WorldSpace.md):
+---
+--- self.ui:SetCamera(Scenes.GetCurrentScene():FindActorByName("Main Camera"))
+--- local layer = self.ui:Create("DWorldLayer")
+--- local bar = layer:Add("DWorldArc")
+--- bar:SetTarget(self.owner, Vector3.new(0, 1.2, 0))
+--- bar:SetRadius(0.6)
+--- bar:SetArc(0, 120)
+--- bar:SetFaceCamera(true)
+--- bar:SetThickness(0.05, true)
+--- bar:SetBackgroundColor(Vector4.new(0, 0, 0, 0.5))
+--- bar:SetFraction(0.75)
 
 local Controller = Resources.GetScript(":Libraries/UI/Core/Controller.lua")
 local Fonts = Resources.GetScript(":Libraries/UI/Core/Fonts.lua")
@@ -31,6 +44,11 @@ Resources.GetScript(":Libraries/UI/Panels/DButton.lua")
 Resources.GetScript(":Libraries/UI/Panels/DTextEntry.lua")
 Resources.GetScript(":Libraries/UI/Panels/DVScrollBar.lua")
 Resources.GetScript(":Libraries/UI/Panels/DScrollPanel.lua")
+Resources.GetScript(":Libraries/UI/Panels/DPolyline.lua")
+Resources.GetScript(":Libraries/UI/Panels/DWorldPanel.lua")
+Resources.GetScript(":Libraries/UI/Panels/DWorldPath.lua")
+Resources.GetScript(":Libraries/UI/Panels/DWorldArc.lua")
+Resources.GetScript(":Libraries/UI/Panels/DWorldLayer.lua")
 
 ---@class UI
 local UI = {}
