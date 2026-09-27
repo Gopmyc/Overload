@@ -40,7 +40,8 @@ local function IsInteractive(panel)
 	return true
 end
 
--- Returns the top-most panel accepting the cursor, false when a disabled panel blocks it, or nil
+-- Returns the top-most panel accepting the cursor, false when a disabled panel blocks it, or nil.
+-- The position is local to the panel.
 local function HitTest(panel, x, y)
 	if not panel.m_Visible or panel.m_Culled then
 		return nil
@@ -62,10 +63,14 @@ local function HitTest(panel, x, y)
 
 	for i = #children, 1, -1 do
 		local child = children[i]
-		local hit = HitTest(child, x - child.m_X, y - child.m_Y)
 
-		if hit ~= nil then
-			return hit
+		-- A panel scaled to zero covers no area
+		if child.m_ScaleX ~= 0 and child.m_ScaleY ~= 0 then
+			local hit = HitTest(child, child:ParentToLocal(x, y))
+
+			if hit ~= nil then
+				return hit
+			end
 		end
 	end
 
@@ -215,7 +220,7 @@ local function UpdateMouse(self)
 	local inside = mouse.x >= 0 and mouse.y >= 0 and mouse.x < self.m_ViewportWidth and mouse.y < self.m_ViewportHeight
 
 	self.m_CursorX, self.m_CursorY = x, y
-	SetHoveredPanel(self, inside and HitTest(root, x - root.m_X, y - root.m_Y) or nil)
+	SetHoveredPanel(self, inside and HitTest(root, root:ParentToLocal(x, y)) or nil)
 
 	if moved then
 		local notified = {}

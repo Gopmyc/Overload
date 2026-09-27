@@ -34,8 +34,13 @@ local function AssertAlive(panel)
 	end
 end
 
+-- The engine places the pivot of the element: it is the transform origin of the panel, around which
+-- it rotates and scales. The engine Y axis goes up.
 local function ApplyPosition(panel)
-	panel.m_Transform:SetUIPosition(Vector2.new(panel.m_X, -panel.m_Y))
+	panel.m_Transform:SetUIPosition(Vector2.new(
+		panel.m_X + panel.m_OriginX * panel.m_Width,
+		-(panel.m_Y + panel.m_OriginY * panel.m_Height)
+	))
 end
 
 local function ApplySize(panel)
@@ -47,6 +52,10 @@ end
 
 local function ApplyActive(panel)
 	panel.m_Actor:SetActive(panel.m_Visible and not panel.m_Culled)
+end
+
+local function HasTransform(panel)
+	return panel.m_Rotation ~= 0 or panel.m_ScaleX ~= 1 or panel.m_ScaleY ~= 1
 end
 
 local function Detach(panel)
@@ -127,6 +136,9 @@ function Panel:Setup(controller, parent)
 	self.m_Children = {}
 	self.m_X, self.m_Y, self.m_Width, self.m_Height = 0, 0, 0, 0
 	self.m_ZPos = 0
+	self.m_Rotation = 0
+	self.m_ScaleX, self.m_ScaleY = 1, 1
+	self.m_OriginX, self.m_OriginY = 0, 0
 	self.m_Visible = true
 	self.m_Culled = false
 	self.m_Enabled = true
@@ -218,6 +230,11 @@ function Panel:SetSize(width, height)
 
 	self.m_Width, self.m_Height = width, height
 	ApplySize(self)
+
+	if self.m_OriginX ~= 0 or self.m_OriginY ~= 0 then
+		ApplyPosition(self)
+	end
+
 	self:InvalidateLayout()
 	self:InvalidatePaint()
 
@@ -303,6 +320,61 @@ end
 ---@return number
 function Panel:GetZPos()
 	return self.m_ZPos
+end
+
+--- Rotates the panel and its children around the transform origin, counter-clockwise on screen.
+--- Hit-testing and coordinate conversions follow the rotation.
+---@param degrees number
+function Panel:SetRotation(degrees)
+	assert(type(degrees) == "number", "UI: SetRotation expects a number")
+
+	if self.m_Rotation ~= degrees then
+		self.m_Rotation = degrees
+		self.m_Transform:SetUIRotation(degrees)
+	end
+end
+
+---@return number
+function Panel:GetRotation()
+	return self.m_Rotation
+end
+
+--- Scales the panel and its children around the transform origin, without changing their size or
+--- position. Hit-testing and coordinate conversions follow the scale.
+---@param x number
+---@param y number|nil defaults to x
+function Panel:SetScale(x, y)
+	y = y or x
+	assert(type(x) == "number" and type(y) == "number", "UI: SetScale expects numbers")
+
+	if self.m_ScaleX ~= x or self.m_ScaleY ~= y then
+		self.m_ScaleX, self.m_ScaleY = x, y
+		self.m_Transform:SetUIScale(Vector2.new(x, y))
+	end
+end
+
+---@return number, number
+function Panel:GetScale()
+	return self.m_ScaleX, self.m_ScaleY
+end
+
+--- Defines the point the panel rotates and scales around, as fractions of its size: (0, 0) is the
+--- top-left corner (default), (0.5, 0.5) the center
+---@param x number
+---@param y number
+function Panel:SetTransformOrigin(x, y)
+	assert(type(x) == "number" and type(y) == "number", "UI: SetTransformOrigin expects two numbers")
+
+	if self.m_OriginX ~= x or self.m_OriginY ~= y then
+		self.m_OriginX, self.m_OriginY = x, y
+		self.m_Transform:SetUIPivot(Vector2.new(2 * x - 1, 2 * y - 1))
+		ApplyPosition(self)
+	end
+end
+
+---@return number, number
+function Panel:GetTransformOrigin()
+	return self.m_OriginX, self.m_OriginY
 end
 
 ---@param visible boolean
@@ -433,7 +505,7 @@ function Panel:LocalToScreen(x, y)
 	local panel = self
 
 	while panel do
-		x, y = x + panel.m_X, y + panel.m_Y
+		x, y = panel:LocalToParent(x, y)
 		panel = panel.m_Parent
 	end
 
@@ -445,8 +517,59 @@ end
 ---@param y number
 ---@return number, number
 function Panel:ScreenToLocal(x, y)
-	local originX, originY = self:LocalToScreen(0, 0)
-	return x - originX, y - originY
+	local chain, panel = {}, self
+
+	while panel do
+		chain[#chain + 1] = panel
+		panel = panel.m_Parent
+	end
+
+	for i = #chain, 1, -1 do
+		x, y = chain[i]:ParentToLocal(x, y)
+	end
+
+	return x, y
+end
+
+--- Converts a position local to the panel into the space of its parent
+---@param x number
+---@param y number
+---@return number, number
+function Panel:LocalToParent(x, y)
+	if not HasTransform(self) then
+		return x + self.m_X, y + self.m_Y
+	end
+
+	local originX, originY = self.m_OriginX * self.m_Width, self.m_OriginY * self.m_Height
+	local dx, dy = (x - originX) * self.m_ScaleX, (y - originY) * self.m_ScaleY
+	local angle = math.rad(self.m_Rotation)
+	local c, s = math.cos(angle), math.sin(angle)
+
+	-- Counter-clockwise on screen, where Y goes down
+	return self.m_X + originX + c * dx + s * dy, self.m_Y + originY - s * dx + c * dy
+end
+
+--- Converts a position in the space of the parent into a position local to the panel. A panel scaled
+--- to zero maps every position to its transform origin.
+---@param x number
+---@param y number
+---@return number, number
+function Panel:ParentToLocal(x, y)
+	if not HasTransform(self) then
+		return x - self.m_X, y - self.m_Y
+	end
+
+	local originX, originY = self.m_OriginX * self.m_Width, self.m_OriginY * self.m_Height
+
+	if self.m_ScaleX == 0 or self.m_ScaleY == 0 then
+		return originX, originY
+	end
+
+	local dx, dy = x - self.m_X - originX, y - self.m_Y - originY
+	local angle = math.rad(self.m_Rotation)
+	local c, s = math.cos(angle), math.sin(angle)
+
+	return originX + (c * dx - s * dy) / self.m_ScaleX, originY + (s * dx + c * dy) / self.m_ScaleY
 end
 
 --- Returns the cursor position local to the panel
