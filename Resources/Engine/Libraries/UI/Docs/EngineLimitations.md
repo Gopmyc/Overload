@@ -76,3 +76,16 @@ not just its Lua binding. Features that only need a binding are listed in
 - **Impact:** panels cache their components. The controller checks its canvas actor every frame and
   discards its panels once the canvas is destroyed, but destroying the actor of a single panel outside
   `Panel:Remove` leaves its cached components dangling, and isn't supported.
+
+## 9. UI is always drawn over the scene
+
+- **Feature:** panels in the 3D world (`DWorldPanel`, `DWorldPath`, `DWorldArc`, see
+  [WorldSpace.md](WorldSpace.md)).
+- **Missing primitive:** a world space render mode per canvas. The game draws every canvas as a screen
+  overlay. `UIRenderingUtils::UIFrameResolver` can already resolve canvases in the world, but only for a
+  whole view: `renderUIInScreenSpace` is false in the editor Scene View preview.
+- **Impact:** world panels are projected on the canvas every frame:
+  - a flat panel can't be tilted in perspective, like a menu floating next to a character;
+  - the scene doesn't hide them. `SetOcclusionCheck` hides a `DWorldPanel` when a raycast hits
+    another collider, and `SetFrontOnly` hides the far half of a path around a character;
+  - they aren't sorted with the scene, and only a `DWorldLayer` sorts them between themselves.

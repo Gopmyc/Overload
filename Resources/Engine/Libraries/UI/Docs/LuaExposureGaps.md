@@ -30,9 +30,9 @@ would bring to the UI library. Missing engine primitives are listed in
   `modelMatrix` and `effectiveSize` actually used to draw an element.
 - **Proposal:** a query returning the resolved rectangle of a UI actor for a render size, or a
   point-in-element test in canvas space.
-- **Why:** panel geometry is computed in Lua, so the library only supports top-left anchoring without
-  rotation, scale or layout groups. Engine-resolved geometry would make hit-testing honor anchors,
-  pivots, stretch, rotation, scale and `HorizontalLayout` / `VerticalLayout`.
+- **Why:** panel geometry is computed in Lua. The library handles top-left anchoring, rotation and
+  scale, but not the other anchors, stretch or `HorizontalLayout` / `VerticalLayout`. Engine-resolved
+  geometry would make hit-testing honor all of them, and remove the duplicated transform math.
 
 ## 4. Text measurement
 
@@ -43,3 +43,19 @@ would bring to the UI library. Missing engine primitives are listed in
 - **Why:** it enables `SizeToContents` and `GetTextSize` on labels, a caret drawn as a separate panel
   instead of a `|` inserted in the text (which shifts the following characters), placing the caret
   under the cursor on click, and horizontal scrolling of long `DTextEntry` values.
+
+## 5. Main camera
+
+- **Exists:** `Scene::FindMainCamera()`, the first active camera of the scene, which renders it.
+- **Proposal:** `Scene:GetMainCamera()`.
+- **Why:** world panels need the camera rendering the scene, so `controller:SetCamera` must receive it
+  from the script. The controller could follow the engine choice instead.
+
+## 6. Camera matrices
+
+- **Exists:** `OvRendering::Entities::Camera::GetViewMatrix()` and `GetProjectionMatrix()`.
+- **Proposal:** `Camera:GetViewMatrix()` and `Camera:GetProjectionMatrix()`, or a
+  `Camera:WorldToScreen(position)` query.
+- **Why:** `Core/WorldSpace.lua` rebuilds the view and projection from the camera transform, its field
+  of view and its projection mode, mirroring `FMatrix4::CreateView`, `CreatePerspective` and
+  `CreateOrthographic`. It would drift if the engine changed them.
