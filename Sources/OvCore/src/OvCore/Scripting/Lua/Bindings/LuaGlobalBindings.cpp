@@ -28,6 +28,7 @@
 
 #include <OvPhysics/Entities/PhysicalObject.h>
 
+#include <OvWindowing/Cursor/ECursorShape.h>
 #include <OvWindowing/Inputs/InputManager.h>
 
 #include <sol/sol.hpp>
@@ -227,6 +228,15 @@ void BindLuaGlobal(sol::state& p_luaState)
 		{"BUTTON_MIDDLE",	EMouseButton::MOUSE_BUTTON_MIDDLE},
 	});
 
+	p_luaState.new_enum<Cursor::ECursorShape>("CursorShape", {
+		{"ARROW",		Cursor::ECursorShape::ARROW},
+		{"IBEAM",		Cursor::ECursorShape::IBEAM},
+		{"CROSSHAIR",	Cursor::ECursorShape::CROSSHAIR},
+		{"HAND",		Cursor::ECursorShape::HAND},
+		{"HRESIZE",		Cursor::ECursorShape::HRESIZE},
+		{"VRESIZE",		Cursor::ECursorShape::VRESIZE}
+	});
+
 	p_luaState.create_named_table("Debug",
 		"Log", [](const std::string& p_message) { OVLOG(p_message); },
 		"LogInfo", [](const std::string& p_message) { OVLOG_INFO(p_message); },
@@ -242,12 +252,14 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"GetMouseButtonUp", [](EMouseButton p_button) { return OVSERVICE(InputManager).IsMouseButtonReleased(p_button); },
 		"GetMouseButton", [](EMouseButton p_button) { return OVSERVICE(InputManager).GetMouseButtonState(p_button) == EMouseButtonState::MOUSE_DOWN; },
 		"GetMousePos", []() { return OvCore::Helpers::InputHelpers::GetMousePosition(); },
+		"GetViewportSize", []() { return OvCore::Helpers::InputHelpers::GetViewportSize(); },
 		"GetMouseScroll", []() {
 			const auto scroll = OVSERVICE(InputManager).GetMouseScroll();
 			return FVector2(static_cast<float>(scroll.first), static_cast<float>(scroll.second));
 		},
 		"LockMouse", []() { return OVSERVICE(Window).SetCursorMode(Cursor::ECursorMode::DISABLED); },
-		"UnlockMouse", []() { return OVSERVICE(Window).SetCursorMode(Cursor::ECursorMode::NORMAL); }
+		"UnlockMouse", []() { return OVSERVICE(Window).SetCursorMode(Cursor::ECursorMode::NORMAL); },
+		"SetCursorShape", [](Cursor::ECursorShape p_shape) { OVSERVICE(Window).SetCursorShape(p_shape); }
 	);
 
 	p_luaState.create_named_table("Scenes",
