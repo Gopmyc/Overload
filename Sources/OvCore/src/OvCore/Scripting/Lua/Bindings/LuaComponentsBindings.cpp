@@ -30,6 +30,7 @@
 #include <OvCore/ECS/Components/UI/CLayoutGroup.h>
 #include <OvCore/ECS/Components/UI/CText.h>
 #include <OvCore/ECS/Components/UI/CVerticalLayout.h>
+#include <OvCore/Scripting/Common/ScriptPropertyValue.h>
 
 void BindLuaComponents(sol::state& p_luaState)
 {
@@ -38,7 +39,7 @@ void BindLuaComponents(sol::state& p_luaState)
 	using namespace OvCore::ECS::Components;
 
 	p_luaState.new_usertype<AComponent>("Component",
-		"GetOwner", [](AComponent& p_component) -> Actor& { return p_component.owner; }
+		"GetOwner", [](AComponent& p_component) { return OvCore::Scripting::ActorRef{ p_component.owner.GetGUID() }; }
 	);
 
 	p_luaState.new_usertype<CTransform>("Transform",
