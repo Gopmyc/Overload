@@ -51,6 +51,10 @@ void BindLuaActor(sol::state& p_luaState)
 	using namespace OvCore::Scripting;
 
 	p_luaState.new_usertype<ActorRef>("Actor",
+		/* Actor() creates an empty reference, used to declare actor script properties */
+		sol::call_constructor, sol::factories([]() { return ActorRef{ 0 }; }),
+		sol::meta_function::equal_to, [](const ActorRef& p_left, const ActorRef& p_right) { return p_left.guid == p_right.guid; },
+
 		/* Methods */
 		"GetName", [](ActorRef& r) -> const std::string& { return r.Resolve().GetName(); },
 		"SetName", [](ActorRef& r, const std::string& p_name) { r.Resolve().SetName(p_name); },
