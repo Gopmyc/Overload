@@ -2,6 +2,7 @@ local Array = Resources.GetScript(":Libraries/UI/Core/Array.lua")
 local CanvasSpace = Resources.GetScript(":Libraries/UI/Core/CanvasSpace.lua")
 local Keyboard = Resources.GetScript(":Libraries/UI/Core/Keyboard.lua")
 local Registry = Resources.GetScript(":Libraries/UI/Core/Registry.lua")
+local WorldSpace = Resources.GetScript(":Libraries/UI/Core/WorldSpace.lua")
 
 -- Registers the base class, which every controller root relies on
 Resources.GetScript(":Libraries/UI/Panels/Panel.lua")
@@ -30,7 +31,7 @@ end
 
 local function IsInteractive(panel)
 	while panel do
-		if panel.m_Removed or not panel.m_Visible or panel.m_Culled or not panel.m_Enabled then
+		if panel.m_Removed or not panel.m_Visible or panel.m_Culled or panel.m_WorldHidden or not panel.m_Enabled then
 			return false
 		end
 
@@ -43,7 +44,7 @@ end
 -- Returns the top-most panel accepting the cursor, false when a disabled panel blocks it, or nil.
 -- The position is local to the panel.
 local function HitTest(panel, x, y)
-	if not panel.m_Visible or panel.m_Culled then
+	if not panel.m_Visible or panel.m_Culled or panel.m_WorldHidden then
 		return nil
 	end
 
@@ -156,6 +157,51 @@ local function UpdateRootSize(self)
 	end
 
 	self.m_Root:SetSize(width, height)
+end
+
+-- The viewport size, or the reference resolution until the rendered area has been visible
+local function GetViewport(self)
+	if self.m_ViewportWidth then
+		return self.m_ViewportWidth, self.m_ViewportHeight
+	end
+
+	local reference = self.m_Canvas:GetReferenceResolution()
+	return reference.x, reference.y
+end
+
+local function CreateWorldView(self)
+	if self.m_Camera and self.m_ViewportWidth then
+		return WorldSpace.CreateView(self.m_Camera, self.m_ViewportWidth, self.m_ViewportHeight)
+	end
+
+	return nil
+end
+
+-- Places the panels anchored in the 3D world, parents first, before the mouse is hit-tested
+local function UpdateWorld(self, panel, view, deltaTime)
+	if panel.m_Removed or not panel.m_Visible then
+		return
+	end
+
+	if panel.UpdateWorld then
+		if not view and not self.m_Camera and not self.m_CameraWarningLogged then
+			Debug.LogWarning("UI: panels placed in the world stay hidden until controller:SetCamera is called")
+			self.m_CameraWarningLogged = true
+		end
+
+		panel:UpdateWorld(view, deltaTime)
+
+		-- OnTargetLost may remove the panel
+		if panel.m_Removed then
+			return
+		end
+	end
+
+	local children = Array.Copy(panel.m_Children)
+
+	for i = 1, #children do
+		UpdateWorld(self, children[i], view, deltaTime)
+	end
 end
 
 -- Callbacks run last: they may remove the panel they are called on
@@ -362,6 +408,8 @@ local function Release(self)
 	self.m_HeldKeys = {}
 	self.m_CanvasActor = nil
 	self.m_Canvas = nil
+	self.m_Camera = nil
+	self.m_WorldView = nil
 end
 
 --- Creates a controller on the given actor Canvas, or on a new canvas actor owned by the controller
@@ -418,6 +466,8 @@ function Controller:Update(deltaTime)
 
 	UpdateViewportSize(self)
 	UpdateRootSize(self)
+	self.m_WorldView = CreateWorldView(self)
+	UpdateWorld(self, root, self.m_WorldView, deltaTime)
 	UpdateMouse(self)
 	UpdateKeyboard(self, deltaTime)
 	Think(root, deltaTime)
@@ -430,6 +480,83 @@ function Controller:Update(deltaTime)
 
 	Paint(root)
 	UpdateCursorShape(self)
+end
+
+--- Defines the camera used to place panels in the 3D world, usually the camera rendering the scene.
+--- The engine picks the first active camera of the scene, which Lua can't query.
+---@param cameraActor Actor|nil
+function Controller:SetCamera(cameraActor)
+	assert(cameraActor == nil or cameraActor:GetCamera(), "UI: the actor given to SetCamera must hold a Camera")
+
+	self.m_Camera = cameraActor
+	self.m_WorldView = nil
+end
+
+---@return Actor|nil
+function Controller:GetCamera()
+	return self.m_Camera
+end
+
+--- Returns the camera state used to place the world panels this frame, or nil without a camera
+---@package
+---@return UIWorldView|nil
+function Controller:GetWorldView()
+	if not self.m_WorldView then
+		self.m_WorldView = CreateWorldView(self)
+	end
+
+	return self.m_WorldView
+end
+
+--- Converts a position in pixels of the rendered area into canvas space
+---@param x number
+---@param y number
+---@return number, number
+function Controller:ViewportToCanvas(x, y)
+	local width, height = GetViewport(self)
+	return CanvasSpace.ViewportToCanvas(self.m_Canvas, width, height, x, y)
+end
+
+--- Returns the number of pixels of the rendered area covered by one canvas unit
+---@return number
+function Controller:GetCanvasScale()
+	local width, height = GetViewport(self)
+	return CanvasSpace.GetScale(self.m_Canvas, width, height)
+end
+
+--- Projects a world position onto the canvas. Returns the canvas position and the depth in front of
+--- the camera, or nil when the position is behind the near plane or no camera is set.
+---@param position Vector3
+---@return number|nil, number|nil, number|nil
+function Controller:WorldToCanvas(position)
+	local view = self:GetWorldView()
+
+	if not view then
+		return nil
+	end
+
+	local viewportX, viewportY, depth = WorldSpace.Project(view, position.x, position.y, position.z)
+
+	if not viewportX then
+		return nil
+	end
+
+	local x, y = self:ViewportToCanvas(viewportX, viewportY)
+	return x, y, depth
+end
+
+--- Returns the number of canvas units covered by one world unit at the given depth, or nil without a
+--- camera
+---@param depth number
+---@return number|nil
+function Controller:GetCanvasUnitsPerWorldUnit(depth)
+	local view = self:GetWorldView()
+
+	if not view then
+		return nil
+	end
+
+	return WorldSpace.PixelsPerWorldUnit(view, depth) / self:GetCanvasScale()
 end
 
 --- Creates a panel of the given class, under the root panel when no parent is given

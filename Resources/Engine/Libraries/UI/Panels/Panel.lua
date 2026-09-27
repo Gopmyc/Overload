@@ -51,7 +51,7 @@ local function ApplySize(panel)
 end
 
 local function ApplyActive(panel)
-	panel.m_Actor:SetActive(panel.m_Visible and not panel.m_Culled)
+	panel.m_Actor:SetActive(panel.m_Visible and not panel.m_Culled and not panel.m_WorldHidden)
 end
 
 local function HasTransform(panel)
@@ -141,6 +141,7 @@ function Panel:Setup(controller, parent)
 	self.m_OriginX, self.m_OriginY = 0, 0
 	self.m_Visible = true
 	self.m_Culled = false
+	self.m_WorldHidden = false
 	self.m_Enabled = true
 	self.m_MouseInputEnabled = true
 	self.m_KeyboardInputEnabled = false
@@ -186,6 +187,40 @@ function Panel:SetCulled(culled)
 		self.m_Culled = culled
 		ApplyActive(self)
 	end
+end
+
+--- Hides the panel without changing its visibility, used by panels placed in the 3D world when
+--- their anchor isn't visible
+---@package
+---@param hidden boolean
+function Panel:SetWorldHidden(hidden)
+	hidden = hidden and true or false
+
+	if self.m_WorldHidden ~= hidden then
+		self.m_WorldHidden = hidden
+		ApplyActive(self)
+
+		if hidden then
+			self.m_Controller:ReleasePanel(self)
+		end
+	end
+end
+
+--- Moves the panel without invalidating the layout of its parent, for positions driven every frame
+---@package
+---@param x number
+---@param y number
+function Panel:SetDrivenPos(x, y)
+	if self.m_X ~= x or self.m_Y ~= y then
+		self.m_X, self.m_Y = x, y
+		ApplyPosition(self)
+	end
+end
+
+--- Applies the Z positions of the children, set beforehand, in a single pass
+---@package
+function Panel:ApplyChildrenZPos()
+	ReattachChildren(self)
 end
 
 --- Creates a panel of the given class as a child of this panel
