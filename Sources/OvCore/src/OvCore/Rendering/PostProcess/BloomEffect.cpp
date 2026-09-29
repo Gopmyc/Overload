@@ -60,8 +60,7 @@ OvCore::Rendering::PostProcess::BloomEffect::BloomEffect(OvRendering::Core::Comp
 		baregl::Framebuffer{"BloomSamplingBuffer7"},
 		baregl::Framebuffer{"BloomSamplingBuffer8"},
 		baregl::Framebuffer{"BloomSamplingBuffer9"}
-	},
-	m_bloomOutputBuffer{ "BloomOutputBuffer" }
+	}
 {
 	// Prepare sampling buffers (for downsampling and upsampling).
 	// We don't use a ping-pong buffer here, since we need to keep all the intermediate results.
@@ -70,15 +69,11 @@ OvCore::Rendering::PostProcess::BloomEffect::BloomEffect(OvRendering::Core::Comp
 		FramebufferUtil::SetupFramebuffer(buffer, kBloomTextureDesc, false, false);
 	}
 
-	// Prepare bloom output buffer.
-	FramebufferUtil::SetupFramebuffer(m_bloomOutputBuffer, kBloomTextureDesc, false, false);
-
 	auto& shaderManager = OVSERVICE(OvCore::ResourceManagement::ShaderManager);
 
 	m_downsamplingMaterial.SetShader(shaderManager[":Shaders\\PostProcess\\BloomDownsampling.ovfx"]);
 	m_upsamplingMaterial.SetShader(shaderManager[":Shaders\\PostProcess\\BloomUpsampling.ovfx"]);
 	m_bloomMaterial.SetShader(shaderManager[":Shaders\\PostProcess\\Bloom.ovfx"]);
-	m_blitMaterial.SetShader(shaderManager[":Shaders\\PostProcess\\Blit.ovfx"]);
 
 	// Since we want to use blending during the upsampling pass, we need to set up the material
 	// manually. The EBlitFlag::USE_MATERIAL_STATE_MASK will be used to enforce these settings.
@@ -146,11 +141,6 @@ void OvCore::Rendering::PostProcess::BloomEffect::Draw(
 		bloomMips.emplace_back(width, height, target);
 	}
 
-	// [PERF-P9] Full-res copy avoidable: downsample directly from p_src.
-	// First we want to copy the input image to another buffer to avoid modifying the original image.
-	// This could also be made into a filtering pass, so we can exclude low luminance pixels.
-	m_renderer.Blit(p_pso, p_src, m_bloomOutputBuffer, m_blitMaterial);
-
 	auto downsamplingPass = [&](
 		baregl::Framebuffer& p_src,
 		baregl::Framebuffer& p_dst,
@@ -160,9 +150,9 @@ void OvCore::Rendering::PostProcess::BloomEffect::Draw(
 		m_renderer.Blit(p_pso, p_src, p_dst, m_downsamplingMaterial, DEFAULT & ~RESIZE_DST_TO_MATCH_SRC);
 	};
 
-	// First downsample pass, using karis average filter
+	// First downsample pass (directly from the source image), using karis average filter
 	m_downsamplingMaterial.SetFeatures({ "KARIS_AVERAGE" });
-	downsamplingPass(m_bloomOutputBuffer, bloomMips[0].target, {
+	downsamplingPass(p_src, bloomMips[0].target, {
 		static_cast<float>(refX),
 		static_cast<float>(refY)
 	});
@@ -197,18 +187,17 @@ void OvCore::Rendering::PostProcess::BloomEffect::Draw(
 		m_renderer.Blit(upsamplingPSO, p_src, p_dst, m_upsamplingMaterial, (DEFAULT & ~RESIZE_DST_TO_MATCH_SRC) | USE_MATERIAL_STATE_MASK);
 	};
 
-	// Blur and upsample back to the original resolution
+	// Blur and upsample back to the first mip (half resolution)
 	for (int32_t i = passCount - 1; i > 0; --i)
 	{
 		upsamplingPass(bloomMips[i].target, bloomMips[i - 1].target);
 	}
 
-	// [PERF-P9] Full-res additive upsample: stop at mip 0 (half-res) and sample it bilinearly in the composite pass.
-	upsamplingPass(bloomMips[0].target, m_bloomOutputBuffer);
-
-	// Final pass, interpolate bloom result with the input image
-	const auto bloomTex = m_bloomOutputBuffer.GetAttachment<baregl::Texture>(baregl::types::EFramebufferAttachment::COLOR);
+	// Final pass: upsample the first mip to full resolution, and interpolate the bloom result with the input image.
+	// Doing the last upsampling step here avoids a copy of the input image and an additive pass at full resolution.
+	const auto bloomTex = bloomMips[0].target.GetAttachment<baregl::Texture>(baregl::types::EFramebufferAttachment::COLOR);
 	m_bloomMaterial.SetProperty("_BloomTexture", &bloomTex.value().get());
 	m_bloomMaterial.SetProperty("_BloomStrength", std::min(bloomSettings.intensity * 0.04f, 1.0f));
+	m_bloomMaterial.SetProperty("_FilterRadius", BloomConstants::kFilterRadius);
 	m_renderer.Blit(p_pso, p_src, p_dst, m_bloomMaterial);
 }
