@@ -180,7 +180,6 @@ void main()
     }
 #else
 
-    // [PERF-P6] discard is always compiled in (uniform threshold): degrades early-Z for all opaques. Make alpha clip/dither a #feature.
     if (albedo.a < u_AlphaClippingThreshold)
     {
         discard;
@@ -189,6 +188,13 @@ void main()
     if (u_AlphaDithering && Dithering(albedo.a, gl_FragCoord.xy) < 0)
     {
         discard;
+    }
+
+    // Depth pre-pass: only the depth (and the alpha testing above) matters
+    if (ubo_DepthOnly != 0)
+    {
+        FRAGMENT_COLOR = vec4(0.0);
+        return;
     }
 
 #if defined(NORMAL_MAPPING)

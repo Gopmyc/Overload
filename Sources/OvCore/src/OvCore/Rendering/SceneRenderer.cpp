@@ -61,6 +61,58 @@ namespace
 		bool m_stencilWrite;
 	};
 
+	/**
+	* Opaque drawables written to the depth buffer by the depth pre-pass
+	*/
+	bool IsDepthPrePassCandidate(const OvRendering::Entities::Drawable& p_drawable)
+	{
+		return p_drawable.stateMask.depthTest && p_drawable.stateMask.depthWriting;
+	}
+
+	/**
+	* Optional pass (see Camera::SetDepthPrePass) writing the depth of opaque drawables before they get shaded,
+	* so that the opaque pass only shades the visible fragments (no overdraw of expensive fragment shaders).
+	* The same shader programs are used in both passes, so the depth values match exactly.
+	*/
+	class DepthPrePassRenderPass : public OvRendering::Core::ARenderPass
+	{
+	public:
+		DepthPrePassRenderPass(OvRendering::Core::CompositeRenderer& p_renderer) :
+			OvRendering::Core::ARenderPass(p_renderer)
+		{
+		}
+
+	protected:
+		virtual void Draw(OvRendering::Data::PipelineState p_pso) override
+		{
+			ZoneScoped;
+			TracyGpuZone("DepthPrePassRenderPass");
+
+			if (!m_renderer.GetFrameDescriptor().camera->HasDepthPrePass())
+			{
+				return;
+			}
+
+			auto& engineBufferRenderFeature = m_renderer.GetFeature<EngineBufferRenderFeature>();
+			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
+
+			// Lets shaders skip their shading once alpha testing is done (see ubo_DepthOnly)
+			engineBufferRenderFeature.SetDepthOnly(true);
+
+			for (const auto& drawable : drawables.opaques | std::views::values)
+			{
+				if (IsDepthPrePassCandidate(drawable))
+				{
+					auto depthDrawable = drawable;
+					depthDrawable.stateMask.colorWriting = false;
+					m_renderer.DrawEntity(p_pso, depthDrawable);
+				}
+			}
+
+			engineBufferRenderFeature.SetDepthOnly(false);
+		}
+	};
+
 	class OpaqueRenderPass : public SceneRenderPass
 	{
 	public:
@@ -79,9 +131,25 @@ namespace
 
 			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
 
+			const bool depthPrePass = m_renderer.GetFrameDescriptor().camera->HasDepthPrePass();
+
+			// Drawables already written by the depth pre-pass only need to shade the fragments matching
+			// the depth buffer: no depth writes, so fragments shaders with discard don't prevent early depth testing.
+			auto prePassedPso = p_pso;
+			prePassedPso.depthFunc = baregl::types::EComparaisonAlgorithm::LESS_EQUAL;
+
 			for (const auto& drawable : drawables.opaques | std::views::values)
 			{
-				m_renderer.DrawEntity(p_pso, drawable);
+				if (depthPrePass && IsDepthPrePassCandidate(drawable))
+				{
+					auto shadedDrawable = drawable;
+					shadedDrawable.stateMask.depthWriting = false;
+					m_renderer.DrawEntity(prePassedPso, shadedDrawable);
+				}
+				else
+				{
+					m_renderer.DrawEntity(p_pso, drawable);
+				}
 			}
 		}
 	};
@@ -188,6 +256,7 @@ OvCore::Rendering::SceneRenderer::SceneRenderer(OvRendering::Context::Driver& p_
 
 	AddPass<ShadowRenderPass>("Shadows", ERenderPassOrder::Shadows);
 	AddPass<ReflectionRenderPass>("ReflectionRenderPass", ERenderPassOrder::Reflections);
+	AddPass<DepthPrePassRenderPass>("DepthPrePass", ERenderPassOrder::Opaque - 1);
 	AddPass<OpaqueRenderPass>("Opaques", ERenderPassOrder::Opaque, p_stencilWrite);
 	AddPass<TransparentRenderPass>("Transparents", ERenderPassOrder::Transparent, p_stencilWrite);
 	AddPass<PostProcessRenderPass>("Post-Process", ERenderPassOrder::PostProcessing);

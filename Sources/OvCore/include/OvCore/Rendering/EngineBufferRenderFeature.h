@@ -38,6 +38,12 @@ namespace OvCore::Rendering
 		*/
 		void SetCamera(const OvRendering::Entities::Camera& p_camera);
 
+		/**
+		* Defines if the next draws only write depth (depth pre-pass), exposed to shaders as ubo_DepthOnly
+		* @param p_depthOnly
+		*/
+		void SetDepthOnly(bool p_depthOnly);
+
 	protected:
 		virtual void OnBeginFrame(const OvRendering::Data::FrameDescriptor& p_frameDescriptor) override;
 		virtual void OnEndFrame() override;
@@ -57,6 +63,8 @@ namespace OvCore::Rendering
 			OvMaths::FMatrix4 userMatrix;
 			OvMaths::FMatrix4 viewProjection;
 			OvMaths::FMatrix4 normalMatrix;
+			int32_t depthOnly;
+			int32_t padding[3]; // std140 blocks are padded to 16 bytes
 		};
 
 		std::chrono::high_resolution_clock::time_point m_startTime;

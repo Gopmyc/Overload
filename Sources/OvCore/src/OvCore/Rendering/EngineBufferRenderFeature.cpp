@@ -57,7 +57,7 @@ OvCore::Rendering::EngineBufferRenderFeature::EngineBufferRenderFeature(
 ) : 
 	ARenderFeature(p_renderer, p_executionPolicy)
 {
-	static_assert(sizeof(EngineUBO) == 400, "EngineUBO must match the std140 layout of EngineUBO.ovfxh");
+	static_assert(sizeof(EngineUBO) == 416, "EngineUBO must match the std140 layout of EngineUBO.ovfxh");
 	m_startTime = std::chrono::high_resolution_clock::now();
 }
 
@@ -67,6 +67,12 @@ void OvCore::Rendering::EngineBufferRenderFeature::SetCamera(const OvRendering::
 	m_data.projection = OvMaths::FMatrix4::Transpose(p_camera.GetProjectionMatrix());
 	m_data.viewProjection = OvMaths::FMatrix4::Transpose(p_camera.GetProjectionMatrix() * p_camera.GetViewMatrix());
 	m_data.viewPos = p_camera.GetPosition();
+	m_dirty = true;
+}
+
+void OvCore::Rendering::EngineBufferRenderFeature::SetDepthOnly(bool p_depthOnly)
+{
+	m_data.depthOnly = p_depthOnly ? 1 : 0;
 	m_dirty = true;
 }
 

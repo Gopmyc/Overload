@@ -211,9 +211,11 @@ void BindLuaComponents(sol::state& p_luaState)
 		"SetClearColor", &CCamera::SetClearColor,
 		"HasFrustumGeometryCulling", &CCamera::HasFrustumGeometryCulling,
 		"HasFrustumLightCulling", &CCamera::HasFrustumLightCulling,
+		"HasDepthPrePass", &CCamera::HasDepthPrePass,
 		"GetProjectionMode", &CCamera::GetProjectionMode,
 		"SetFrustumGeometryCulling", &CCamera::SetFrustumGeometryCulling,
 		"SetFrustumLightCulling", &CCamera::SetFrustumLightCulling,
+		"SetDepthPrePass", &CCamera::SetDepthPrePass,
 		"SetProjectionMode", &CCamera::SetProjectionMode
 	);
 
