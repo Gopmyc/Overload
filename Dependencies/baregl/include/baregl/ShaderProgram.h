@@ -83,6 +83,16 @@ namespace baregl
 		void Unbind() const;
 
 		/**
+		* Sends a uniform value to the GPU, using the location stored in the given uniform info
+		* (avoids the name lookup of the name-based overload).
+		* @note The shader program must be bound before calling SetUniform
+		* @param p_uniform (as returned by GetUniformInfo)
+		* @param p_value
+		*/
+		template<SupportedUniformType T>
+		void SetUniform(const data::UniformInfo& p_uniform, const T& p_value);
+
+		/**
 		* Sends a uniform value associated with the given name to the GPU.
 		* @note The shader program must be bound before calling SetUniform
 		* @param p_name
