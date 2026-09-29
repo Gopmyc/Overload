@@ -114,6 +114,7 @@ void OvCore::Rendering::ReflectionRenderPass::_DrawReflections(
 {
 	auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneDrawablesDescriptor>();
 
+	// [PERF-P2] FilterDrawables (copies + multimap) runs again for every face of every probe, plus one more copy per drawable below.
 	const auto filteredDrawables = static_cast<SceneRenderer&>(m_renderer).FilterDrawables(
 		drawables,
 		SceneRenderer::SceneDrawablesFilteringInput{

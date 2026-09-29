@@ -36,6 +36,7 @@ namespace
 			.magFilter = p_magFilter,
 			.horizontalWrap = p_horizontalWrapMode,
 			.verticalWrap = p_verticalWrapMode,
+			// [PERF-P10] Uncompressed textures (RGBA8 / RGBA32F), single-channel maps stored as RGBA8, no sRGB format: use BCn + ORM packing.
 			.internalFormat = p_hdr ? EInternalFormat::RGBA32F : EInternalFormat::RGBA8,
 			.useMipMaps = p_generateMipmap
 		});

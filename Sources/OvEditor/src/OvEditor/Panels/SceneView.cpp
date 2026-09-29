@@ -196,6 +196,7 @@ void OvEditor::Panels::SceneView::HandleActorPicking()
 
 	if (!m_gizmoOperations.IsPicking() && IsHovered() && !IsResizing())
 	{
+		// [PERF-P11] (editor) synchronous glReadPixels on every hovered frame, right after a full picking re-render: CPU/GPU stall.
 		const auto pickingResult = GetPickingResult();
 
 		m_highlightedActor = {};

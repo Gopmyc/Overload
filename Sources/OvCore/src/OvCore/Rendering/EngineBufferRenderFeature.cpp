@@ -94,6 +94,7 @@ void OvCore::Rendering::EngineBufferRenderFeature::OnBeforeDraw(OvRendering::Dat
 	{
 		const auto modelMatrix = OvMaths::FMatrix4::Transpose(descriptor->modelMatrix);
 		
+		// [PERF-P1] 2 glNamedBufferSubData per draw on a UBO still in use by previous draws (implicit sync/renaming). Use a per-frame object SSBO + instancing/MDI.
 		// Upload model matrix (First matrix in the UBO)
 		m_engineBuffer->Upload(&modelMatrix, baregl::data::BufferMemoryRange{
 			.offset = 0,

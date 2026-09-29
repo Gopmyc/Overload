@@ -53,6 +53,7 @@ void OvCore::Rendering::ShadowRenderPass::Draw(OvRendering::Data::PipelineState 
 
 	auto pso = m_renderer.CreatePipelineState();
 
+	// [PERF-P5] lightIndex is never incremented: every shadow-casting directional light re-renders the whole scene (only one shadow map is used).
 	uint8_t lightIndex = 0;
 
 	for (auto lightReference : lightingDescriptor.lights)
@@ -100,6 +101,7 @@ void OvCore::Rendering::ShadowRenderPass::_DrawShadows(
 {
 	using namespace OvCore::Rendering;
 
+	// [PERF-P5] No caster culling against the light frustum, no material sorting; the scene is walked again instead of reusing SceneDrawablesDescriptor.
 	for (auto modelRenderer : p_scene.GetFastAccessComponents().modelRenderers)
 	{
 		auto& actor = modelRenderer->owner;

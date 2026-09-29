@@ -31,6 +31,7 @@ namespace
 		.magFilter = baregl::types::ETextureFilteringMode::LINEAR,
 		.horizontalWrap = baregl::types::ETextureWrapMode::CLAMP_TO_EDGE,
 		.verticalWrap = baregl::types::ETextureWrapMode::CLAMP_TO_EDGE,
+		// [PERF-P3] Bloom chain in RGBA32F: R11F_G11F_B10F is enough.
 		.internalFormat = baregl::types::EInternalFormat::RGBA32F,
 		.useMipMaps = false,
 		.mutableDesc = baregl::data::MutableTextureDesc{
@@ -146,6 +147,7 @@ void OvCore::Rendering::PostProcess::BloomEffect::Draw(
 		bloomMips.emplace_back(width, height, target);
 	}
 
+	// [PERF-P9] Full-res copy avoidable: downsample directly from p_src.
 	// First we want to copy the input image to another buffer to avoid modifying the original image.
 	// This could also be made into a filtering pass, so we can exclude low luminance pixels.
 	m_renderer.Blit(p_pso, p_src, m_bloomOutputBuffer, m_blitMaterial);
@@ -202,6 +204,7 @@ void OvCore::Rendering::PostProcess::BloomEffect::Draw(
 		upsamplingPass(bloomMips[i].target, bloomMips[i - 1].target);
 	}
 
+	// [PERF-P9] Full-res additive upsample: stop at mip 0 (half-res) and sample it bilinearly in the composite pass.
 	upsamplingPass(bloomMips[0].target, m_bloomOutputBuffer);
 
 	// Final pass, interpolate bloom result with the input image

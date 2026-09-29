@@ -99,6 +99,7 @@ void OvCore::Rendering::SkinningRenderFeature::OnBeforeDraw(
 			skinningBuffer.Allocate(uploadSize, baregl::types::EAccessSpecifier::STREAM_DRAW);
 		}
 
+		// [PERF-P1] Every skinned mesh overwrites offset 0 of the same SSBO within the frame. Pack all palettes in one per-frame buffer (glBindBufferRange).
 		skinningBuffer.Upload(skinningDescriptor->matrices, baregl::data::BufferMemoryRange{
 			.offset = 0,
 			.size = uploadSize

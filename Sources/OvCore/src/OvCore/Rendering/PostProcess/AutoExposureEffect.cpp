@@ -88,6 +88,7 @@ void OvCore::Rendering::PostProcess::AutoExposureEffect::Draw(
 	m_exposureMaterial.SetProperty("_SpeedDown", autoExposureSettings.speedDown, true);
 	m_renderer.Blit(p_pso, previousExposure, currentExposure, m_exposureMaterial);
 
+	// [PERF-P9] Dedicated full-screen pass for exposure: can be folded into tonemapping (sample the exposure texture there).
 	// Apply the exposure to the final image
 	const auto exposureTex = currentExposure.GetAttachment<baregl::Texture>(baregl::types::EFramebufferAttachment::COLOR);
 	m_compensationMaterial.SetProperty("_ExposureTexture", &exposureTex.value().get(), true);

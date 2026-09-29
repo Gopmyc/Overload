@@ -47,6 +47,7 @@ void main()
 
     vs_out.FragPos = vec3(modelMatrix * vec4(geo_Pos, 1.0));
     vs_out.TexCoords = geo_TexCoords;
+    // [PERF-P7] mat4 inverse() per vertex + Projection*View per vertex (gl_Position below): compute normal matrix and viewProj on the CPU.
     vs_out.Normal = normalize(mat3(transpose(inverse(modelMatrix))) * geo_Normal);
     vs_out.TBN = ConstructTBN(modelMatrix, geo_Normal, geo_Tangent, geo_Bitangent);
 
@@ -172,12 +173,14 @@ void main()
     albedo.a *= texture(u_MaskMap, texCoords).r;
 
 #if defined(SHADOW_PASS)
+    // [PERF-P5] The shadow pass samples 2 textures and always contains a discard, even for fully opaque materials.
     if (albedo.a < u_ShadowClippingThreshold)
     {
         discard;
     }
 #else
 
+    // [PERF-P6] discard is always compiled in (uniform threshold): degrades early-Z for all opaques. Make alpha clip/dither a #feature.
     if (albedo.a < u_AlphaClippingThreshold)
     {
         discard;

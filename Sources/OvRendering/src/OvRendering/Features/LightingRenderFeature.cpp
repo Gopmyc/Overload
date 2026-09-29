@@ -57,6 +57,7 @@ void OvRendering::Features::LightingRenderFeature::OnBeginFrame(const Data::Fram
 		lightDescriptor.frustumOverride :
 		frameDescriptor.camera->GetLightFrustum();
 
+	// [PERF-P4] Only a global frustum cull is done; no per-cluster / per-object light list is built.
 	for (auto light : lightDescriptor.lights)
 	{
 		if (!frustum || IsLightInFrustum(light.get(), frustum.value()))

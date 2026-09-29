@@ -73,6 +73,7 @@ namespace OvCore::Rendering::FramebufferUtil
 			.magFilter = ETextureFilteringMode::LINEAR,
 			.horizontalWrap = ETextureWrapMode::CLAMP_TO_BORDER,
 			.verticalWrap = ETextureWrapMode::CLAMP_TO_BORDER,
+			// [PERF-P3] RGBA32F (16 B/px) for the main color buffer and post-process: RGBA16F (8 B) or R11F_G11F_B10F (4 B) is enough.
 			.internalFormat = EInternalFormat::RGBA32F,
 			.useMipMaps = p_useMipMaps,
 			.mutableDesc = MutableTextureDesc{

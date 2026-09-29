@@ -80,6 +80,7 @@ OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Rendering::Picki
 {
 	uint8_t pixel[3];
 
+	// [PERF-P11] Synchronous readback: use a PBO + fence (read frame N-1) and/or render only a 1x1 scissor around the cursor.
 	m_actorPickingFramebuffer.ReadPixels(
 		p_x, p_y, 1, 1,
 		baregl::types::EPixelDataFormat::RGB,

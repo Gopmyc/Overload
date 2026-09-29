@@ -181,6 +181,7 @@ void OvRendering::Context::Driver::Draw(
 {
 	ZoneScoped;
 
+	// [PERF-P1] One draw call per Drawable: no automatic instancing / MultiDrawIndirect, VAO bound and unbound on every draw.
 	if (p_instances > 0)
 	{
 		SetPipelineState(p_pso);

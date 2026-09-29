@@ -105,6 +105,7 @@ void OvRendering::Core::CompositeRenderer::DrawEntity(
 	}
 
 	const auto& currentPass = m_currentPass.value();
+	// [PERF-P8] type_index hashing for every feature, before AND after every draw.
 	const auto& passTypeId = typeid(currentPass);
 
 	for (const auto& feature : m_features | std::views::values)

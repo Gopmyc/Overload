@@ -276,6 +276,7 @@ SceneRenderer::SceneDrawablesDescriptor OvCore::Rendering::SceneRenderer::ParseS
 		if (!owner.IsActive()) continue;
 		const auto model = modelRenderer->GetModel();
 		if (!model) continue;
+		// [PERF-P2] GetComponent = linear scan + dynamic_pointer_cast (x2 per actor per frame, done again in ShadowRenderPass).
 		const auto materialRenderer = modelRenderer->owner.GetComponent<CMaterialRenderer>();
 		if (!materialRenderer) continue;
 		const auto* skinnedRenderer = owner.GetComponent<CSkinnedMeshRenderer>();
@@ -327,6 +328,7 @@ SceneRenderer::SceneDrawablesDescriptor OvCore::Rendering::SceneRenderer::ParseS
 				SkinningUtils::ApplyDescriptor(drawable, *skinnedRenderer);
 			}
 
+			// [PERF-P2] Deep copy of each Drawable, no reserve(); the whole scene is re-parsed every frame and for every view.
 			result.drawables.push_back(drawable);
 		}
 	}
@@ -412,6 +414,7 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		// At this point we want to copy the drawable to avoid modifying the original one.
 		// The copy will use the updated material.
 		// At this point, the filtered drawable should be guaranteed to have a valid material.
+		// [PERF-P2] 2 deep copies per visible drawable (here + emplace below) + 1 multimap node. Prefer a vector of indices + 64-bit sort keys.
 		auto drawableCopy = drawable;
 		drawableCopy.material = targetMaterial;
 		drawableCopy.stateMask = targetMaterial->GenerateStateMask();

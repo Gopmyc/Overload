@@ -28,6 +28,7 @@ void OvCore::Rendering::ShadowRenderFeature::OnBeforeDraw(OvRendering::Data::Pip
 	auto& material = p_drawable.material.value();
 
 	// Skip materials that aren't properly set to receive shadows.
+	// [PERF-P8] String lookups + single-use SetProperty on every draw force a shadow map + matrix upload per draw. Frame-global data: bind once per pass (UBO).
 	if (!material.IsShadowReceiver() || !material.HasProperty("_ShadowMap") || !material.HasProperty("_LightSpaceMatrix"))
 	{
 		return;
@@ -47,6 +48,7 @@ void OvCore::Rendering::ShadowRenderFeature::OnBeforeDraw(OvRendering::Data::Pip
 
 		if (lightIndex >= kMaxShadowMaps)
 		{
+			// [PERF-P5] Logged on EVERY draw as soon as more than one directional light casts shadows.
 			OVLOG_WARNING("ShadowRenderFeature does not support more than one shadow casting directional light at the moment");
 			continue;
 		}

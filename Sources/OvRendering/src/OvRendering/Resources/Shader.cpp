@@ -25,6 +25,7 @@ baregl::ShaderProgram& OvRendering::Resources::Shader::GetVariant(std::optional<
 {
 	ZoneScoped;
 
+	// [PERF-P8] Called on every draw: std::string construction + hashing every string of the FeatureSet + unordered_set comparison.
 	const std::string pass{ p_pass.value_or("") };
 
 	auto passIt = m_variants.find(pass);

@@ -221,6 +221,7 @@ void OvRendering::Data::Material::UploadProperties(
 		if (!uploadStableProperties && !prop.singleUse) continue;
 		if (!uploadSingleUseProperties && prop.singleUse) continue;
 
+		// [PERF-P8] 3 string-keyed lookups per property (GetUniformInfo = contains + at, then SetUniform = find).
 		const auto uniformData = program.GetUniformInfo(name);
 
 		// Skip this property if the current program isn't using its associated uniform

@@ -67,6 +67,7 @@ namespace OvRendering::Data
 		bool TryGetDescriptor(OvTools::Utils::OptRef<const T>& p_outDescriptor) const;
 
 	private:
+		// [PERF-P2] type_index hashing (= mangled-name string hash) + heap-allocated std::any: several allocations per Drawable, duplicated on every copy.
 		std::unordered_map<std::type_index, std::any> m_descriptors;
 	};
 }

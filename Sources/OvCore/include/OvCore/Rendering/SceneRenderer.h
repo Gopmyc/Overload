@@ -50,6 +50,7 @@ namespace OvCore::Rendering
 			{
 				if (order == p_other.order)
 				{
+					// [PERF-P6] Material is sorted BEFORE distance: front-to-back only applies within a material, and there is no depth pre-pass.
 					if constexpr (BatchMaterial)
 					{
 						if (materialKey != p_other.materialKey)

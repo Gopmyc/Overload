@@ -64,6 +64,7 @@ void OvCore::Rendering::PostProcessRenderPass::Draw(OvRendering::Data::PipelineS
 	{
 		auto& framebuffer = m_renderer.GetFrameDescriptor().outputBuffer.value();
 
+		// [PERF-P9] Full-screen copy in (and out, below) avoidable: first effect can read the output buffer, last one can write into it.
 		m_renderer.Blit(p_pso, framebuffer, m_pingPongBuffers[0], m_blitMaterial);
 
 		for (auto& effect : m_effects)
