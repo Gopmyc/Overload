@@ -146,6 +146,11 @@ void OvRendering::Context::Driver::SetViewport(uint32_t p_x, uint32_t p_y, uint3
 	m_gfxContext->SetViewport(p_x, p_y, p_width, p_height);
 }
 
+void OvRendering::Context::Driver::SetScissor(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height)
+{
+	m_gfxContext->SetScissor(p_x, p_y, p_width, p_height);
+}
+
 void OvRendering::Context::Driver::Clear(
 	bool p_colorBuffer,
 	bool p_depthBuffer,
