@@ -31,8 +31,7 @@ namespace
 		.magFilter = baregl::types::ETextureFilteringMode::LINEAR,
 		.horizontalWrap = baregl::types::ETextureWrapMode::CLAMP_TO_EDGE,
 		.verticalWrap = baregl::types::ETextureWrapMode::CLAMP_TO_EDGE,
-		// [PERF-P3] Bloom chain in RGBA32F: R11F_G11F_B10F is enough.
-		.internalFormat = baregl::types::EInternalFormat::RGBA32F,
+		.internalFormat = baregl::types::EInternalFormat::R11F_G11F_B10F, // Bloom only needs RGB (4 bytes per pixel)
 		.useMipMaps = false,
 		.mutableDesc = baregl::data::MutableTextureDesc{
 			.format = baregl::types::EFormat::RGBA,

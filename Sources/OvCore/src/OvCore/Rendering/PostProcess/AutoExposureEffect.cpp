@@ -22,11 +22,13 @@ OvCore::Rendering::PostProcess::AutoExposureEffect::AutoExposureEffect(
 {
 	for (auto& buffer : m_exposurePingPongBuffer.GetFramebuffers())
 	{
+		// Full precision is required: progressive adaptation accumulates very small steps.
 		FramebufferUtil::SetupFramebuffer(
 			buffer,
 			kExposureBufferResolution,
 			kExposureBufferResolution,
-			false, false, false
+			false, false, false,
+			baregl::types::EInternalFormat::RGBA32F
 		);
 	}
 
@@ -35,7 +37,8 @@ OvCore::Rendering::PostProcess::AutoExposureEffect::AutoExposureEffect(
 		kLuminanceBufferResolution,
 		kLuminanceBufferResolution,
 		false, false,
-		true // <-- use mipmaps
+		true, // <-- use mipmaps
+		baregl::types::EInternalFormat::RGBA32F
 	);
 
 	m_luminanceMaterial.SetShader(OVSERVICE(OvCore::ResourceManagement::ShaderManager)[":Shaders\\PostProcess\\Luminance.ovfx"]);
