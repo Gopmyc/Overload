@@ -11,6 +11,7 @@
 #include <baregl/data/TextureDesc.h>
 #include <baregl/types/EImageAccessSpecifier.h>
 #include <baregl/types/EInternalFormat.h>
+#include <baregl/types/ETextureSwizzle.h>
 #include <baregl/types/ETextureType.h>
 
 #include <optional>
@@ -102,6 +103,21 @@ namespace baregl
 		* Generates mipmaps for the texture.
 		*/
 		void GenerateMipmaps() const;
+
+		/**
+		* Defines where each component of the texture comes from when it is sampled.
+		* Useful to store single-channel data (e.g. R8) while sampling it as RGBA.
+		* @param p_r
+		* @param p_g
+		* @param p_b
+		* @param p_a
+		*/
+		void SetSwizzle(
+			types::ETextureSwizzle p_r,
+			types::ETextureSwizzle p_g,
+			types::ETextureSwizzle p_b,
+			types::ETextureSwizzle p_a
+		);
 
 		/**
 		* Sets the border color for the texture.
