@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include <memory>
 #include <typeindex>
-#include <any>
+#include <utility>
+#include <vector>
 
 #include <OvRendering/Entities/Camera.h>
 
@@ -67,8 +69,21 @@ namespace OvRendering::Data
 		bool TryGetDescriptor(OvTools::Utils::OptRef<const T>& p_outDescriptor) const;
 
 	private:
-		// [PERF-P2] type_index hashing (= mangled-name string hash) + heap-allocated std::any: several allocations per Drawable, duplicated on every copy.
-		std::unordered_map<std::type_index, std::any> m_descriptors;
+		// Descriptors are immutable once added (they can only be replaced), so their storage
+		// is shared between copies: copying a Describable (e.g. a Drawable) doesn't deep copy them.
+		// The heap storage also keeps references returned by GetDescriptor() valid when adding descriptors.
+		using DescriptorEntry = std::pair<std::type_index, std::shared_ptr<const void>>;
+
+		std::vector<DescriptorEntry>::iterator FindDescriptor(std::type_index p_type);
+		std::vector<DescriptorEntry>::const_iterator FindDescriptor(std::type_index p_type) const;
+
+		template<typename T>
+		void EmplaceDescriptor(T&& p_descriptor);
+
+	private:
+		// Objects only hold a handful of descriptors: a flat vector avoids hashing type names
+		// on every lookup, and the node allocations of a hash map (Drawables are created every frame).
+		std::vector<DescriptorEntry> m_descriptors;
 	};
 }
 

@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <algorithm>
 #include <ranges>
 #include <string>
 #include <tracy/Tracy.hpp>
@@ -269,14 +270,17 @@ SceneRenderer::SceneDrawablesDescriptor OvCore::Rendering::SceneRenderer::ParseS
 	SceneRenderer::SceneDrawablesDescriptor result;
 
 	const auto& scene = p_input.scene;
+	const auto& modelRenderers = scene.GetFastAccessComponents().modelRenderers;
 
-	for (const auto modelRenderer : scene.GetFastAccessComponents().modelRenderers)
+	// At least one drawable per model renderer
+	result.drawables.reserve(modelRenderers.size());
+
+	for (const auto modelRenderer : modelRenderers)
 	{
 		auto& owner = modelRenderer->owner;
 		if (!owner.IsActive()) continue;
 		const auto model = modelRenderer->GetModel();
 		if (!model) continue;
-		// [PERF-P2] GetComponent = linear scan + dynamic_pointer_cast (x2 per actor per frame, done again in ShadowRenderPass).
 		const auto materialRenderer = modelRenderer->owner.GetComponent<CMaterialRenderer>();
 		if (!materialRenderer) continue;
 		const auto* skinnedRenderer = owner.GetComponent<CSkinnedMeshRenderer>();
@@ -328,8 +332,7 @@ SceneRenderer::SceneDrawablesDescriptor OvCore::Rendering::SceneRenderer::ParseS
 				SkinningUtils::ApplyDescriptor(drawable, *skinnedRenderer);
 			}
 
-			// [PERF-P2] Deep copy of each Drawable, no reserve(); the whole scene is re-parsed every frame and for every view.
-			result.drawables.push_back(drawable);
+			result.drawables.push_back(std::move(drawable));
 		}
 	}
 
@@ -346,6 +349,9 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 	using namespace OvCore::ECS::Components;
 
 	SceneFilteredDrawablesDescriptor output;
+
+	// Most drawables are opaque
+	output.opaques.reserve(p_drawables.drawables.size());
 
 	const auto& camera = p_filteringInput.camera;
 	const auto& frustumOverride = p_filteringInput.frustumOverride;
@@ -414,7 +420,6 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		// At this point we want to copy the drawable to avoid modifying the original one.
 		// The copy will use the updated material.
 		// At this point, the filtered drawable should be guaranteed to have a valid material.
-		// [PERF-P2] 2 deep copies per visible drawable (here + emplace below) + 1 multimap node. Prefer a vector of indices + 64-bit sort keys.
 		auto drawableCopy = drawable;
 		drawableCopy.material = targetMaterial;
 		drawableCopy.stateMask = targetMaterial->GenerateStateMask();
@@ -433,33 +438,40 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		}
 
 		// Categorize drawable based on their type.
-		// This is also where sorting happens, using
-		// the multimap key.
-		if (drawableCopy.material->IsUserInterface())
-		{
-			output.ui.emplace(decltype(decltype(output.ui)::value_type::first){
-				.order = drawableCopy.material->GetDrawOrder(),
-				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
+		// Sorting happens once all the drawables are gathered.
+		auto& material = drawableCopy.material.value();
+
+		const auto drawOrder = [&]<typename TKey>(TKey) {
+			return TKey{
+				.order = material.GetDrawOrder(),
+				.materialKey = reinterpret_cast<uintptr_t>(&material),
 				.distance = distanceToCamera
-			}, drawableCopy);
+			};
+		};
+
+		if (material.IsUserInterface())
+		{
+			output.ui.emplace_back(drawOrder(decltype(output.ui)::value_type::first_type{}), std::move(drawableCopy));
 		}
-		else if (drawableCopy.material->IsBlendable())
+		else if (material.IsBlendable())
 		{
-			output.transparents.emplace(decltype(decltype(output.transparents)::value_type::first){
-				.order = drawableCopy.material->GetDrawOrder(),
-				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
-				.distance = distanceToCamera
-			}, drawableCopy);
+			output.transparents.emplace_back(drawOrder(decltype(output.transparents)::value_type::first_type{}), std::move(drawableCopy));
 		}
 		else
 		{
-			output.opaques.emplace(decltype(decltype(output.opaques)::value_type::first){
-				.order = drawableCopy.material->GetDrawOrder(),
-				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
-				.distance = distanceToCamera
-			}, drawableCopy);
+			output.opaques.emplace_back(drawOrder(decltype(output.opaques)::value_type::first_type{}), std::move(drawableCopy));
 		}
 	}
+
+	const auto sortByDrawOrder = [](auto& p_drawables) {
+		std::stable_sort(p_drawables.begin(), p_drawables.end(), [](const auto& p_lhs, const auto& p_rhs) {
+			return p_lhs.first < p_rhs.first;
+		});
+	};
+
+	sortByDrawOrder(output.opaques);
+	sortByDrawOrder(output.transparents);
+	sortByDrawOrder(output.ui);
 
 	return output;
 }

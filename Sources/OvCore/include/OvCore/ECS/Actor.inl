@@ -61,14 +61,12 @@ namespace OvCore::ECS
 	{
 		static_assert(std::is_base_of<Components::AComponent, T>::value, "T should derive from AComponent");
 
-		std::shared_ptr<T> result(nullptr);
-
-		for (auto it = m_components.begin(); it != m_components.end(); ++it)
+		// Casting the raw pointers avoids the atomic reference counting of std::dynamic_pointer_cast
+		for (const auto& component : m_components)
 		{
-			result = std::dynamic_pointer_cast<T>(*it);
-			if (result)
+			if (auto result = dynamic_cast<T*>(component.get()))
 			{
-				return result.get();
+				return result;
 			}
 		}
 
