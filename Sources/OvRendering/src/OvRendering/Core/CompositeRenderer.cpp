@@ -53,6 +53,18 @@ void OvRendering::Core::CompositeRenderer::DrawFrame()
 	{
 		m_currentPass = pass.second.get();
 
+		m_currentPassFeatures.clear();
+		const auto& passRef = *pass.second;
+		const std::type_index passType = typeid(passRef);
+
+		for (const auto& feature : m_features | std::views::values)
+		{
+			if (feature->IsEnabledFor(passType))
+			{
+				m_currentPassFeatures.push_back(feature.get());
+			}
+		}
+
 		m_frameDescriptor.outputBuffer.value().Bind();
 		SetViewport(0, 0, m_frameDescriptor.renderWidth, m_frameDescriptor.renderHeight);
 
@@ -62,6 +74,7 @@ void OvRendering::Core::CompositeRenderer::DrawFrame()
 		}
 
 		m_currentPass.reset();
+		m_currentPassFeatures.clear();
 	}
 }
 
@@ -104,25 +117,17 @@ void OvRendering::Core::CompositeRenderer::DrawEntity(
 		return;
 	}
 
-	const auto& currentPass = m_currentPass.value();
-	// [PERF-P8] type_index hashing for every feature, before AND after every draw.
-	const auto& passTypeId = typeid(currentPass);
+	OVASSERT(m_currentPass.has_value(), "Cannot draw an entity outside of a render pass");
 
-	for (const auto& feature : m_features | std::views::values)
+	for (const auto feature : m_currentPassFeatures)
 	{
-		if (feature->IsEnabledFor(passTypeId))
-		{
-			feature->OnBeforeDraw(p_pso, p_drawable);
-		}
+		feature->OnBeforeDraw(p_pso, p_drawable);
 	}
 
 	ABaseRenderer::DrawEntity(p_pso, p_drawable);
-	
-	for (const auto& feature : m_features | std::views::values)
+
+	for (const auto feature : m_currentPassFeatures)
 	{
-		if (feature->IsEnabledFor(passTypeId))
-		{
-			feature->OnAfterDraw(p_drawable);
-		}
+		feature->OnAfterDraw(p_drawable);
 	}
 }

@@ -7,8 +7,10 @@
 #pragma once
 
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <variant>
+#include <vector>
 
 #include <baregl/Texture.h>
 
@@ -143,7 +145,7 @@ namespace OvRendering::Data
 		* @param p_value
 		* @param p_singleUse (automatically consume the value after the first use)
 		*/
-		void SetProperty(const std::string p_name, const MaterialPropertyType& p_value, bool p_singleUse = false);
+		void SetProperty(const std::string& p_name, const MaterialPropertyType& p_value, bool p_singleUse = false);
 
 		/**
 		* Sets a material property value if the property exists
@@ -341,8 +343,9 @@ namespace OvRendering::Data
 
 		/**
 		* Returns the feature set of this material
+		* @note Use SetFeatures, AddFeature or RemoveFeature to modify it
 		*/
-		Data::FeatureSet& GetFeatures();
+		const Data::FeatureSet& GetFeatures() const;
 
 		/**
 		* Defines the feature set this material should use
@@ -399,6 +402,13 @@ namespace OvRendering::Data
 	protected:
 		void InvalidatePropertySignature();
 
+		void AssignProperty(MaterialProperty& p_property, const MaterialPropertyType& p_value, bool p_singleUse);
+
+		baregl::ShaderProgram& FindVariant(
+			std::optional<const std::string_view> p_pass,
+			OvTools::Utils::OptRef<const Data::FeatureSet> p_featureSetOverride
+		);
+
 		MaterialSignatureSet CalculateSignature(
 			baregl::ShaderProgram& p_selectedProgram,
 			baregl::Texture* p_emptyTexture2D = nullptr,
@@ -412,6 +422,20 @@ namespace OvRendering::Data
 		size_t m_stablePropertySignatureVersion = 0ULL;
 		size_t m_singleUsePropertySignatureVersion = 0ULL;
 		OvTools::Utils::OptRef<baregl::ShaderProgram> m_programInUse = std::nullopt;
+
+		// Programs resolved for each pass (without feature set override), to avoid hashing the
+		// feature set on every draw. Invalidated when the shader, its variants or the features change.
+		struct VariantCacheEntry
+		{
+			std::string pass;
+			baregl::ShaderProgram* program;
+		};
+
+		std::vector<VariantCacheEntry> m_variantCache;
+		const OvRendering::Resources::Shader* m_variantCacheShader = nullptr;
+		uint64_t m_variantCacheShaderVersion = 0;
+		uint64_t m_variantCacheFeaturesVersion = 0;
+		uint64_t m_featuresVersion = 0;
 
 		bool m_supportOrthographic = true;
 		bool m_supportPerspective = true;

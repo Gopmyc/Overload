@@ -202,7 +202,6 @@ void OvCore::Rendering::ReflectionRenderFeature::OnBeforeDraw(OvRendering::Data:
 	const auto& reflectionDescriptor = m_renderer.GetDescriptor<ReflectionRenderFeature::ReflectionDescriptor>();
 	const auto& engineDrawableDesc = p_drawable.GetDescriptor<OvCore::Rendering::EngineDrawableDescriptor>();
 
-	// [PERF-P8] O(probe count) search + SetProperty on every draw; could be resolved once per object per frame.
 	// Find the probe that is best suited for this drawable.
 	auto targetProbe = FindBestReflectionProbe(
 		p_drawable,

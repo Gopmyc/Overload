@@ -72,6 +72,12 @@ namespace OvRendering::Resources
 		*/
 		const Variants& GetVariants() const;
 
+		/**
+		* Returns a counter incremented every time the variants are replaced (e.g. shader recompilation).
+		* Programs previously returned by GetVariant() must not be used after it changed.
+		*/
+		uint64_t GetVariantsVersion() const;
+
 	private:
 		Shader(
 			const std::string p_path,
@@ -90,5 +96,6 @@ namespace OvRendering::Resources
 		Data::FeatureSet m_features;
 		Data::FeatureSet m_engineFeatures;
 		Variants m_variants;
+		uint64_t m_variantsVersion = 0;
 	};
 }

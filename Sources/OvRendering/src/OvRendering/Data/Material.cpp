@@ -79,17 +79,15 @@ namespace
 	}
 
 	void BindTexture(
-		baregl::ShaderProgram& p_shader,
-		const std::string& p_uniformName,
 		baregl::Texture* p_texture,
 		baregl::Texture* p_fallback,
 		uint32_t p_textureSlot
 	)
 	{
+		// The sampler uniform itself is assigned to its texture slot once, when the program is linked
 		if (auto target = p_texture ? p_texture : p_fallback)
 		{
 			target->Bind(p_textureSlot);
-			p_shader.SetUniform<int>(p_uniformName, p_textureSlot);
 		}
 	}
 }
@@ -102,6 +100,8 @@ OvRendering::Data::Material::Material(OvRendering::Resources::Shader* p_shader)
 void OvRendering::Data::Material::SetShader(OvRendering::Resources::Shader* p_shader)
 {
 	m_shader = p_shader;
+	m_variantCache.clear();
+	m_variantCacheShader = nullptr;
 
 	if (m_shader)
 	{
@@ -178,10 +178,7 @@ OvRendering::Data::MaterialSignatureSet OvRendering::Data::Material::Bind(
 
 	OVASSERT(IsValid(), "Attempting to bind an invalid material.");
 
-	auto& program = m_shader->GetVariant(
-		p_pass,
-		p_featureSetOverride.value_or(m_features)
-	);
+	auto& program = FindVariant(p_pass, p_featureSetOverride);
 
 	const auto signature = CalculateSignature(
 		program,
@@ -197,6 +194,42 @@ OvRendering::Data::MaterialSignatureSet OvRendering::Data::Material::Bind(
 	m_programInUse = program;
 
 	return signature;
+}
+
+baregl::ShaderProgram& OvRendering::Data::Material::FindVariant(
+	std::optional<const std::string_view> p_pass,
+	OvTools::Utils::OptRef<const Data::FeatureSet> p_featureSetOverride
+)
+{
+	// Feature set overrides are specific to a drawable: resolve them directly
+	if (p_featureSetOverride)
+	{
+		return m_shader->GetVariant(p_pass, p_featureSetOverride.value());
+	}
+
+	if (m_variantCacheShader != m_shader ||
+		m_variantCacheShaderVersion != m_shader->GetVariantsVersion() ||
+		m_variantCacheFeaturesVersion != m_featuresVersion)
+	{
+		m_variantCache.clear();
+		m_variantCacheShader = m_shader;
+		m_variantCacheShaderVersion = m_shader->GetVariantsVersion();
+		m_variantCacheFeaturesVersion = m_featuresVersion;
+	}
+
+	const std::string_view pass = p_pass.value_or(std::string_view{});
+
+	for (const auto& entry : m_variantCache)
+	{
+		if (entry.pass == pass)
+		{
+			return *entry.program;
+		}
+	}
+
+	auto& program = m_shader->GetVariant(p_pass, m_features);
+	m_variantCache.push_back({ std::string{ pass }, &program });
+	return program;
 }
 
 void OvRendering::Data::Material::UploadProperties(
@@ -221,7 +254,6 @@ void OvRendering::Data::Material::UploadProperties(
 		if (!uploadStableProperties && !prop.singleUse) continue;
 		if (!uploadSingleUseProperties && prop.singleUse) continue;
 
-		// [PERF-P8] 3 string-keyed lookups per property (GetUniformInfo = contains + at, then SetUniform = find).
 		const auto uniformData = program.GetUniformInfo(name);
 
 		// Skip this property if the current program isn't using its associated uniform
@@ -230,8 +262,10 @@ void OvRendering::Data::Material::UploadProperties(
 			continue;
 		}
 
+		// The uniform info holds the uniform location: no more name lookup is needed to upload the value
+		const auto& uniform = uniformData.value().get();
 		auto& value = prop.value;
-		auto uniformType = uniformData.value().get().type;
+		auto uniformType = uniform.type;
 
 		// Iterating over the properties to set them in the shader.
 		// This could have been cleaner with a visitor, but the performance impact
@@ -239,37 +273,37 @@ void OvRendering::Data::Material::UploadProperties(
 
 		if (uniformType == BOOL)
 		{
-			program.SetUniform<int>(name, static_cast<int>(std::get<bool>(value)));
+			program.SetUniform<int>(uniform, static_cast<int>(std::get<bool>(value)));
 		}
 		else if (uniformType == INT)
 		{
-			program.SetUniform<int>(name, std::get<int>(value));
+			program.SetUniform<int>(uniform, std::get<int>(value));
 		}
 		else if (uniformType == FLOAT)
 		{
-			program.SetUniform<float>(name, std::get<float>(value));
+			program.SetUniform<float>(uniform, std::get<float>(value));
 		}
 		else if (uniformType == FLOAT_VEC2)
 		{
-			program.SetUniform<Vec2>(name, (Vec2&)(std::get<FVector2>(value)));
+			program.SetUniform<Vec2>(uniform, (Vec2&)(std::get<FVector2>(value)));
 		}
 		else if (uniformType == FLOAT_VEC3)
 		{
-			program.SetUniform<Vec3>(name, (Vec3&)std::get<FVector3>(value));
+			program.SetUniform<Vec3>(uniform, (Vec3&)std::get<FVector3>(value));
 		}
 		else if (uniformType == FLOAT_VEC4)
 		{
-			program.SetUniform<Vec4>(name, (Vec4&)std::get<FVector4>(value));
+			program.SetUniform<Vec4>(uniform, (Vec4&)std::get<FVector4>(value));
 		}
 		else if (uniformType == FLOAT_MAT3)
 		{
 			const auto t = FMatrix3::Transpose(std::get<FMatrix3>(value));
-			program.SetUniform<Mat3>(name, (Mat3&)t);
+			program.SetUniform<Mat3>(uniform, (Mat3&)t);
 		}
 		else if (uniformType == FLOAT_MAT4)
 		{
 			const auto t = FMatrix4::Transpose(std::get<FMatrix4>(value));
-			program.SetUniform<Mat4>(name, (Mat4&)t);
+			program.SetUniform<Mat4>(uniform, (Mat4&)t);
 		}
 		else if (uniformType == SAMPLER_2D || uniformType == SAMPLER_CUBE)
 		{
@@ -286,13 +320,11 @@ void OvRendering::Data::Material::UploadProperties(
 				}
 			}
 			
-			const auto textureIndex = uniformData.value().get().textureIndex;
+			const auto textureIndex = uniform.textureIndex;
 
 			OVASSERT(textureIndex.has_value(), std::format("No texture index found for uniform: {}", name));
 
 			BindTexture(
-				program,
-				name,
 				handle,
 				uniformType == SAMPLER_2D ?
 					p_emptyTexture2D :
@@ -329,13 +361,29 @@ bool OvRendering::Data::Material::HasProperty(const std::string& p_name) const
 	return m_properties.contains(p_name);
 }
 
-void OvRendering::Data::Material::SetProperty(const std::string p_name, const MaterialPropertyType& p_value, bool p_singleUse)
+void OvRendering::Data::Material::SetProperty(const std::string& p_name, const MaterialPropertyType& p_value, bool p_singleUse)
 {
 	OVASSERT(IsValid(), "Attempting to SetProperty on an invalid material.");
 	OVASSERT(HasProperty(p_name), "Attempting to SetProperty on a non-existing property.");
 
-	m_properties[p_name].value = p_value;
-	m_properties[p_name].singleUse = p_singleUse;
+	AssignProperty(m_properties[p_name], p_value, p_singleUse);
+}
+
+bool OvRendering::Data::Material::TrySetProperty(const std::string& p_name, const MaterialPropertyType& p_value, bool p_singleUse)
+{
+	if (auto it = m_properties.find(p_name); it != m_properties.end())
+	{
+		AssignProperty(it->second, p_value, p_singleUse);
+		return true;
+	}
+
+	return false;
+}
+
+void OvRendering::Data::Material::AssignProperty(MaterialProperty& p_property, const MaterialPropertyType& p_value, bool p_singleUse)
+{
+	p_property.value = p_value;
+	p_property.singleUse = p_singleUse;
 
 	if (p_singleUse)
 	{
@@ -345,17 +393,6 @@ void OvRendering::Data::Material::SetProperty(const std::string p_name, const Ma
 	{
 		++m_stablePropertySignatureVersion;
 	}
-}
-
-bool OvRendering::Data::Material::TrySetProperty(const std::string& p_name, const MaterialPropertyType& p_value, bool p_singleUse)
-{
-	if (HasProperty(p_name))
-	{
-		SetProperty(p_name, p_value, p_singleUse);
-		return true;
-	}
-
-	return false;
 }
 
 OvTools::Utils::OptRef<const OvRendering::Data::MaterialProperty> OvRendering::Data::Material::GetProperty(const std::string p_key) const
@@ -542,7 +579,7 @@ OvRendering::Data::Material::PropertyMap& OvRendering::Data::Material::GetProper
 	return m_properties;
 }
 
-OvRendering::Data::FeatureSet& OvRendering::Data::Material::GetFeatures()
+const OvRendering::Data::FeatureSet& OvRendering::Data::Material::GetFeatures() const
 {
 	return m_features;
 }
@@ -550,16 +587,19 @@ OvRendering::Data::FeatureSet& OvRendering::Data::Material::GetFeatures()
 void OvRendering::Data::Material::SetFeatures(const Data::FeatureSet& p_features)
 {
 	m_features = p_features;
+	++m_featuresVersion;
 }
 
 void OvRendering::Data::Material::AddFeature(const std::string& p_feature)
 {
 	m_features.insert(p_feature);
+	++m_featuresVersion;
 }
 
 void OvRendering::Data::Material::RemoveFeature(const std::string& p_feature)
 {
 	m_features.erase(p_feature);
+	++m_featuresVersion;
 }
 
 bool OvRendering::Data::Material::HasFeature(const std::string& p_feature) const

@@ -218,7 +218,7 @@ void OvCore::Resources::Material::OnDeserialize(tinyxml2::XMLDocument& p_doc, ti
 		}
 	}
 
-	m_features.clear();
+	SetFeatures({});
 
 	const auto features = Serializer::DeserializeString(p_doc, p_node, "features");
 
