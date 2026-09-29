@@ -28,6 +28,6 @@ void main()
 
 void main()
 {
-    // [PERF-P5] Writing gl_FragDepth disables early-Z/Hi-Z; an empty fragment shader is enough.
-    gl_FragDepth = gl_FragCoord.z;
+    // Depth-only pass: the depth is written by the fixed-function pipeline.
+    // Writing gl_FragDepth here would disable early depth testing.
 }

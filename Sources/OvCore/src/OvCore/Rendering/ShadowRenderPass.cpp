@@ -7,19 +7,17 @@
 #include <cstdint>
 #include <string>
 
-#include <OvCore/ECS/Components/CMaterialRenderer.h>
-#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
-#include <OvCore/Rendering/EngineDrawableDescriptor.h>
+#include <OvCore/Rendering/ShadowRenderFeature.h>
 #include <OvCore/Rendering/ShadowRenderPass.h>
+#include <OvCore/Rendering/SkinningDrawableDescriptor.h>
 #include <OvCore/Rendering/SkinningUtils.h>
 #include <OvCore/ResourceManagement/ShaderManager.h>
 
 #include <OvRendering/Features/LightingRenderFeature.h>
 #include <OvRendering/Utils/Profiling.h>
 
-constexpr uint8_t kMaxShadowMaps = 1;
 const std::string kShadowPassName = "SHADOW_PASS";
 const std::string kSkinningFeatureName = std::string{ OvCore::Rendering::SkinningUtils::kFeatureName };
 
@@ -40,50 +38,29 @@ void OvCore::Rendering::ShadowRenderPass::Draw(OvRendering::Data::PipelineState 
 
 	using namespace OvCore::Rendering;
 
-	OVASSERT(m_renderer.HasDescriptor<SceneRenderer::SceneDescriptor>(), "Cannot find SceneDescriptor attached to this renderer");
 	OVASSERT(m_renderer.HasFeature<OvCore::Rendering::EngineBufferRenderFeature>(), "Cannot find EngineBufferRenderFeature attached to this renderer");
 	OVASSERT(m_renderer.HasDescriptor<OvRendering::Features::LightingRenderFeature::LightingDescriptor>(), "Cannot find LightingDescriptor attached to this renderer");
 
 	auto& engineBufferRenderFeature = m_renderer.GetFeature<OvCore::Rendering::EngineBufferRenderFeature>();
 	auto& lightingDescriptor = m_renderer.GetDescriptor<OvRendering::Features::LightingRenderFeature::LightingDescriptor>();
-
-	auto& sceneDescriptor = m_renderer.GetDescriptor<SceneRenderer::SceneDescriptor>();
 	auto& frameDescriptor = m_renderer.GetFrameDescriptor();
-	auto& scene = sceneDescriptor.scene;
 
 	auto pso = m_renderer.CreatePipelineState();
 
-	// [PERF-P5] lightIndex is never incremented: every shadow-casting directional light re-renders the whole scene (only one shadow map is used).
-	uint8_t lightIndex = 0;
-
-	for (auto lightReference : lightingDescriptor.lights)
+	// Only one shadow map is supported: rendering the other shadow casting lights would be wasted work.
+	if (auto light = ShadowRenderFeature::FindShadowCastingLight(lightingDescriptor.lights))
 	{
-		auto& light = lightReference.get();
+		light->PrepareForShadowRendering(frameDescriptor);
 
-		if (light.castShadows)
-		{
-			if (lightIndex < kMaxShadowMaps)
-			{
-				if (light.type == OvRendering::Settings::ELightType::DIRECTIONAL)
-				{
-					light.PrepareForShadowRendering(frameDescriptor);
+		engineBufferRenderFeature.SetCamera(light->shadowCamera.value());
 
-					engineBufferRenderFeature.SetCamera(light.shadowCamera.value());
+		light->shadowBuffer->Bind();
+		m_renderer.SetViewport(0, 0, light->shadowMapResolution, light->shadowMapResolution);
+		m_renderer.Clear(false, true, false);
+		_DrawShadows(pso, light->shadowCamera->GetFrustum());
+		light->shadowBuffer->Unbind();
 
-					light.shadowBuffer->Bind();
-					m_renderer.SetViewport(0, 0, light.shadowMapResolution, light.shadowMapResolution);
-					m_renderer.Clear(true, true, true);
-					_DrawShadows(pso, scene);
-					light.shadowBuffer->Unbind();
-
-					engineBufferRenderFeature.SetCamera(frameDescriptor.camera.value());
-				}
-				else
-				{
-					// Other light types not supported!
-				}
-			}
-		}
+		engineBufferRenderFeature.SetCamera(frameDescriptor.camera.value());
 	}
 
 	if (auto output = frameDescriptor.outputBuffer)
@@ -96,80 +73,86 @@ void OvCore::Rendering::ShadowRenderPass::Draw(OvRendering::Data::PipelineState 
 
 void OvCore::Rendering::ShadowRenderPass::_DrawShadows(
 	OvRendering::Data::PipelineState p_pso,
-	OvCore::SceneSystem::Scene& p_scene
+	const OvRendering::Data::Frustum& p_lightFrustum
 )
 {
 	using namespace OvCore::Rendering;
 
-	// [PERF-P5] No caster culling against the light frustum, no material sorting; the scene is walked again instead of reusing SceneDrawablesDescriptor.
-	for (auto modelRenderer : p_scene.GetFastAccessComponents().modelRenderers)
+	OVASSERT(m_renderer.HasDescriptor<SceneRenderer::SceneDrawablesDescriptor>(), "Cannot find SceneDrawablesDescriptor attached to this renderer");
+
+	// Reuse the drawables parsed for this frame instead of walking the scene again.
+	const auto& sceneDrawables = m_renderer.GetDescriptor<SceneRenderer::SceneDrawablesDescriptor>();
+
+	for (const auto& drawable : sceneDrawables.drawables)
 	{
-		auto& actor = modelRenderer->owner;
+		const auto& desc = drawable.GetDescriptor<SceneRenderer::SceneDrawableDescriptor>();
 
-		if (actor.IsActive())
+		if (!SatisfiesVisibility(desc.visibilityFlags, EVisibilityFlags::SHADOW))
 		{
-			if (auto model = modelRenderer->GetModel())
+			continue;
+		}
+
+		if (!drawable.material || !drawable.material->IsValid() || !drawable.material->IsShadowCaster())
+		{
+			continue;
+		}
+
+		auto& material = drawable.material.value();
+
+		OvTools::Utils::OptRef<const SkinningDrawableDescriptor> skinningDescriptor;
+		const bool hasSkinningDescriptor = drawable.TryGetDescriptor<SkinningDrawableDescriptor>(skinningDescriptor);
+
+		// Casters outside of the light frustum cannot contribute to the shadow map.
+		if (desc.bounds.has_value())
+		{
+			auto cullingBounds = desc.bounds.value();
+
+			if (hasSkinningDescriptor)
 			{
-				if (auto materialRenderer = modelRenderer->owner.GetComponent<OvCore::ECS::Components::CMaterialRenderer>())
-				{
-					if (!materialRenderer->HasVisibilityFlags(EVisibilityFlags::SHADOW))
-					{
-						continue;
-					}
+				cullingBounds.radius *= skinningDescriptor->boundsScale;
+			}
 
-					const auto skinnedRenderer = actor.template GetComponent<OvCore::ECS::Components::CSkinnedMeshRenderer>();
-					const bool hasSkinning = SkinningUtils::IsSkinningActive(skinnedRenderer);
-
-					const auto& materials = materialRenderer->GetMaterials();
-					const auto& modelMatrix = actor.transform.GetWorldMatrix();
-
-					for (auto mesh : model->GetMeshes())
-					{
-						if (auto material = materials.at(mesh->GetMaterialIndex()); material && material->IsValid() && material->IsShadowCaster())
-						{
-							// Skinning is only applied if the original material explicitly supports it.
-							const bool skinningEnabled = hasSkinning && material->SupportsFeature(kSkinningFeatureName);
-
-							// If the material has a shadow pass, use it. Otherwise, use the shadow fallback.
-							auto& targetMaterial =
-								material->HasPass(kShadowPassName) ?
-								*material :
-								m_shadowMaterial;
-
-							OvRendering::Entities::Drawable drawable;
-							drawable.mesh = *mesh;
-							drawable.material = targetMaterial;
-
-							// Generate the state mask for the target material, and override
-							// its properties to ensure the shadow pass is rendered correctly.
-							drawable.stateMask = targetMaterial.GenerateStateMask();
-							drawable.stateMask.blendable = false; // The shadow pass should never use blending.
-							drawable.stateMask.depthTest = true; // The shadow pass should always use depth test.
-							drawable.stateMask.colorWriting = false; // The shadow pass should never write color.
-							drawable.stateMask.depthWriting = true; // The shadow pass should always write depth.
-
-							// No front/backface culling for shadow pass (aka: two-sided shadow pass).
-							// A "two-sided" shadow pass setting could be added in the future to change this behavior.
-							drawable.stateMask.frontfaceCulling = false;
-							drawable.stateMask.backfaceCulling = false;
-
-							drawable.pass = kShadowPassName;
-
-							drawable.AddDescriptor<EngineDrawableDescriptor>({
-								modelMatrix,
-								materialRenderer->GetUserMatrix()
-							});
-
-							if (skinningEnabled && targetMaterial.SupportsFeature(kSkinningFeatureName))
-							{
-								SkinningUtils::ApplyToDrawable(drawable, *skinnedRenderer, &targetMaterial.GetFeatures());
-							}
-
-							m_renderer.DrawEntity(p_pso, drawable);
-						}
-					}
-				}
+			if (!p_lightFrustum.BoundingSphereInFrustum(cullingBounds, desc.actor.transform.GetFTransform()))
+			{
+				continue;
 			}
 		}
+
+		// If the material has a shadow pass, use it. Otherwise, use the shadow fallback.
+		auto& targetMaterial =
+			material.HasPass(kShadowPassName) ?
+			material :
+			m_shadowMaterial;
+
+		OvRendering::Entities::Drawable shadowDrawable = drawable;
+		shadowDrawable.material = targetMaterial;
+
+		// Generate the state mask for the target material, and override
+		// its properties to ensure the shadow pass is rendered correctly.
+		shadowDrawable.stateMask = targetMaterial.GenerateStateMask();
+		shadowDrawable.stateMask.blendable = false; // The shadow pass should never use blending.
+		shadowDrawable.stateMask.depthTest = true; // The shadow pass should always use depth test.
+		shadowDrawable.stateMask.colorWriting = false; // The shadow pass should never write color.
+		shadowDrawable.stateMask.depthWriting = true; // The shadow pass should always write depth.
+
+		// No front/backface culling for shadow pass (aka: two-sided shadow pass).
+		// A "two-sided" shadow pass setting could be added in the future to change this behavior.
+		shadowDrawable.stateMask.frontfaceCulling = false;
+		shadowDrawable.stateMask.backfaceCulling = false;
+
+		shadowDrawable.pass = kShadowPassName;
+
+		// Skinning is only applied if the original material explicitly supports it.
+		const bool skinningEnabled =
+			hasSkinningDescriptor &&
+			material.SupportsFeature(kSkinningFeatureName) &&
+			targetMaterial.SupportsFeature(kSkinningFeatureName);
+
+		shadowDrawable.featureSetOverride =
+			skinningEnabled ?
+			std::make_optional(SkinningUtils::BuildFeatureSet(&targetMaterial.GetFeatures())) :
+			std::nullopt;
+
+		m_renderer.DrawEntity(p_pso, shadowDrawable);
 	}
 }
