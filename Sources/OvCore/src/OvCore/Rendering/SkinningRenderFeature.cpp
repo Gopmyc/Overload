@@ -21,7 +21,8 @@ OvCore::Rendering::SkinningRenderFeature::SkinningRenderFeature(
 	uint32_t p_bufferBindingPoint
 ) :
 	ARenderFeature(p_renderer, p_executionPolicy),
-	m_bufferBindingPoint(p_bufferBindingPoint)
+	m_bufferBindingPoint(p_bufferBindingPoint),
+	m_skinningBuffer(64 * 1024) // Grows on demand: most scenes have few (or no) skinned meshes
 {
 	m_identityBuffer = std::make_unique<baregl::Buffer>();
 
