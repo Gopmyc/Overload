@@ -91,7 +91,8 @@ void OvCore::Rendering::PostProcess::AutoExposureEffect::Draw(
 	m_exposureMaterial.SetProperty("_SpeedDown", autoExposureSettings.speedDown, true);
 	m_renderer.Blit(p_pso, previousExposure, currentExposure, m_exposureMaterial);
 
-	// [PERF-P9] Dedicated full-screen pass for exposure: can be folded into tonemapping (sample the exposure texture there).
+	// [PERF-P9] Dedicated full-screen pass for exposure. Folding it into tonemapping would save a pass, but would also
+	// change the input of the bloom (which runs between auto exposure and tonemapping).
 	// Apply the exposure to the final image
 	const auto exposureTex = currentExposure.GetAttachment<baregl::Texture>(baregl::types::EFramebufferAttachment::COLOR);
 	m_compensationMaterial.SetProperty("_ExposureTexture", &exposureTex.value().get(), true);

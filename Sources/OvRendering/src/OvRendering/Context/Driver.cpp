@@ -186,7 +186,8 @@ void OvRendering::Context::Driver::Draw(
 {
 	ZoneScoped;
 
-	// [PERF-P1] One draw call per Drawable: no automatic instancing / MultiDrawIndirect, VAO bound and unbound on every draw.
+	// [PERF-P1] One draw call per drawable: automatic instancing / MultiDrawIndirect of identical meshes would need
+	// per-instance data in shaders (ubo_Model is per draw). The VAO is also bound and unbound on every draw.
 	if (p_instances > 0)
 	{
 		SetPipelineState(p_pso);

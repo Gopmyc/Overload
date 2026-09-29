@@ -13,7 +13,8 @@ float CalculateShadowFalloff(vec3 projCoords, float intensity)
 }
 
 // PCF (Percentage-Closer Filtering) shadows => AKA Soft Shadows
-// [PERF-P5] Manual 3x3 PCF = 9 fetches: sampler2DShadow + GL_COMPARE_REF_TO_TEXTURE gives equivalent filtering with 4 fetches.
+// [PERF-P5] Manual 3x3 PCF = 9 fetches. Hardware PCF (sampler2DShadow + compare mode) would need 4, but it changes
+// the shadow filtering (compare-then-filter) and the signature of the shadow functions used by custom shaders.
 float CalculateSoftShadow(sampler2D shadowMap, vec3 projCoords, float bias, float texelSize)
 {
     const int range = 1;

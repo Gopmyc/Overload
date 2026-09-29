@@ -173,7 +173,8 @@ void main()
     albedo.a *= texture(u_MaskMap, texCoords).r;
 
 #if defined(SHADOW_PASS)
-    // [PERF-P5] The shadow pass samples 2 textures and always contains a discard, even for fully opaque materials.
+    // [PERF-P5] The shadow pass always alpha tests (2 texture fetches + discard), even for fully opaque materials.
+    // Making alpha testing opt-in (e.g. a #feature, like Unlit's ALPHA_CLIPPING) would change existing materials.
     if (albedo.a < u_ShadowClippingThreshold)
     {
         discard;
