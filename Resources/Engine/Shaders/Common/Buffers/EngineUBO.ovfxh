@@ -6,4 +6,6 @@ layout (std140, binding = 0) uniform EngineUBO
     vec3    ubo_ViewPos;
     float   ubo_Time;
     mat4    ubo_UserMatrix;
+    mat4    ubo_ViewProjection; // ubo_Projection * ubo_View
+    mat4    ubo_NormalMatrix;   // transpose(inverse(ubo_Model)), use mat3(ubo_NormalMatrix)
 };

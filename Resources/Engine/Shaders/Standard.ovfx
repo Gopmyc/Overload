@@ -38,17 +38,17 @@ out VS_OUT
 
 void main()
 {
-    mat4 skinningMatrix = mat4(1.0);
 #if defined(SKINNING)
-    skinningMatrix = ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights);
+    const mat4 modelMatrix = ubo_Model * ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights);
+    const mat3 normalMatrix = mat3(transpose(inverse(modelMatrix)));
+#else
+    const mat4 modelMatrix = ubo_Model;
+    const mat3 normalMatrix = mat3(ubo_NormalMatrix); // Precomputed on the CPU
 #endif
-
-    const mat4 modelMatrix = ubo_Model * skinningMatrix;
 
     vs_out.FragPos = vec3(modelMatrix * vec4(geo_Pos, 1.0));
     vs_out.TexCoords = geo_TexCoords;
-    // [PERF-P7] mat4 inverse() per vertex + Projection*View per vertex (gl_Position below): compute normal matrix and viewProj on the CPU.
-    vs_out.Normal = normalize(mat3(transpose(inverse(modelMatrix))) * geo_Normal);
+    vs_out.Normal = normalize(normalMatrix * geo_Normal);
     vs_out.TBN = ConstructTBN(modelMatrix, geo_Normal, geo_Tangent, geo_Bitangent);
 
 #if defined(PARALLAX_MAPPING)
@@ -57,7 +57,7 @@ void main()
     vs_out.TangentFragPos = TBNi * vs_out.FragPos;
 #endif
 
-    gl_Position = ubo_Projection * ubo_View * vec4(vs_out.FragPos, 1.0);
+    gl_Position = ubo_ViewProjection * vec4(vs_out.FragPos, 1.0);
 }
 
 #shader fragment

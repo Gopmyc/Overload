@@ -55,6 +55,8 @@ namespace OvCore::Rendering
 			OvMaths::FVector3 viewPos;
 			float time;
 			OvMaths::FMatrix4 userMatrix;
+			OvMaths::FMatrix4 viewProjection;
+			OvMaths::FMatrix4 normalMatrix;
 		};
 
 		std::chrono::high_resolution_clock::time_point m_startTime;
