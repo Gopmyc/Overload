@@ -57,6 +57,14 @@ namespace baregl
 		void Upload(const void* p_data, std::optional<data::BufferMemoryRange> p_range = std::nullopt);
 
 		/**
+		* Downloads data from the buffer
+		* @note Blocks until the GPU is done writing to the buffer: use a Fence to avoid stalling
+		* @param p_data
+		* @param p_range
+		*/
+		void Download(void* p_data, std::optional<data::BufferMemoryRange> p_range = std::nullopt) const;
+
+		/**
 		* Returns true if the buffer is valid (properly allocated)
 		*/
 		bool IsValid() const;

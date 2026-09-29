@@ -19,6 +19,7 @@ namespace baregl::types
 		INDEX,
 		UNIFORM,
 		SHADER_STORAGE,
+		PIXEL_PACK,
 		UNKNOWN
 	};
 }

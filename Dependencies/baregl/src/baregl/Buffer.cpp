@@ -60,6 +60,19 @@ namespace baregl
 		);
 	}
 
+	void Buffer::Download(void* p_data, std::optional<data::BufferMemoryRange> p_range) const
+	{
+		BAREGL_ASSERT(IsValid(), "Trying to download data from an invalid buffer");
+		BAREGL_ASSERT(!IsEmpty(), "Trying to download data from an empty buffer");
+
+		glGetNamedBufferSubData(
+			m_id,
+			p_range ? p_range->offset : 0,
+			p_range ? p_range->size : m_allocatedBytes,
+			p_data
+		);
+	}
+
 	void Buffer::Bind(
 		types::EBufferType p_type,
 		std::optional<uint32_t> p_index

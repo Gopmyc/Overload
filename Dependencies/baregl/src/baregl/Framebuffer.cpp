@@ -260,6 +260,34 @@ namespace baregl
 		Unbind();
 	}
 
+	void Framebuffer::ReadPixels(
+		uint32_t p_x,
+		uint32_t p_y,
+		uint32_t p_width,
+		uint32_t p_height,
+		types::EPixelDataFormat p_format,
+		types::EPixelDataType p_type,
+		Buffer& p_buffer,
+		uint64_t p_offset) const
+	{
+		BAREGL_ASSERT(IsValid(), "Cannot read pixels from an invalid framebuffer");
+		BAREGL_ASSERT(p_width > 0 && p_height > 0, "Invalid read size");
+		BAREGL_ASSERT(p_buffer.IsValid() && !p_buffer.IsEmpty(), "Invalid destination buffer");
+
+		Bind();
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, p_buffer.GetID());
+		glReadPixels(
+			p_x, p_y,
+			p_width,
+			p_height,
+			utils::EnumToValue<GLenum>(p_format),
+			utils::EnumToValue<GLenum>(p_type),
+			reinterpret_cast<void*>(static_cast<uintptr_t>(p_offset))
+		);
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		Unbind();
+	}
+
 	const std::string& Framebuffer::GetDebugName() const
 	{
 		return m_debugName;

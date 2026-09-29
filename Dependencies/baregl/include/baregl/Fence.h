@@ -40,6 +40,12 @@ namespace baregl
 		void Wait();
 
 		/**
+		* Returns true if the GPU executed all the commands issued before the fence (never blocks).
+		* Returns false if the fence hasn't been inserted.
+		*/
+		bool IsSignaled();
+
+		/**
 		* Clears the fence without waiting for it
 		*/
 		void Reset();

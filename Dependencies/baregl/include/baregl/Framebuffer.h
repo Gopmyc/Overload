@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <baregl/Buffer.h>
 #include <baregl/detail/NativeObject.h>
 #include <baregl/types/EComparaisonAlgorithm.h>
 #include <baregl/types/ECullFace.h>
@@ -153,6 +154,29 @@ namespace baregl
 			types::EPixelDataFormat p_format,
 			types::EPixelDataType p_type,
 			void* p_data
+		) const;
+
+		/**
+		* Reads pixels from the framebuffer into a buffer (pixel pack buffer), without waiting for the GPU.
+		* The data can be downloaded from the buffer once the GPU is done (see Fence).
+		* @param p_x The x-coordinate of the lower-left corner.
+		* @param p_y The y-coordinate of the lower-left corner.
+		* @param p_width The width of the pixel rectangle.
+		* @param p_height The height of the pixel rectangle.
+		* @param p_format The format of the pixel data.
+		* @param p_type The data type of the pixel data.
+		* @param p_buffer The destination buffer.
+		* @param p_offset The offset (in bytes) in the destination buffer.
+		*/
+		void ReadPixels(
+			uint32_t p_x,
+			uint32_t p_y,
+			uint32_t p_width,
+			uint32_t p_height,
+			types::EPixelDataFormat p_format,
+			types::EPixelDataType p_type,
+			Buffer& p_buffer,
+			uint64_t p_offset = 0
 		) const;
 
 		/**

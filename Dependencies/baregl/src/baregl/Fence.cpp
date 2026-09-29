@@ -44,6 +44,17 @@ namespace baregl
 		Reset();
 	}
 
+	bool Fence::IsSignaled()
+	{
+		if (!m_sync)
+		{
+			return false;
+		}
+
+		const GLenum result = glClientWaitSync(static_cast<GLsync>(m_sync), GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+		return result == GL_ALREADY_SIGNALED || result == GL_CONDITION_SATISFIED;
+	}
+
 	void Fence::Reset()
 	{
 		if (m_sync)
