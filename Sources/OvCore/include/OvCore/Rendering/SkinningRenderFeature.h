@@ -10,8 +10,11 @@
 #include <cstdint>
 #include <memory>
 
+#include <unordered_map>
+
 #include <OvMaths/FMatrix4.h>
 #include <OvRendering/Features/ARenderFeature.h>
+#include <OvRendering/Utils/StreamingBuffer.h>
 #include <baregl/Buffer.h>
 
 namespace OvCore::Rendering
@@ -47,12 +50,9 @@ namespace OvCore::Rendering
 		virtual void OnBeforeDraw(OvRendering::Data::PipelineState& p_pso, const OvRendering::Entities::Drawable& p_drawable) override;
 
 	private:
-		void BindIdentityPalette() const;
-		baregl::Buffer& GetCurrentSkinningBuffer() const;
+		void BindIdentityPalette();
 
 	private:
-		static constexpr uint32_t kSkinningBufferRingSize = 3;
-
 		enum class EBoundPalette
 		{
 			NONE,
@@ -60,27 +60,35 @@ namespace OvCore::Rendering
 			SKINNING
 		};
 
-		struct UploadedPaletteState
+		struct PaletteKey
 		{
 			const OvMaths::FMatrix4* ptr = nullptr;
 			uint32_t count = 0;
 			uint64_t poseVersion = 0;
+
+			bool operator==(const PaletteKey&) const = default;
 		};
 
-		struct BoundPaletteState
+		struct PaletteKeyHash
 		{
-			EBoundPalette type = EBoundPalette::NONE;
-			const OvMaths::FMatrix4* ptr = nullptr;
-			uint32_t count = 0;
-			uint64_t poseVersion = 0;
+			size_t operator()(const PaletteKey& p_key) const
+			{
+				return std::hash<const void*>{}(p_key.ptr) ^ (std::hash<uint64_t>{}(p_key.poseVersion) << 1) ^ p_key.count;
+			}
 		};
 
 		uint32_t m_bufferBindingPoint;
-		mutable uint32_t m_skinningBufferIndex = kSkinningBufferRingSize - 1;
-		std::array<std::unique_ptr<baregl::Buffer>, kSkinningBufferRingSize> m_skinningBuffers;
+
+		// Palettes of the frame are appended to a streaming buffer (each one at its own offset),
+		// so uploading a palette never overwrites data still in use by previous draws.
+		OvRendering::Utils::StreamingBuffer m_skinningBuffer;
 		std::unique_ptr<baregl::Buffer> m_identityBuffer;
 
-		UploadedPaletteState m_lastUploaded;
-		mutable BoundPaletteState m_bound;
+		// Palettes already uploaded this frame (shared between passes and meshes of the same skinned model)
+		std::unordered_map<PaletteKey, baregl::data::BufferMemoryRange, PaletteKeyHash> m_uploadedPalettes;
+		uint64_t m_uploadedPalettesGeneration = 0;
+
+		EBoundPalette m_boundType = EBoundPalette::NONE;
+		PaletteKey m_boundPalette;
 	};
 }

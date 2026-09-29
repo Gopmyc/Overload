@@ -4,6 +4,8 @@
 * @licence: MIT
 */
 
+#include <cstring>
+
 #include <tracy/Tracy.hpp>
 
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
@@ -12,13 +14,7 @@
 
 namespace
 {
-	constexpr size_t kUBOSize =
-		sizeof(OvMaths::FMatrix4) +	// Model matrix
-		sizeof(OvMaths::FMatrix4) +	// View matrix
-		sizeof(OvMaths::FMatrix4) +	// Projection matrix
-		sizeof(OvMaths::FVector3) +	// Camera position
-		sizeof(float) +				// Elapsed time
-		sizeof(OvMaths::FMatrix4);	// User matrix
+	constexpr uint32_t kEngineUBOBindingPoint = 0;
 }
 
 OvCore::Rendering::EngineBufferRenderFeature::EngineBufferRenderFeature(
@@ -27,61 +23,34 @@ OvCore::Rendering::EngineBufferRenderFeature::EngineBufferRenderFeature(
 ) : 
 	ARenderFeature(p_renderer, p_executionPolicy)
 {
-	m_engineBuffer = std::make_unique<baregl::Buffer>();
-	m_engineBuffer->Allocate(kUBOSize, baregl::types::EAccessSpecifier::STREAM_DRAW);
+	static_assert(sizeof(EngineUBO) == 272, "EngineUBO must match the std140 layout of EngineUBO.ovfxh");
 	m_startTime = std::chrono::high_resolution_clock::now();
 }
 
 void OvCore::Rendering::EngineBufferRenderFeature::SetCamera(const OvRendering::Entities::Camera& p_camera)
 {
-	struct
-	{
-		OvMaths::FMatrix4 viewMatrix;
-		OvMaths::FMatrix4 projectionMatrix;
-		OvMaths::FVector3 cameraPosition;
-	} uboDataPage{
-		.viewMatrix = OvMaths::FMatrix4::Transpose(p_camera.GetViewMatrix()),
-		.projectionMatrix = OvMaths::FMatrix4::Transpose(p_camera.GetProjectionMatrix()),
-		.cameraPosition = p_camera.GetPosition()
-	};
-
-	m_engineBuffer->Upload(&uboDataPage, baregl::data::BufferMemoryRange{
-		.offset = sizeof(OvMaths::FMatrix4), // Skip uploading the first matrix (Model matrix)
-		.size = sizeof(uboDataPage)
-	});
+	m_data.view = OvMaths::FMatrix4::Transpose(p_camera.GetViewMatrix());
+	m_data.projection = OvMaths::FMatrix4::Transpose(p_camera.GetProjectionMatrix());
+	m_data.viewPos = p_camera.GetPosition();
+	m_dirty = true;
 }
 
 void OvCore::Rendering::EngineBufferRenderFeature::OnBeginFrame(const OvRendering::Data::FrameDescriptor& p_frameDescriptor)
 {
 	OVASSERT(p_frameDescriptor.camera.has_value(), "Camera is not set in the frame descriptor");
 
+	m_engineBuffer.BeginFrame();
+
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	auto elapsedTime = std::chrono::duration_cast<std::chrono::duration<float>>(currentTime - m_startTime);
 
-	struct
-	{
-		OvMaths::FMatrix4 viewMatrix;
-		OvMaths::FMatrix4 projectionMatrix;
-		OvMaths::FVector3 cameraPosition;
-		float elapsedTime;
-	} uboDataPage{
-		.viewMatrix = OvMaths::FMatrix4::Transpose(p_frameDescriptor.camera->GetViewMatrix()),
-		.projectionMatrix = OvMaths::FMatrix4::Transpose(p_frameDescriptor.camera->GetProjectionMatrix()),
-		.cameraPosition = p_frameDescriptor.camera->GetPosition(),
-		.elapsedTime = elapsedTime.count()
-	};
-
-	m_engineBuffer->Upload(&uboDataPage, baregl::data::BufferMemoryRange{
-		.offset = sizeof(OvMaths::FMatrix4), // Skip uploading the first matrix (Model matrix)
-		.size = sizeof(uboDataPage)
-	});
-
-	m_engineBuffer->Bind(baregl::types::EBufferType::UNIFORM, 0);
+	SetCamera(p_frameDescriptor.camera.value());
+	m_data.time = elapsedTime.count();
 }
 
 void OvCore::Rendering::EngineBufferRenderFeature::OnEndFrame()
 {
-	m_engineBuffer->Unbind();
+	m_engineBuffer.EndFrame();
 }
 
 void OvCore::Rendering::EngineBufferRenderFeature::OnBeforeDraw(OvRendering::Data::PipelineState& p_pso, const OvRendering::Entities::Drawable& p_drawable)
@@ -93,18 +62,24 @@ void OvCore::Rendering::EngineBufferRenderFeature::OnBeforeDraw(OvRendering::Dat
 	if (p_drawable.TryGetDescriptor<EngineDrawableDescriptor>(descriptor))
 	{
 		const auto modelMatrix = OvMaths::FMatrix4::Transpose(descriptor->modelMatrix);
-		
-		// [PERF-P1] 2 glNamedBufferSubData per draw on a UBO still in use by previous draws (implicit sync/renaming). Use a per-frame object SSBO + instancing/MDI.
-		// Upload model matrix (First matrix in the UBO)
-		m_engineBuffer->Upload(&modelMatrix, baregl::data::BufferMemoryRange{
-			.offset = 0,
-			.size = sizeof(modelMatrix)
-		});
 
-		// Upload user matrix (Last matrix in the UBO)
-		m_engineBuffer->Upload(&descriptor->userMatrix, baregl::data::BufferMemoryRange{
-			.offset = kUBOSize - sizeof(modelMatrix),
-			.size = sizeof(modelMatrix)
-		});
+		// Consecutive draws often share the same matrices (e.g. meshes of the same model):
+		// in that case, the currently bound data can be reused as is.
+		if (m_dirty ||
+			std::memcmp(&modelMatrix, &m_data.model, sizeof(modelMatrix)) != 0 ||
+			std::memcmp(&descriptor->userMatrix, &m_data.userMatrix, sizeof(m_data.userMatrix)) != 0)
+		{
+			m_data.model = modelMatrix;
+			m_data.userMatrix = descriptor->userMatrix;
+			m_dirty = true;
+		}
+	}
+
+	// Drawables without descriptor keep the previous model/user matrices (only the camera data may have changed)
+	if (m_dirty)
+	{
+		const auto range = m_engineBuffer.Push(&m_data, sizeof(m_data));
+		m_engineBuffer.GetBuffer().Bind(baregl::types::EBufferType::UNIFORM, kEngineUBOBindingPoint, range);
+		m_dirty = false;
 	}
 }

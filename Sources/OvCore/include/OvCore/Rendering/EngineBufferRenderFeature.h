@@ -7,13 +7,12 @@
 #pragma once
 
 #include <chrono>
-#include <map>
-#include <stack>
 
-#include <baregl/Buffer.h>
-
+#include <OvMaths/FMatrix4.h>
+#include <OvMaths/FVector3.h>
 #include <OvRendering/Features/ARenderFeature.h>
 #include <OvRendering/Entities/Camera.h>
+#include <OvRendering/Utils/StreamingBuffer.h>
 
 namespace OvCore::Rendering
 {
@@ -45,7 +44,25 @@ namespace OvCore::Rendering
 		virtual void OnBeforeDraw(OvRendering::Data::PipelineState& p_pso, const OvRendering::Entities::Drawable& p_drawable) override;
 
 	protected:
+		/**
+		* CPU copy of the engine UBO (std140 layout, see EngineUBO.ovfxh)
+		*/
+		struct EngineUBO
+		{
+			OvMaths::FMatrix4 model;
+			OvMaths::FMatrix4 view;
+			OvMaths::FMatrix4 projection;
+			OvMaths::FVector3 viewPos;
+			float time;
+			OvMaths::FMatrix4 userMatrix;
+		};
+
 		std::chrono::high_resolution_clock::time_point m_startTime;
-		std::unique_ptr<baregl::Buffer> m_engineBuffer;
+
+		// Each draw gets its own copy of the UBO in a streaming buffer, so updating
+		// the data never has to wait for (or stall on) previous draws still in flight.
+		OvRendering::Utils::StreamingBuffer m_engineBuffer;
+		EngineUBO m_data{};
+		bool m_dirty = true;
 	};
 }
