@@ -28,8 +28,23 @@ namespace baregl
 	uint64_t Buffer::Allocate(uint64_t p_size, types::EAccessSpecifier p_usage)
 	{
 		BAREGL_ASSERT(IsValid(), "Cannot allocate memory for an invalid buffer");
+		BAREGL_ASSERT(!m_immutable, "Cannot reallocate a buffer with an immutable storage");
 		glNamedBufferData(m_id, p_size, nullptr, utils::EnumToValue<GLenum>(p_usage));
 		return m_allocatedBytes = p_size;
+	}
+
+	void* Buffer::AllocatePersistentlyMapped(uint64_t p_size)
+	{
+		BAREGL_ASSERT(IsValid(), "Cannot allocate memory for an invalid buffer");
+		BAREGL_ASSERT(!m_immutable, "Cannot reallocate a buffer with an immutable storage");
+		BAREGL_ASSERT(p_size > 0, "Cannot allocate an empty persistently mapped buffer");
+
+		constexpr GLbitfield kFlags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
+		glNamedBufferStorage(m_id, p_size, nullptr, kFlags);
+		m_immutable = true;
+		m_allocatedBytes = p_size;
+
+		return glMapNamedBufferRange(m_id, 0, p_size, kFlags);
 	}
 
 	void Buffer::Upload(const void* p_data, std::optional<data::BufferMemoryRange> p_range)
@@ -60,6 +75,27 @@ namespace baregl
 		{
 			glBindBuffer(utils::EnumToValue<GLenum>(p_type), m_id);
 		}
+
+		m_boundAs = p_type;
+		m_bindIndex = p_index;
+	}
+
+	void Buffer::Bind(
+		types::EBufferType p_type,
+		uint32_t p_index,
+		const data::BufferMemoryRange& p_range
+	)
+	{
+		BAREGL_ASSERT(IsValid(), "Cannot bind an invalid buffer");
+		BAREGL_ASSERT(p_range.offset + p_range.size <= m_allocatedBytes, "Cannot bind a range outside of the buffer");
+
+		glBindBufferRange(
+			utils::EnumToValue<GLenum>(p_type),
+			p_index,
+			m_id,
+			static_cast<GLintptr>(p_range.offset),
+			static_cast<GLsizeiptr>(p_range.size)
+		);
 
 		m_boundAs = p_type;
 		m_bindIndex = p_index;
