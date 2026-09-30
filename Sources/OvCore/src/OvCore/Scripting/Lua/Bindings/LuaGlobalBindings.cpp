@@ -75,13 +75,13 @@ void BindLuaGlobal(sol::state& p_luaState)
 			std::vector<ActorRef> result;
 			for (auto& actor : s.FindActorsByName(name))
 				result.push_back(ActorRef{actor.get().GetGUID()});
-			return result;
+			return sol::as_table(std::move(result));
 		},
 		"FindActorsByTag", [](Scene& s, const std::string& tag) {
 			std::vector<ActorRef> result;
 			for (auto& actor : s.FindActorsByTag(tag))
 				result.push_back(ActorRef{actor.get().GetGUID()});
-			return result;
+			return sol::as_table(std::move(result));
 		},
 		"CreateActor", sol::overload(
 			[](Scene& s) -> ActorRef {

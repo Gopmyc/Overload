@@ -64,7 +64,7 @@ void BindLuaActor(sol::state& p_luaState)
 			std::vector<ActorRef> result;
 			for (auto* child : r.Resolve().GetChildren())
 				result.push_back(ActorRef{child->GetGUID()});
-			return result;
+			return sol::as_table(std::move(result));
 		},
 		"FindChild", [](ActorRef& r, const std::string& p_name, bool p_recursive) -> std::optional<ActorRef> {
 			if (auto* child = r.Resolve().FindChild(p_name, p_recursive))
