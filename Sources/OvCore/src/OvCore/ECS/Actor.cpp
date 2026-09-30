@@ -134,6 +134,17 @@ void OvCore::ECS::Actor::SetID(int64_t p_id)
 void OvCore::ECS::Actor::SetGUID(uint64_t p_guid)
 {
 	m_guid = p_guid;
+
+#if defined(LUA_SCRIPTING)
+	// Lua scripts reference their owner by GUID, so an actor instantiated from a prefab updates them
+	for (auto& [name, behaviour] : m_behaviours)
+	{
+		if (auto script = behaviour.GetScript(); script.has_value() && script->IsValid())
+		{
+			script->SetOwner(*this);
+		}
+	}
+#endif
 }
 
 int64_t OvCore::ECS::Actor::GetID() const

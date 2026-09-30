@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include <OvDebug/Logger.h>
 #include <OvMaths/FVector2.h>
@@ -13,9 +14,11 @@
 #include <OvTools/Utils/PathParser.h>
 #include <OvTools/Utils/Random.h>
 
+
 #include "OvCore/ECS/Actor.h"
 #include "OvCore/ECS/PhysicsWrapper.h"
 #include "OvCore/Global/ServiceLocator.h"
+#include "OvCore/Helpers/InputHelpers.h"
 #include "OvCore/SceneSystem/SceneManager.h"
 #include "OvCore/ResourceManagement/ModelManager.h"
 #include "OvCore/ResourceManagement/ShaderManager.h"
@@ -27,6 +30,7 @@
 
 #include <OvPhysics/Entities/PhysicalObject.h>
 
+#include <OvWindowing/Cursor/ECursorShape.h>
 #include <OvWindowing/Inputs/InputManager.h>
 
 #include <sol/sol.hpp>
@@ -56,37 +60,54 @@ void BindLuaGlobal(sol::state& p_luaState)
 	p_luaState["Sound"]    = []() { return AssetRef{EFT::SOUND,    ""}; };
 	p_luaState["Prefab"]   = []() { return AssetRef{EFT::PREFAB,   ""}; };
 
-	// ActorRef is a C++-only internal sentinel type. It is registered so that sol2 can
-	// identify it via is<ActorRef>() in GetDefaultProperties. The Lua-visible factory is
-	// named "Actor" (overrides the non-callable Actor usertype with a factory lambda) so
-	// scripts can write: actor = Actor()
-	// After the inspector resolves the field, self.actor becomes the real Actor*.
-	p_luaState.new_usertype<ActorRef>("_ActorRef",
-		"guid", &ActorRef::guid
-	);
-
-	// Override "Actor" global with a factory that returns a sentinel ActorRef{0}.
-	// The Actor metatable (registered by LuaActorBindings) remains intact on Actor* values.
-	p_luaState["Actor"] = []() { return ActorRef{0}; };
-
 	p_luaState.new_usertype<Scene>("Scene",
-		"FindActorByName", &Scene::FindActorByName,
-		"FindActorByTag", &Scene::FindActorByTag,
-		"FindActorsByName", &Scene::FindActorsByName,
-		"FindActorsByTag", &Scene::FindActorsByTag,
+		"FindActorByName", [](Scene& s, const std::string& name) -> std::optional<ActorRef> {
+			if (auto* actor = s.FindActorByName(name))
+				return ActorRef{actor->GetGUID()};
+			return std::nullopt;
+		},
+		"FindActorByTag", [](Scene& s, const std::string& tag) -> std::optional<ActorRef> {
+			if (auto* actor = s.FindActorByTag(tag))
+				return ActorRef{actor->GetGUID()};
+			return std::nullopt;
+		},
+		"FindActorsByName", [](Scene& s, const std::string& name) {
+			std::vector<ActorRef> result;
+			for (auto& actor : s.FindActorsByName(name))
+				result.push_back(ActorRef{actor.get().GetGUID()});
+			return result;
+		},
+		"FindActorsByTag", [](Scene& s, const std::string& tag) {
+			std::vector<ActorRef> result;
+			for (auto& actor : s.FindActorsByTag(tag))
+				result.push_back(ActorRef{actor.get().GetGUID()});
+			return result;
+		},
 		"CreateActor", sol::overload(
-			sol::resolve<Actor&(void)>(&Scene::CreateActor),
-			sol::resolve<Actor&(const std::string&, const std::string&)>(&Scene::CreateActor)),
-		"InstantiatePrefab", sol::overload(
-			[](Scene& p_scene, const AssetRef& p_prefab) -> Actor*
-			{
-				return p_scene.InstantiatePrefab(p_prefab.path);
+			[](Scene& s) -> ActorRef {
+				auto& actor = s.CreateActor();
+				return ActorRef{actor.GetGUID()};
 			},
-			[](Scene& p_scene, const AssetRef& p_prefab, Actor& p_parent) -> Actor*
-			{
-				return p_scene.InstantiatePrefab(p_prefab.path, p_parent);
-			})
+			[](Scene& s, const std::string& name, const std::string& tag) -> ActorRef {
+				auto& actor = s.CreateActor(name, tag);
+				return ActorRef{actor.GetGUID()};
+			}
+		),
+		"InstantiatePrefab", sol::overload(
+			[](Scene& s, const AssetRef& prefab) -> std::optional<ActorRef> {
+				if (auto* actor = s.InstantiatePrefab(prefab.path))
+					return ActorRef{actor->GetGUID()};
+				return std::nullopt;
+			},
+			[](Scene& s, const AssetRef& prefab, ActorRef& parent) -> std::optional<ActorRef> {
+				if (auto* actor = s.InstantiatePrefab(prefab.path, parent.Resolve()))
+					return ActorRef{actor->GetGUID()};
+				return std::nullopt;
+			}
+		)
 	);
+
+	
 
 	p_luaState.new_enum<EKey>("Key", {
 		{"UNKNOWN",			EKey::KEY_UNKNOWN},
@@ -226,6 +247,15 @@ void BindLuaGlobal(sol::state& p_luaState)
 		{"BUTTON_MIDDLE",	EMouseButton::MOUSE_BUTTON_MIDDLE},
 	});
 
+	p_luaState.new_enum<Cursor::ECursorShape>("CursorShape", {
+		{"ARROW",		Cursor::ECursorShape::ARROW},
+		{"IBEAM",		Cursor::ECursorShape::IBEAM},
+		{"CROSSHAIR",	Cursor::ECursorShape::CROSSHAIR},
+		{"HAND",		Cursor::ECursorShape::HAND},
+		{"HRESIZE",		Cursor::ECursorShape::HRESIZE},
+		{"VRESIZE",		Cursor::ECursorShape::VRESIZE}
+	});
+
 	p_luaState.create_named_table("Debug",
 		"Log", [](const std::string& p_message) { OVLOG(p_message); },
 		"LogInfo", [](const std::string& p_message) { OVLOG_INFO(p_message); },
@@ -240,16 +270,15 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"GetMouseButtonDown", [](EMouseButton p_button) { return OVSERVICE(InputManager).IsMouseButtonPressed(p_button); },
 		"GetMouseButtonUp", [](EMouseButton p_button) { return OVSERVICE(InputManager).IsMouseButtonReleased(p_button); },
 		"GetMouseButton", [](EMouseButton p_button) { return OVSERVICE(InputManager).GetMouseButtonState(p_button) == EMouseButtonState::MOUSE_DOWN; },
-		"GetMousePos", []() {
-			const auto mousePos = OVSERVICE(InputManager).GetMousePosition();
-			return FVector2(static_cast<float>(mousePos.first), static_cast<float>(mousePos.second));
-		},
+		"GetMousePos", []() { return OvCore::Helpers::InputHelpers::GetMousePosition(); },
+		"GetViewportSize", []() { return OvCore::Helpers::InputHelpers::GetViewportSize(); },
 		"GetMouseScroll", []() {
 			const auto scroll = OVSERVICE(InputManager).GetMouseScroll();
 			return FVector2(static_cast<float>(scroll.first), static_cast<float>(scroll.second));
 		},
 		"LockMouse", []() { return OVSERVICE(Window).SetCursorMode(Cursor::ECursorMode::DISABLED); },
-		"UnlockMouse", []() { return OVSERVICE(Window).SetCursorMode(Cursor::ECursorMode::NORMAL); }
+		"UnlockMouse", []() { return OVSERVICE(Window).SetCursorMode(Cursor::ECursorMode::NORMAL); },
+		"SetCursorShape", [](Cursor::ECursorShape p_shape) { OVSERVICE(Window).SetCursorShape(p_shape); }
 	);
 
 	p_luaState.create_named_table("Scenes",

@@ -38,7 +38,7 @@ OvCore::Scripting::LuaScript::LuaScript(sol::table table)
 
 void OvCore::Scripting::LuaScript::SetOwner(OvCore::ECS::Actor& p_owner)
 {
-	(*m_context.table)["owner"] = &p_owner;
+	(*m_context.table)["owner"] = ActorRef{ p_owner.GetGUID() };
 }
 
 template<>
@@ -120,7 +120,7 @@ void OvCore::Scripting::LuaScriptBase::SetProperty(const std::string& p_key, con
 		}
 		else if constexpr (std::is_same_v<T, ActorRef>)
 		{
-			// Resolve the GUID to the actual actor so Lua code can use the actor directly.
+			// Only actors of the current scene are exposed to Lua
 			if (v.guid == 0)
 			{
 				(*m_context.table)[p_key] = sol::nil;
@@ -130,7 +130,7 @@ void OvCore::Scripting::LuaScriptBase::SetProperty(const std::string& p_key, con
 				auto* scene = OvCore::Global::ServiceLocator::Get<OvCore::SceneSystem::SceneManager>().GetCurrentScene();
 				auto* actor = scene ? scene->FindActorByGUID(v.guid) : nullptr;
 				if (actor)
-					(*m_context.table)[p_key] = actor;
+					(*m_context.table)[p_key] = ActorRef{ actor->GetGUID() };
 				else
 					(*m_context.table)[p_key] = sol::nil;
 			}

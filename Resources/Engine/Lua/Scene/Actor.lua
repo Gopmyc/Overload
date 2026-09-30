@@ -53,6 +53,10 @@ function Actor:DetachFromParent() end
 --- Removes the actor from the scene
 function Actor:Destroy() end
 
+--- Returns false once the actor is destroyed or its scene unloaded. Calling any other method on such an actor, except GetGUID, raises an error.
+---@return boolean
+function Actor:IsAlive() end
+
 --- Returns true if the actor is active, ignoring his parent (if any) active state
 ---@return boolean
 function Actor:IsSelfActive() end
