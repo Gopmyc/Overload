@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <format>
+#include <optional>
 
 #include <sol/sol.hpp>
 
@@ -65,16 +66,18 @@ void BindLuaActor(sol::state& p_luaState)
 				result.push_back(ActorRef{child->GetGUID()});
 			return result;
 		},
-		"FindChild", [](ActorRef& r, const std::string& p_name, bool p_recursive) -> ActorRef {
-			auto* child = r.Resolve().FindChild(p_name, p_recursive);
-			return child ? ActorRef{child->GetGUID()} : ActorRef{0};
+		"FindChild", [](ActorRef& r, const std::string& p_name, bool p_recursive) -> std::optional<ActorRef> {
+			if (auto* child = r.Resolve().FindChild(p_name, p_recursive))
+				return ActorRef{child->GetGUID()};
+			return std::nullopt;
 		},
 		"SetTag", [](ActorRef& r, const std::string& p_tag) { r.Resolve().SetTag(p_tag); },
 		"GetID", [](ActorRef& r) { return r.Resolve().GetID(); },
 		"GetGUID", [](ActorRef& r) { return std::format("{:016X}", r.guid); }, // no Resolve(); reads the handle directly
-		"GetParent", [](ActorRef& r) -> ActorRef {
-			auto* parent = r.Resolve().GetParent();
-			return parent ? ActorRef{parent->GetGUID()} : ActorRef{0};
+		"GetParent", [](ActorRef& r) -> std::optional<ActorRef> {
+			if (auto* parent = r.Resolve().GetParent())
+				return ActorRef{parent->GetGUID()};
+			return std::nullopt;
 		},
 		"SetParent", [](ActorRef& r, ActorRef& p_parent) { r.Resolve().SetParent(p_parent.Resolve()); },
 		"DetachFromParent", [](ActorRef& r) { r.Resolve().DetachFromParent(); },
