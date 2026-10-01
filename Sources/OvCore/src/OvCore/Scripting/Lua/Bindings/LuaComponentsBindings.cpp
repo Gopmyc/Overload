@@ -251,6 +251,11 @@ void BindLuaComponents(sol::state& p_luaState)
 		{"SHRINK", UI::CCanvas::EScreenMatchMode::SHRINK}
 	});
 
+	p_luaState.new_enum<UI::CCanvas::ERenderMode>("CanvasRenderMode", {
+		{"SCREEN_SPACE", UI::CCanvas::ERenderMode::SCREEN_SPACE},
+		{"WORLD_SPACE", UI::CCanvas::ERenderMode::WORLD_SPACE}
+	});
+
 	p_luaState.new_enum<CTransform::EUIAnchorPreset>("AnchorPreset", {
 		{"TOP_LEFT", CTransform::EUIAnchorPreset::TOP_LEFT},
 		{"TOP_CENTER", CTransform::EUIAnchorPreset::TOP_CENTER},
@@ -310,7 +315,11 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetScreenMatchMode", &UI::CCanvas::GetScreenMatchMode,
 		"SetScreenMatchMode", &UI::CCanvas::SetScreenMatchMode,
 		"GetMatchWidthOrHeight", &UI::CCanvas::GetMatchWidthOrHeight,
-		"SetMatchWidthOrHeight", &UI::CCanvas::SetMatchWidthOrHeight
+		"SetMatchWidthOrHeight", &UI::CCanvas::SetMatchWidthOrHeight,
+		"GetRenderMode", &UI::CCanvas::GetRenderMode,
+		"SetRenderMode", &UI::CCanvas::SetRenderMode,
+		"GetWorldScale", &UI::CCanvas::GetWorldScale,
+		"SetWorldScale", &UI::CCanvas::SetWorldScale
 	);
 
 	p_luaState.new_usertype<UI::CImage>("Image",

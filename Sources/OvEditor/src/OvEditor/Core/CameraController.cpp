@@ -107,18 +107,18 @@ namespace
 		ActorFocusTarget& p_outTarget
 	)
 	{
-		// In screen space the resolved matrices are expressed in canvas units, so they cannot be
-		// used as a world position to move the camera to
-		if (p_uiFrameResolver.IsScreenSpace())
-		{
-			return false;
-		}
-
 		OvCore::Rendering::UIRenderingUtils::ResolvedUIElement resolvedElement;
 		if (!p_uiFrameResolver.ResolveElement(
 			p_actor,
 			resolvedElement
 		))
+		{
+			return false;
+		}
+
+		// In screen space the resolved matrices are expressed in canvas units, so they cannot be
+		// used as a world position to move the camera to
+		if (resolvedElement.screenSpace)
 		{
 			return false;
 		}

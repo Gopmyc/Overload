@@ -129,7 +129,8 @@ namespace
 		const OvCore::Rendering::UIRenderingUtils::UIFrameResolver& p_uiFrameResolver,
 		OvCore::ECS::Actor& p_actor,
 		OvMaths::FVector3& p_position,
-		OvMaths::FQuaternion& p_rotation
+		OvMaths::FQuaternion& p_rotation,
+		bool& p_screenSpace
 	)
 	{
 		if (!p_includeUI)
@@ -149,6 +150,7 @@ namespace
 
 		p_position = resolvedTransform.position;
 		p_rotation = resolvedTransform.rotation;
+		p_screenSpace = resolvedTransform.screenSpace;
 		return true;
 	}
 
@@ -414,12 +416,14 @@ protected:
 			auto gizmoRotation = selectedActor.transform.GetWorldRotation();
 			const auto& sceneDescriptor = m_renderer.GetDescriptor<OvCore::Rendering::SceneRenderer::SceneDescriptor>();
 			const auto& uiFrameResolver = m_renderer.GetDescriptor<OvCore::Rendering::UIRenderingUtils::UIFrameResolver>();
+			bool uiGizmoScreenSpace = false;
 			const bool hasUIGizmoTransform = TryGetUIActorGizmoTransform(
 				sceneDescriptor.includeUI,
 				uiFrameResolver,
 				selectedActor,
 				gizmoPosition,
-				gizmoRotation
+				gizmoRotation,
+				uiGizmoScreenSpace
 			);
 			std::optional<OvMaths::FMatrix4> gizmoViewMatrixOverride;
 			std::optional<OvMaths::FMatrix4> gizmoProjectionMatrixOverride;
@@ -430,10 +434,10 @@ protected:
 				gizmoVisibleAxes = OvEditor::Core::GetUIGizmoAxes(
 					selectedActor,
 					debugSceneDescriptor.gizmoOperation,
-					uiFrameResolver.IsScreenSpace()
+					uiGizmoScreenSpace
 				);
 
-				if (uiFrameResolver.IsScreenSpace())
+				if (uiGizmoScreenSpace)
 				{
 					gizmoViewMatrixOverride = OvMaths::FMatrix4::Identity;
 					gizmoProjectionMatrixOverride = uiFrameResolver.CreateProjectionMatrix(
@@ -602,7 +606,7 @@ protected:
 		};
 
 		auto pso = m_renderer.CreatePipelineState();
-		if (uiFrameResolver.IsScreenSpace())
+		if (resolvedElement.screenSpace)
 		{
 			m_debugShapeFeature.SetViewProjection(uiFrameResolver.CreateProjectionMatrix());
 		}
@@ -612,7 +616,7 @@ protected:
 		m_debugShapeFeature.DrawLine(pso, corners[2], corners[3], kUIBoundsColor, kUIBoundsWidth, false);
 		m_debugShapeFeature.DrawLine(pso, corners[3], corners[0], kUIBoundsColor, kUIBoundsWidth, false);
 
-		if (uiFrameResolver.IsScreenSpace())
+		if (resolvedElement.screenSpace)
 		{
 			const auto& camera = frameDescriptor.camera;
 			m_debugShapeFeature.SetViewProjection(camera->GetProjectionMatrix() * camera->GetViewMatrix());
@@ -648,7 +652,7 @@ protected:
 		};
 
 		auto pso = m_renderer.CreatePipelineState();
-		if (uiFrameResolver.IsScreenSpace())
+		if (resolvedCanvas.screenSpace)
 		{
 			m_debugShapeFeature.SetViewProjection(uiFrameResolver.CreateProjectionMatrix());
 		}
@@ -658,7 +662,7 @@ protected:
 		m_debugShapeFeature.DrawLine(pso, corners[2], corners[3], kCanvasBoundsColor, kUIBoundsWidth, false);
 		m_debugShapeFeature.DrawLine(pso, corners[3], corners[0], kCanvasBoundsColor, kUIBoundsWidth, false);
 
-		if (uiFrameResolver.IsScreenSpace())
+		if (resolvedCanvas.screenSpace)
 		{
 			const auto& camera = frameDescriptor.camera;
 			m_debugShapeFeature.SetViewProjection(camera->GetProjectionMatrix() * camera->GetViewMatrix());

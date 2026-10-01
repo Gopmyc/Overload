@@ -56,7 +56,8 @@ namespace
 		const OvCore::Rendering::UIRenderingUtils::UIFrameResolver& p_uiFrameResolver,
 		OvCore::ECS::Actor& p_actor,
 		OvMaths::FVector3& p_position,
-		OvMaths::FQuaternion& p_rotation
+		OvMaths::FQuaternion& p_rotation,
+		bool& p_screenSpace
 	)
 	{
 		if (!p_includeUI)
@@ -76,6 +77,7 @@ namespace
 
 		p_position = resolvedTransform.position;
 		p_rotation = resolvedTransform.rotation;
+		p_screenSpace = resolvedTransform.screenSpace;
 		return true;
 	}
 
@@ -196,12 +198,14 @@ void OvEditor::Rendering::PickingRenderPass::Draw(OvRendering::Data::PipelineSta
 		auto gizmoPosition = selectedActor.transform.GetWorldPosition();
 		auto gizmoRotation = selectedActor.transform.GetWorldRotation();
 		const bool pickWorldDebugElements = ShouldPickWorldDebugElements(m_renderer);
+		bool uiGizmoScreenSpace = false;
 		const bool hasUIGizmoTransform = TryGetUIActorGizmoTransform(
 			sceneDescriptor.includeUI,
 			uiFrameResolver,
 			selectedActor,
 			gizmoPosition,
-			gizmoRotation
+			gizmoRotation,
+			uiGizmoScreenSpace
 		);
 		std::optional<OvMaths::FMatrix4> gizmoViewMatrixOverride;
 		std::optional<OvMaths::FMatrix4> gizmoProjectionMatrixOverride;
@@ -212,10 +216,10 @@ void OvEditor::Rendering::PickingRenderPass::Draw(OvRendering::Data::PipelineSta
 			gizmoVisibleAxes = OvEditor::Core::GetUIGizmoAxes(
 				selectedActor,
 				debugSceneDescriptor.gizmoOperation,
-				uiFrameResolver.IsScreenSpace()
+				uiGizmoScreenSpace
 			);
 
-			if (uiFrameResolver.IsScreenSpace())
+			if (uiGizmoScreenSpace)
 			{
 				gizmoViewMatrixOverride = OvMaths::FMatrix4::Identity;
 				gizmoProjectionMatrixOverride = uiFrameResolver.CreateProjectionMatrix(

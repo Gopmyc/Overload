@@ -14,6 +14,14 @@ CanvasScreenMatchMode = {
 	SHRINK = 2
 }
 
+--- Defines where a Canvas is drawn: over the screen, or as a plane of the scene laid on its actor's local XY plane
+--- and facing its local +Z
+---@enum CanvasRenderMode
+CanvasRenderMode = {
+	SCREEN_SPACE = 0,
+	WORLD_SPACE = 1
+}
+
 --- Represents a root canvas for in-game user interface elements
 ---@class Canvas : Component
 Canvas = {}
@@ -61,3 +69,20 @@ function Canvas:GetMatchWidthOrHeight() end
 --- Defines the match width/height factor in range [0, 1]
 ---@param value number
 function Canvas:SetMatchWidthOrHeight(value) end
+
+--- Returns where the canvas is drawn
+---@return CanvasRenderMode
+function Canvas:GetRenderMode() end
+
+--- Defines where the canvas is drawn
+---@param renderMode CanvasRenderMode
+function Canvas:SetRenderMode(renderMode) end
+
+--- Returns the size of one canvas unit in world units, used in world space
+---@return number
+function Canvas:GetWorldScale() end
+
+--- Defines the size of one canvas unit in world units, used in world space. A world space canvas is as many units
+--- wide and tall as its reference resolution, whatever the scaler mode
+---@param worldScale number
+function Canvas:SetWorldScale(worldScale) end
