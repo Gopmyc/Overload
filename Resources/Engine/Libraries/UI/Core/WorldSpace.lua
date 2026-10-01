@@ -90,6 +90,52 @@ function WorldSpace.Project(view, x, y, z)
 	return viewportX, viewportY, depth
 end
 
+--- Returns the ray leaving the camera through a viewport position (pixels, top-left origin): its
+--- origin, then its normalised direction. The inverse of Project.
+---@param view UIWorldView
+---@param x number
+---@param y number
+---@return number, number, number, number, number, number
+function WorldSpace.ViewportToRay(view, x, y)
+	local screenX = 2 * x / view.width - 1
+	local screenY = 1 - 2 * y / view.height
+	local originX, originY, originZ = view.x, view.y, view.z
+	local directionX, directionY, directionZ = view.forwardX, view.forwardY, view.forwardZ
+
+	if view.perspective then
+		local right = screenX * view.tangent * view.aspect
+		local up = screenY * view.tangent
+
+		directionX = directionX + view.rightX * right + view.upX * up
+		directionY = directionY + view.rightY * right + view.upY * up
+		directionZ = directionZ + view.rightZ * right + view.upZ * up
+	else
+		local right = screenX * view.size * view.aspect
+		local up = screenY * view.size
+
+		originX = originX + view.rightX * right + view.upX * up
+		originY = originY + view.rightY * right + view.upY * up
+		originZ = originZ + view.rightZ * right + view.upZ * up
+	end
+
+	local length = math.sqrt(directionX * directionX + directionY * directionY + directionZ * directionZ)
+
+	return originX, originY, originZ, directionX / length, directionY / length, directionZ / length
+end
+
+--- Returns how far along a ray it meets a plane, given by a point and a normal, or nil when the ray
+--- runs along the plane. The distance is negative when the plane is behind the origin.
+---@return number|nil
+function WorldSpace.IntersectPlane(originX, originY, originZ, directionX, directionY, directionZ, pointX, pointY, pointZ, normalX, normalY, normalZ)
+	local facing = directionX * normalX + directionY * normalY + directionZ * normalZ
+
+	if math.abs(facing) < 1e-6 then
+		return nil
+	end
+
+	return ((pointX - originX) * normalX + (pointY - originY) * normalY + (pointZ - originZ) * normalZ) / facing
+end
+
 --- Returns the part [t0, t1] of a segment whose depth goes from depthA to depthB that lies between
 --- minDepth and maxDepth (no upper bound when nil), or nil when none of it does
 ---@return number|nil, number|nil
@@ -178,6 +224,12 @@ local kWorldAxes = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
 
 ---@param panel Panel
 function WorldSpace.InitAnchor(panel)
+	-- These panels follow the screen projection of the world; a world space canvas is already in it
+	assert(
+		not panel:GetController():IsWorldSpace(),
+		"UI: " .. panel.ClassName .. " can only be created on a screen space canvas"
+	)
+
 	panel.m_Target = nil
 	panel.m_TargetTransform = nil
 	panel.m_WorldPosition = nil

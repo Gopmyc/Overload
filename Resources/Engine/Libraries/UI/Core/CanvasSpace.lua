@@ -1,6 +1,7 @@
 --- Conversions between the viewport (pixels, top-left origin) and canvas space (canvas units,
 --- top-left origin). Mirrors UIRenderingUtils::GetCanvasScale and GetCanvasSize, which aren't
---- exposed to Lua (see Docs/LuaExposureGaps.md).
+--- exposed to Lua (see Docs/LuaExposureGaps.md). A world space canvas isn't scaled with the
+--- viewport: it covers its reference resolution, and its world scale converts its units.
 ---@class UICanvasSpace
 local CanvasSpace = {}
 
@@ -18,12 +19,23 @@ local function ClampFinite(value, minimum)
 	return IsFinite(value) and math.max(value, minimum) or minimum
 end
 
---- Returns the number of viewport pixels covered by one canvas unit
+--- Returns true when the canvas is drawn in the world rather than over the screen
+---@param canvas Canvas
+---@return boolean
+function CanvasSpace.IsWorldSpace(canvas)
+	return canvas:GetRenderMode() == CanvasRenderMode.WORLD_SPACE
+end
+
+--- Returns the number of viewport pixels covered by one canvas unit, 1 for a world space canvas
 ---@param canvas Canvas
 ---@param viewportWidth number
 ---@param viewportHeight number
 ---@return number
 function CanvasSpace.GetScale(canvas, viewportWidth, viewportHeight)
+	if CanvasSpace.IsWorldSpace(canvas) then
+		return 1
+	end
+
 	local scaleFactor = ClampFinite(canvas:GetScaleFactor(), kMinimumScale)
 
 	if canvas:GetScalerMode() == CanvasScalerMode.CONSTANT_PIXEL_SIZE then
@@ -56,7 +68,7 @@ end
 ---@param viewportHeight number
 ---@return number, number
 function CanvasSpace.GetSize(canvas, viewportWidth, viewportHeight)
-	if canvas:GetScalerMode() == CanvasScalerMode.CONSTANT_PIXEL_SIZE then
+	if CanvasSpace.IsWorldSpace(canvas) or canvas:GetScalerMode() == CanvasScalerMode.CONSTANT_PIXEL_SIZE then
 		local reference = canvas:GetReferenceResolution()
 		return ClampCanvasSize(reference.x), ClampCanvasSize(reference.y)
 	end
@@ -65,7 +77,8 @@ function CanvasSpace.GetSize(canvas, viewportWidth, viewportHeight)
 	return ClampCanvasSize(ClampCanvasSize(viewportWidth) / scale), ClampCanvasSize(ClampCanvasSize(viewportHeight) / scale)
 end
 
---- Converts a viewport position into canvas space. The canvas is centered in the viewport.
+--- Converts a viewport position into canvas space. The canvas is centered in the viewport. A world
+--- space canvas is reached by a ray instead (see Controller:ViewportToCanvas).
 ---@param canvas Canvas
 ---@param viewportWidth number
 ---@param viewportHeight number
