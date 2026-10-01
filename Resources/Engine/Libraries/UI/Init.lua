@@ -18,7 +18,15 @@
 ---
 --- function Menu:OnDestroy() if self.ui then self.ui:Destroy() end end
 ---
---- Panels can also follow the 3D world (see Docs/WorldSpace.md):
+--- A canvas can be a plane of the 3D world, in perspective and hidden by what stands in front of it
+--- (see Docs/WorldSpace.md):
+---
+--- local plate = Scenes.GetCurrentScene():CreateActor("Menu Plate", "")
+--- plate:AddCanvas():SetRenderMode(CanvasRenderMode.WORLD_SPACE)
+--- self.ui = UI.CreateController(plate)
+--- self.ui:SetCamera(Scenes.GetCurrentScene():FindActorByName("Main Camera"))
+---
+--- Panels can also follow the 3D world from a screen space canvas:
 ---
 --- self.ui:SetCamera(Scenes.GetCurrentScene():FindActorByName("Main Camera"))
 --- local layer = self.ui:Create("DWorldLayer")
