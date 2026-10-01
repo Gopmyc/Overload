@@ -305,17 +305,22 @@ bool OvCore::Rendering::UIRenderingUtils::UIFrameResolver::ResolveCanvasUncached
 		return false;
 	}
 
+	// A world space canvas is always placed in the scene, at its own scale; a screen space one is only
+	// placed in the scene when the whole view is (the editor previewing it), at the preview scale
+	const bool worldCanvas = canvas->GetRenderMode() == OvCore::ECS::Components::UI::CCanvas::ERenderMode::WORLD_SPACE;
+	const bool screenSpace = m_screenSpace && !worldCanvas;
+
 	p_outCanvas.actor = &p_actor;
 	p_outCanvas.canvas = canvas;
 	p_outCanvas.size = UIRenderingUtils::GetCanvasSize(*canvas, m_renderSize);
-	p_outCanvas.matrix = m_screenSpace ? OvMaths::FMatrix4::Identity : CalculateUnscaledModelMatrix(p_actor);
+	p_outCanvas.matrix = screenSpace ? OvMaths::FMatrix4::Identity : CalculateUnscaledModelMatrix(p_actor);
 	p_outCanvas.canvasScale = UIRenderingUtils::GetCanvasScale(*canvas, m_renderSize);
-	p_outCanvas.worldScale = UIRenderingUtils::GetUIWorldScale(m_screenSpace);
-	p_outCanvas.unitsScale = m_screenSpace ? p_outCanvas.canvasScale : p_outCanvas.canvasScale * p_outCanvas.worldScale;
+	p_outCanvas.worldScale = worldCanvas ? canvas->GetWorldScale() : UIRenderingUtils::GetUIWorldScale(screenSpace);
+	p_outCanvas.unitsScale = screenSpace ? p_outCanvas.canvasScale : p_outCanvas.canvasScale * p_outCanvas.worldScale;
 	p_outCanvas.modelMatrix =
 		p_outCanvas.matrix *
 		OvMaths::FMatrix4::Scaling({ p_outCanvas.unitsScale, p_outCanvas.unitsScale, 1.0f });
-	p_outCanvas.screenSpace = m_screenSpace;
+	p_outCanvas.screenSpace = screenSpace;
 
 	return p_outCanvas.size.x > 0.0f && p_outCanvas.size.y > 0.0f;
 }
@@ -419,7 +424,7 @@ bool OvCore::Rendering::UIRenderingUtils::UIFrameResolver::ResolveElementUncache
 	p_outElement.unitsScale = resolvedCanvas.unitsScale;
 	p_outElement.frameMatrix = parentFrameMatrix * localFrameMatrix;
 	p_outElement.modelMatrix = parentFrameMatrix * p_outElement.localMatrix;
-	p_outElement.screenSpace = m_screenSpace;
+	p_outElement.screenSpace = resolvedCanvas.screenSpace;
 
 	return true;
 }
@@ -524,6 +529,11 @@ float OvCore::Rendering::UIRenderingUtils::GetCanvasScale(
 	const auto referenceResolution = ClampCanvasSize(p_canvas.GetReferenceResolution());
 	const auto scaleFactor = ClampFinite(p_canvas.GetScaleFactor(), kMinimumCanvasScale);
 
+	if (p_canvas.GetRenderMode() == OvCore::ECS::Components::UI::CCanvas::ERenderMode::WORLD_SPACE)
+	{
+		return 1.0f;
+	}
+
 	if (p_canvas.GetScalerMode() == OvCore::ECS::Components::UI::CCanvas::EScalerMode::CONSTANT_PIXEL_SIZE)
 	{
 		return scaleFactor;
@@ -560,7 +570,10 @@ OvMaths::FVector2 OvCore::Rendering::UIRenderingUtils::GetCanvasSize(
 	const OvMaths::FVector2& p_renderSize
 )
 {
-	if (p_canvas.GetScalerMode() == OvCore::ECS::Components::UI::CCanvas::EScalerMode::CONSTANT_PIXEL_SIZE)
+	if (
+		p_canvas.GetRenderMode() == OvCore::ECS::Components::UI::CCanvas::ERenderMode::WORLD_SPACE ||
+		p_canvas.GetScalerMode() == OvCore::ECS::Components::UI::CCanvas::EScalerMode::CONSTANT_PIXEL_SIZE
+	)
 	{
 		return ClampCanvasSize(p_canvas.GetReferenceResolution());
 	}

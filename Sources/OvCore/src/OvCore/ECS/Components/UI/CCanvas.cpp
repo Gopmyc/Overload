@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 
 #include <tinyxml2.h>
 
@@ -25,6 +26,7 @@ namespace
 	constexpr float kMinimumScaleFactor = 0.0001f;
 	constexpr float kMinimumMatchWidthOrHeight = 0.0f;
 	constexpr float kMaximumMatchWidthOrHeight = 1.0f;
+	constexpr float kMinimumWorldScale = 0.000001f;
 
 	float ClampFinite(float p_value, float p_min)
 	{
@@ -71,6 +73,19 @@ namespace
 		}
 	}
 
+	OvCore::ECS::Components::UI::CCanvas::ERenderMode ToRenderMode(int p_value)
+	{
+		using ERenderMode = OvCore::ECS::Components::UI::CCanvas::ERenderMode;
+
+		switch (p_value)
+		{
+		case static_cast<int>(ERenderMode::WORLD_SPACE):
+			return ERenderMode::WORLD_SPACE;
+		case static_cast<int>(ERenderMode::SCREEN_SPACE):
+		default:
+			return ERenderMode::SCREEN_SPACE;
+		}
+	}
 }
 
 OvCore::ECS::Components::UI::CCanvas::CCanvas(ECS::Actor& p_owner) :
@@ -140,6 +155,26 @@ float OvCore::ECS::Components::UI::CCanvas::GetMatchWidthOrHeight() const
 	return m_matchWidthOrHeight;
 }
 
+void OvCore::ECS::Components::UI::CCanvas::SetRenderMode(ERenderMode p_renderMode)
+{
+	m_renderMode = ToRenderMode(static_cast<int>(p_renderMode));
+}
+
+OvCore::ECS::Components::UI::CCanvas::ERenderMode OvCore::ECS::Components::UI::CCanvas::GetRenderMode() const
+{
+	return m_renderMode;
+}
+
+void OvCore::ECS::Components::UI::CCanvas::SetWorldScale(float p_worldScale)
+{
+	m_worldScale = ClampFinite(p_worldScale, kMinimumWorldScale);
+}
+
+float OvCore::ECS::Components::UI::CCanvas::GetWorldScale() const
+{
+	return m_worldScale;
+}
+
 void OvCore::ECS::Components::UI::CCanvas::OnSerialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
 {
 	Helpers::Serializer::SerializeVec2(p_doc, p_node, "reference_resolution", m_referenceResolution);
@@ -147,6 +182,8 @@ void OvCore::ECS::Components::UI::CCanvas::OnSerialize(tinyxml2::XMLDocument& p_
 	Helpers::Serializer::SerializeInt(p_doc, p_node, "scaler_mode", static_cast<int>(m_scalerMode));
 	Helpers::Serializer::SerializeInt(p_doc, p_node, "screen_match_mode", static_cast<int>(m_screenMatchMode));
 	Helpers::Serializer::SerializeFloat(p_doc, p_node, "match_width_or_height", m_matchWidthOrHeight);
+	Helpers::Serializer::SerializeInt(p_doc, p_node, "render_mode", static_cast<int>(m_renderMode));
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "world_scale", m_worldScale);
 }
 
 void OvCore::ECS::Components::UI::CCanvas::OnDeserialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
@@ -185,10 +222,46 @@ void OvCore::ECS::Components::UI::CCanvas::OnDeserialize(tinyxml2::XMLDocument& 
 		Helpers::Serializer::DeserializeFloat(p_doc, p_node, "match_width_or_height", matchWidthOrHeight);
 		SetMatchWidthOrHeight(matchWidthOrHeight);
 	}
+
+	if (p_node->FirstChildElement("render_mode"))
+	{
+		auto renderMode = static_cast<int>(m_renderMode);
+		Helpers::Serializer::DeserializeInt(p_doc, p_node, "render_mode", renderMode);
+		SetRenderMode(ToRenderMode(renderMode));
+	}
+
+	if (p_node->FirstChildElement("world_scale"))
+	{
+		auto worldScale = m_worldScale;
+		Helpers::Serializer::DeserializeFloat(p_doc, p_node, "world_scale", worldScale);
+		SetWorldScale(worldScale);
+	}
 }
 
 void OvCore::ECS::Components::UI::CCanvas::OnInspector(OvUI::Internal::WidgetContainer& p_root)
 {
+	Helpers::GUIDrawer::CreateTitle(p_root, "Render Mode");
+	auto& renderMode = p_root.CreateWidget<OvUI::Widgets::Selection::ComboBox>(static_cast<int>(GetRenderMode()));
+	renderMode.choices.emplace(static_cast<int>(ERenderMode::SCREEN_SPACE), "Screen Space");
+	renderMode.choices.emplace(static_cast<int>(ERenderMode::WORLD_SPACE), "World Space");
+	auto& renderModeDispatcher = renderMode.AddPlugin<OvUI::Plugins::DataDispatcher<int>>();
+	renderModeDispatcher.RegisterGatherer([this]() { return static_cast<int>(GetRenderMode()); });
+	renderModeDispatcher.RegisterProvider([this](int p_choice) { SetRenderMode(ToRenderMode(p_choice)); });
+
+	auto& worldScaleTitle = p_root.CreateWidget<OvUI::Widgets::Texts::TextColored>("World Scale", OVUI_STYLE(InspectorTitle));
+	auto& worldScale = p_root.CreateWidget<OvUI::Widgets::Drags::DragSingleScalar<float>>(
+		OvCore::Helpers::GUIDrawer::GetDataType<float>(),
+		kMinimumWorldScale,
+		std::numeric_limits<float>::max(),
+		0.0f,
+		0.0001f,
+		"",
+		"%.6f"
+	);
+	auto& worldScaleDispatcher = worldScale.AddPlugin<OvUI::Plugins::DataDispatcher<float>>();
+	worldScaleDispatcher.RegisterGatherer([this]() { return GetWorldScale(); });
+	worldScaleDispatcher.RegisterProvider([this](float p_value) { SetWorldScale(p_value); });
+
 	Helpers::GUIDrawer::DrawVec2(
 		p_root,
 		"Reference Resolution",
@@ -207,7 +280,7 @@ void OvCore::ECS::Components::UI::CCanvas::OnInspector(OvUI::Internal::WidgetCon
 		kMinimumScaleFactor
 	);
 
-	Helpers::GUIDrawer::CreateTitle(p_root, "Scaler Mode");
+	auto& scalerModeTitle = p_root.CreateWidget<OvUI::Widgets::Texts::TextColored>("Scaler Mode", OVUI_STYLE(InspectorTitle));
 	auto& scalerMode = p_root.CreateWidget<OvUI::Widgets::Selection::ComboBox>(static_cast<int>(GetScalerMode()));
 	scalerMode.choices.emplace(static_cast<int>(EScalerMode::CONSTANT_PIXEL_SIZE), "Constant Pixel Size");
 	scalerMode.choices.emplace(static_cast<int>(EScalerMode::SCALE_WITH_SCREEN_SIZE), "Scale With Screen Size");
@@ -240,18 +313,34 @@ void OvCore::ECS::Components::UI::CCanvas::OnInspector(OvUI::Internal::WidgetCon
 
 	const auto updateScaleWithScreenSettingsVisibility =
 		[this,
+			worldScaleTitleWidget = &worldScaleTitle,
+			worldScaleWidget = &worldScale,
+			scalerModeTitleWidget = &scalerModeTitle,
+			scalerModeWidget = &scalerMode,
 			screenMatchModeTitleWidget = &screenMatchModeTitle,
 			screenMatchModeWidget = &screenMatchMode,
 			matchWidthOrHeightTitleWidget = &matchWidthOrHeightTitle,
 			matchWidthOrHeightWidget = &matchWidthOrHeight]()
 	{
-		const bool usesScreenSize = GetScalerMode() == EScalerMode::SCALE_WITH_SCREEN_SIZE;
+		const bool inWorld = GetRenderMode() == ERenderMode::WORLD_SPACE;
+		worldScaleTitleWidget->enabled = inWorld;
+		worldScaleWidget->enabled = inWorld;
+		scalerModeTitleWidget->enabled = !inWorld;
+		scalerModeWidget->enabled = !inWorld;
+
+		const bool usesScreenSize = !inWorld && GetScalerMode() == EScalerMode::SCALE_WITH_SCREEN_SIZE;
 		screenMatchModeTitleWidget->enabled = usesScreenSize;
 		screenMatchModeWidget->enabled = usesScreenSize;
 
 		const bool usesMatchWidthOrHeight = usesScreenSize && GetScreenMatchMode() == EScreenMatchMode::MATCH_WIDTH_OR_HEIGHT;
 		matchWidthOrHeightTitleWidget->enabled = usesMatchWidthOrHeight;
 		matchWidthOrHeightWidget->enabled = usesMatchWidthOrHeight;
+	};
+
+	renderMode.ValueChangedEvent += [this, updateScaleWithScreenSettingsVisibility](int p_choice)
+	{
+		SetRenderMode(ToRenderMode(p_choice));
+		updateScaleWithScreenSettingsVisibility();
 	};
 
 	scalerMode.ValueChangedEvent += [this, updateScaleWithScreenSettingsVisibility](int p_choice)

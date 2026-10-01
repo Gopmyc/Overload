@@ -1,16 +1,112 @@
 # UI library: panels in the 3D world
 
-Panels can follow positions of the 3D world: name tags, markers, health bars, curved bars around a
-character, rings on the ground, off-screen indicators.
+The UI meets the 3D world in two ways:
 
-The engine draws the UI over the scene, so these panels are projected on the canvas every frame
+- a **world space canvas** is a plane of the scene: a menu on a plate, a screen on a wall, a label on
+  an object. It is seen in perspective and what stands in front of it hides it. See
+  [World space canvases](#world-space-canvases).
+- **world panels** on a screen space canvas follow positions of the 3D world: name tags, markers,
+  health bars, curved bars around a character, rings on the ground, off-screen indicators.
+
+A screen space canvas is drawn over the scene, so world panels are projected on it every frame
 rather than drawn in the world (see [EngineLimitations.md](EngineLimitations.md)):
 
 - they move, scale with the distance and rotate, and arcs and paths follow the perspective;
 - a flat panel can't be tilted in perspective;
 - the scene geometry doesn't hide them. Only an optional raycast hides a panel behind colliders.
 
-## Setup
+## World space canvases
+
+A canvas whose render mode is `CanvasRenderMode.WORLD_SPACE` is laid by the engine on its actor's local
+XY plane, centred on the actor and facing its local +Z: turn the actor's forward towards the viewer.
+
+- Its size is its reference resolution, in canvas units, whatever its scaler mode.
+- One canvas unit is `Canvas:GetWorldScale()` world units. The actor's own scale is ignored.
+- It is drawn with depth testing, so the scene hides what stands behind it, but it never writes depth:
+  the layers of a canvas never fight, and 3D content laid on it sits a little in front of or behind
+  its plane.
+
+```lua
+local plate = Scenes.GetCurrentScene():CreateActor("Menu Plate", "")
+local canvas = plate:AddCanvas()
+canvas:SetRenderMode(CanvasRenderMode.WORLD_SPACE)
+canvas:SetReferenceResolution(Vector2.new(800, 600))
+canvas:SetWorldScale(0.002) -- 800 x 600 units: a 1.6 x 1.2 m plate
+plate:GetTransform():SetWorldPosition(Vector3.new(0, 1.5, 3))
+
+self.ui = UI.CreateController(plate)
+self.ui:SetCamera(Scenes.GetCurrentScene():FindActorByName("Main Camera"))
+
+-- From OnLateUpdate, once the camera has moved
+self.ui:Update(deltaTime)
+```
+
+Panels are created and laid out as on any canvas, in canvas units with the origin at the top-left.
+
+### Mouse
+
+The cursor is a ray cast from the camera given to `SetCamera`, through the mouse, onto the plane.
+
+- A panel is hovered only on the front of the canvas, in front of the camera.
+- While a button is held, the cursor keeps following the plane beyond the edges of the canvas, so a
+  drag doesn't stop at the border.
+- Without a camera, nothing is hovered and a warning is logged once.
+- The ray isn't stopped by the scene: a wall standing in front of the canvas hides it but doesn't keep
+  it from being clicked.
+
+### Positions in the world
+
+| Method | Description |
+|---|---|
+| `controller:IsWorldSpace()` | Whether the canvas is a world space canvas |
+| `controller:GetCanvasFrame()` | The plane, read once per update: centre, right, up and normal axes, rotation, `scale` (world units per canvas unit), size in canvas units. nil on a screen space canvas |
+| `controller:CanvasToWorld(x, y)` | World position of a canvas position |
+| `controller:ViewportToCanvas(x, y)` | Canvas position under a pixel: a ray on a world space canvas, nil when it misses |
+| `panel:LocalToWorld(x, y)` | World position of a position local to the panel |
+| `panel:GetWorldRect()` | Centre, `right` and `up` axes as laid out on the canvas, `normal`, `width` and `height` in world units |
+
+### 3D content: `DModelPanel`
+
+A panel carrying a 3D model: a plate behind a menu, a key under a label, an item standing in its
+slot. Every update, once the layout is final, the model is centred on the panel, turned like the
+canvas and the panel on it, then by its own rotation, and pushed along the normal by its depth. It is
+shown only while the panel is, and hidden on a screen space canvas. The panel takes no cursor and owns
+its model: the model is destroyed when replaced or when the panel is removed.
+
+| Method | Description |
+|---|---|
+| `SetModel(actor)` | Carries the actor, destroying the previous model |
+| `SetModelPrefab(path)` | Instantiates the prefab and carries it, returns the model |
+| `SetDepth(depth)` | World units in front of the canvas; negative values sink it behind |
+| `SetModelRotation(rotation)` | Rotation in the frame of the panel: X right, Y up, Z towards the viewer |
+| `SetModelScale(scale)` | A number or a `Vector3` |
+| `SetFillRect(fill)` | Also scales X and Y by the world width and height of the panel, for a model one unit wide and tall |
+
+```lua
+-- A slab one unit wide and tall standing behind the whole menu, 1 cm thick
+local back = menu:Add("DModelPanel")
+back:SetSize(menu:GetSize())
+back:SetModelPrefab("Prefabs/UI/Slab.ovprefab")
+back:SetFillRect(true)
+back:SetModelScale(Vector3.new(1, 1, 0.01))
+back:SetDepth(-0.006)
+back:SetZPos(-1)
+
+-- An item model standing out of its slot
+local item = slot:Add("DModelPanel")
+item:SetSize(slot:GetSize())
+item:SetModelPrefab("Prefabs/Items/Sword.ovprefab")
+item:SetModelRotation(Quaternion.new(Vector3.new(0, 0, 45)))
+item:SetModelScale(0.4)
+item:SetDepth(0.02)
+```
+
+World panels (`DWorldPanel`, `DWorldPath`, `DWorldArc`) follow the screen projection of the world and
+can only be created on a screen space canvas.
+
+## World panels
+
+### Setup
 
 The controller needs the camera rendering the scene. Lua can't query the camera the engine picks
 (see [LuaExposureGaps.md](LuaExposureGaps.md)), so it is given by the script:
@@ -26,7 +122,7 @@ call `controller:Update` from `OnLateUpdate`, otherwise the panels lag one frame
 World panels are drawn in the order of their siblings, not by distance. Put them in a `DWorldLayer`
 to draw the farthest first. The layer covers its parent, so its panels can be clicked anywhere.
 
-## Anchors
+### Anchors
 
 `DWorldPanel`, `DWorldPath` and `DWorldArc` share an anchor:
 
@@ -42,7 +138,7 @@ to draw the farthest first. The layer covers its parent, so its panels can be cl
 A panel without anchor, without camera, or whose target is gone is hidden. Its visibility
 (`SetVisible`) isn't changed.
 
-## `DWorldPanel`
+### `DWorldPanel`
 
 A container placed on its anchor. Its children are ordinary panels and receive the mouse.
 
@@ -88,7 +184,7 @@ arrow.Think = function(self)
 end
 ```
 
-## `DWorldPath` and `DWorldArc`
+### `DWorldPath` and `DWorldArc`
 
 A line through 3D points, drawn with `DPolyline`. It is cut at the near plane of the camera.
 

@@ -101,7 +101,8 @@ namespace OvCore::Rendering::UIRenderingUtils
 		const OvMaths::FVector2& GetRenderSize() const;
 
 		/**
-		* Return true when elements are resolved in screen space instead of world space
+		* Return true when the view draws screen space canvases over the screen rather than in the world. World
+		* space canvases are placed in the world either way: ask each resolved canvas or element instead
 		*/
 		bool IsScreenSpace() const;
 
@@ -228,7 +229,8 @@ namespace OvCore::Rendering::UIRenderingUtils
 	);
 
 	/**
-	* Return the size, in canvas units, covered by the given canvas
+	* Return the size, in canvas units, covered by the given canvas. A world space canvas covers its reference
+	* resolution
 	* @param p_canvas
 	* @param p_renderSize
 	*/
@@ -238,7 +240,8 @@ namespace OvCore::Rendering::UIRenderingUtils
 	);
 
 	/**
-	* Return the scale applied by the given canvas for the provided render size
+	* Return the scale applied by the given canvas for the provided render size. A world space canvas isn't
+	* scaled with the render size, its world scale converts its units instead
 	* @param p_canvas
 	* @param p_renderSize
 	*/
@@ -287,7 +290,8 @@ namespace OvCore::Rendering::UIRenderingUtils
 	);
 
 	/**
-	* Return the scale converting canvas units to world units for the given rendering mode
+	* Return the scale converting canvas units to world units for a screen space canvas, drawn on the screen or
+	* previewed in the world. A world space canvas uses its own world scale
 	* @param p_screenSpace
 	*/
 	float GetUIWorldScale(bool p_screenSpace);

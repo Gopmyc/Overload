@@ -176,9 +176,12 @@ namespace
 		const OvCore::Rendering::UIRenderingUtils::UIFrameResolver& p_uiFrameResolver,
 		const OvMaths::FMatrix4& p_uiProjectionMatrix,
 		const OvMaths::FVector2& p_elementSize,
+		bool& p_outDepthTested,
 		bool p_preserveAspect = false
 	)
 	{
+		p_outDepthTested = false;
+
 		EngineDrawableDescriptor descriptor{
 			.modelMatrix = p_owner.transform.GetFTransform().GetWorldMatrix(),
 			.userMatrix = OvMaths::FMatrix4::Identity
@@ -214,11 +217,17 @@ namespace
 				descriptor.modelMatrix = resolvedElement.modelMatrix;
 			}
 
-			if (p_uiFrameResolver.IsScreenSpace())
+			if (resolvedElement.screenSpace)
 			{
 				descriptor.viewMatrixOverride = OvMaths::FMatrix4::Identity;
 				descriptor.projectionMatrixOverride = p_uiProjectionMatrix;
 			}
+
+			// A world space canvas is part of the scene: what stands in front of it hides it. A screen space
+			// canvas previewed in the world stays drawn over the scene
+			p_outDepthTested =
+				resolvedElement.canvas &&
+				resolvedElement.canvas->GetRenderMode() == OvCore::ECS::Components::UI::CCanvas::ERenderMode::WORLD_SPACE;
 		}
 
 		return descriptor;
@@ -250,15 +259,20 @@ namespace
 			.isUserInterface = true
 		});
 
+		bool depthTested = false;
+
 		drawable.AddDescriptor<EngineDrawableDescriptor>(
 			CreateUIDrawableDescriptor(
 				owner,
 				p_uiFrameResolver,
 				p_uiProjectionMatrix,
 				p_image.GetIntrinsicSize(),
+				depthTested,
 				p_image.GetPreserveAspect()
 			)
 		);
+
+		drawable.stateMask.depthTest = drawable.stateMask.depthTest || depthTested;
 
 		p_result.drawables.push_back(drawable);
 	}
@@ -307,14 +321,19 @@ namespace
 			.isUserInterface = true
 		});
 
+		bool depthTested = false;
+
 		drawable.AddDescriptor<EngineDrawableDescriptor>(
 			CreateUIDrawableDescriptor(
 				owner,
 				p_uiFrameResolver,
 				p_uiProjectionMatrix,
-				renderedTextSize
+				renderedTextSize,
+				depthTested
 			)
 		);
+
+		drawable.stateMask.depthTest = drawable.stateMask.depthTest || depthTested;
 
 		p_result.drawables.push_back(drawable);
 	}

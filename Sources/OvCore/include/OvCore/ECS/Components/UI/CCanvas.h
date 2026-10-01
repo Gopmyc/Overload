@@ -33,6 +33,16 @@ namespace OvCore::ECS::Components::UI
 		};
 
 		/**
+		* Where the canvas is drawn. A screen space canvas covers the view; a world space canvas is a plane of
+		* the scene, laid on its actor's local XY plane and facing its local +Z
+		*/
+		enum class ERenderMode
+		{
+			SCREEN_SPACE,
+			WORLD_SPACE
+		};
+
+		/**
 		* Constructor
 		* @param p_owner
 		*/
@@ -104,6 +114,29 @@ namespace OvCore::ECS::Components::UI
 		float GetMatchWidthOrHeight() const;
 
 		/**
+		* Sets where the canvas is drawn
+		* @param p_renderMode
+		*/
+		void SetRenderMode(ERenderMode p_renderMode);
+
+		/**
+		* Returns where the canvas is drawn
+		*/
+		ERenderMode GetRenderMode() const;
+
+		/**
+		* Sets the size of one canvas unit in world units, used in world space. A world space canvas is as many
+		* units wide and tall as its reference resolution, whatever the scaler mode
+		* @param p_worldScale
+		*/
+		void SetWorldScale(float p_worldScale);
+
+		/**
+		* Returns the size of one canvas unit in world units, used in world space
+		*/
+		float GetWorldScale() const;
+
+		/**
 		* Serialize the component
 		* @param p_doc
 		* @param p_node
@@ -129,6 +162,8 @@ namespace OvCore::ECS::Components::UI
 		EScalerMode m_scalerMode = EScalerMode::SCALE_WITH_SCREEN_SIZE;
 		EScreenMatchMode m_screenMatchMode = EScreenMatchMode::MATCH_WIDTH_OR_HEIGHT;
 		float m_matchWidthOrHeight = 0.5f;
+		ERenderMode m_renderMode = ERenderMode::SCREEN_SPACE;
+		float m_worldScale = 0.001f;
 	};
 }
 

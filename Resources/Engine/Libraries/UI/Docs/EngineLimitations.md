@@ -77,15 +77,19 @@ not just its Lua binding. Features that only need a binding are listed in
   discards its panels once the canvas is destroyed, but destroying the actor of a single panel outside
   `Panel:Remove` leaves its cached components dangling, and isn't supported.
 
-## 9. UI is always drawn over the scene
+## 9. World space canvases are drawn after the scene
 
-- **Feature:** panels in the 3D world (`DWorldPanel`, `DWorldPath`, `DWorldArc`, see
-  [WorldSpace.md](WorldSpace.md)).
-- **Missing primitive:** a world space render mode per canvas. The game draws every canvas as a screen
-  overlay. `UIRenderingUtils::UIFrameResolver` can already resolve canvases in the world, but only for a
-  whole view: `renderUIInScreenSpace` is false in the editor Scene View preview.
-- **Impact:** world panels are projected on the canvas every frame:
-  - a flat panel can't be tilted in perspective, like a menu floating next to a character;
-  - the scene doesn't hide them. `SetOcclusionCheck` hides a `DWorldPanel` when a raycast hits
-    another collider, and `SetFrontOnly` hides the far half of a path around a character;
-  - they aren't sorted with the scene, and only a `DWorldLayer` sorts them between themselves.
+- **Feature:** world space canvases, and panels in the 3D world (`DWorldPanel`, `DWorldPath`,
+  `DWorldArc`, see [WorldSpace.md](WorldSpace.md)).
+- **Missing primitive:** UI drawn among the lit geometry. Every canvas is drawn by the UI pass, after
+  post-processing. A world space canvas is placed in the scene and depth-tested against it, but it never
+  writes depth and isn't lit.
+- **Impact:**
+  - a world space canvas keeps its exact colours: it isn't lit, shadowed, fogged or tonemapped. 3D
+    content carried with `DModelPanel` is, like the rest of the scene;
+  - two world space canvases overlapping on screen are drawn in the order of the scene, not from the
+    farthest to the nearest;
+  - world panels on a screen space canvas are still projected on it every frame: a flat panel can't
+    be tilted in perspective, and the scene doesn't hide them. `SetOcclusionCheck` hides a
+    `DWorldPanel` when a raycast hits another collider, and `SetFrontOnly` hides the far half of a path
+    around a character. Only a `DWorldLayer` sorts them between themselves.

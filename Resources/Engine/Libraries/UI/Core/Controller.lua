@@ -204,6 +204,70 @@ local function UpdateWorld(self, panel, view, deltaTime)
 	end
 end
 
+-- Places what panels carry in the world (see DModelPanel), once the layout is final
+local function PlaceInWorld(self, panel, deltaTime)
+	if panel.m_Removed then
+		return
+	end
+
+	if panel.PlaceInWorld then
+		panel:PlaceInWorld(deltaTime)
+	end
+
+	local children = Array.Copy(panel.m_Children)
+
+	for i = 1, #children do
+		PlaceInWorld(self, children[i], deltaTime)
+	end
+end
+
+-- The plane of a world space canvas this frame. The engine lays it on the actor's local XY plane,
+-- centred on the actor, unscaled by the actor, facing the actor's +Z.
+local function CreateCanvasFrame(self)
+	local transform = self.m_CanvasActor:GetTransform()
+	local position, rotation = transform:GetWorldPosition(), transform:GetWorldRotation()
+	local right, up, normal = transform:GetWorldRight(), transform:GetWorldUp(), transform:GetWorldForward()
+	local width, height = self.m_Root:GetSize()
+
+	return {
+		x = position.x, y = position.y, z = position.z,
+		rightX = right.x, rightY = right.y, rightZ = right.z,
+		upX = up.x, upY = up.y, upZ = up.z,
+		normalX = normal.x, normalY = normal.y, normalZ = normal.z,
+		rotation = rotation,
+		scale = self.m_Canvas:GetWorldScale(),
+		width = width,
+		height = height
+	}
+end
+
+-- Where the ray through a viewport position meets the plane of a world space canvas, in canvas space.
+-- Also tells whether it meets the front of the canvas, in front of the camera.
+local function RayToCanvas(self, view, x, y)
+	local frame = self:GetCanvasFrame()
+	local originX, originY, originZ, directionX, directionY, directionZ = WorldSpace.ViewportToRay(view, x, y)
+	local distance = WorldSpace.IntersectPlane(
+		originX, originY, originZ, directionX, directionY, directionZ,
+		frame.x, frame.y, frame.z, frame.normalX, frame.normalY, frame.normalZ
+	)
+
+	if not distance then
+		return nil
+	end
+
+	local offsetX = originX + directionX * distance - frame.x
+	local offsetY = originY + directionY * distance - frame.y
+	local offsetZ = originZ + directionZ * distance - frame.z
+	local alongRight = offsetX * frame.rightX + offsetY * frame.rightY + offsetZ * frame.rightZ
+	local alongUp = offsetX * frame.upX + offsetY * frame.upY + offsetZ * frame.upZ
+	local facing = directionX * frame.normalX + directionY * frame.normalY + directionZ * frame.normalZ
+
+	return
+		alongRight / frame.scale + frame.width * 0.5,
+		frame.height * 0.5 - alongUp / frame.scale,
+		distance > 0 and facing < 0
+end
+
 -- Callbacks run last: they may remove the panel they are called on
 local function SetHoveredPanel(self, panel)
 	local previous = self.m_Hovered
@@ -258,12 +322,36 @@ local function UpdateMouse(self)
 	end
 
 	local mouse = Inputs.GetMousePos()
-	local x, y = CanvasSpace.ViewportToCanvas(self.m_Canvas, self.m_ViewportWidth, self.m_ViewportHeight, mouse.x, mouse.y)
-	local moved = x ~= self.m_CursorX or y ~= self.m_CursorY
-	local root = self.m_Root
+	local x, y, inside
 
 	-- Parts of a canvas larger than the rendered area can't be hovered from outside of it
-	local inside = mouse.x >= 0 and mouse.y >= 0 and mouse.x < self.m_ViewportWidth and mouse.y < self.m_ViewportHeight
+	local inViewport = mouse.x >= 0 and mouse.y >= 0 and mouse.x < self.m_ViewportWidth and mouse.y < self.m_ViewportHeight
+
+	if CanvasSpace.IsWorldSpace(self.m_Canvas) then
+		local view = self.m_WorldView
+		local front
+
+		if view then
+			x, y, front = RayToCanvas(self, view, mouse.x, mouse.y)
+		elseif not self.m_CameraWarningLogged then
+			Debug.LogWarning("UI: a world space canvas can't be hovered until controller:SetCamera is called")
+			self.m_CameraWarningLogged = true
+		end
+
+		-- A ray missing the plane keeps the cursor where it was, so a drag doesn't jump
+		if not x then
+			x, y, front = self.m_CursorX, self.m_CursorY, false
+		end
+
+		-- The root covers the canvas: the hit-test leaves out what falls beyond it
+		inside = inViewport and front
+	else
+		x, y = CanvasSpace.ViewportToCanvas(self.m_Canvas, self.m_ViewportWidth, self.m_ViewportHeight, mouse.x, mouse.y)
+		inside = inViewport
+	end
+
+	local moved = x ~= self.m_CursorX or y ~= self.m_CursorY
+	local root = self.m_Root
 
 	self.m_CursorX, self.m_CursorY = x, y
 	SetHoveredPanel(self, inside and HitTest(root, root:ParentToLocal(x, y)) or nil)
@@ -410,6 +498,7 @@ local function Release(self)
 	self.m_Canvas = nil
 	self.m_Camera = nil
 	self.m_WorldView = nil
+	self.m_CanvasFrame = nil
 end
 
 --- Creates a controller on the given actor Canvas, or on a new canvas actor owned by the controller
@@ -466,6 +555,7 @@ function Controller:Update(deltaTime)
 
 	UpdateViewportSize(self)
 	UpdateRootSize(self)
+	self.m_CanvasFrame = nil
 	self.m_WorldView = CreateWorldView(self)
 	UpdateWorld(self, root, self.m_WorldView, deltaTime)
 	UpdateMouse(self)
@@ -478,6 +568,7 @@ function Controller:Update(deltaTime)
 		end
 	end
 
+	PlaceInWorld(self, root, deltaTime)
 	Paint(root)
 	UpdateCursorShape(self)
 end
@@ -508,11 +599,68 @@ function Controller:GetWorldView()
 	return self.m_WorldView
 end
 
---- Converts a position in pixels of the rendered area into canvas space
+--- Returns true when the canvas is drawn in the world rather than over the screen
+---@return boolean
+function Controller:IsWorldSpace()
+	return CanvasSpace.IsWorldSpace(self.m_Canvas)
+end
+
+--- Returns the plane of a world space canvas, or nil on a screen space canvas: its centre (x, y, z),
+--- its right, up and normal axes (rightX..., upX..., normalX..., the normal facing the viewer), its
+--- world rotation, the world size of one canvas unit (scale), and its size in canvas units. Read once
+--- per update: a canvas actor moved since is seen from the next update on.
+---@return table|nil
+function Controller:GetCanvasFrame()
+	if not self:IsWorldSpace() then
+		return nil
+	end
+
+	if not self.m_CanvasFrame then
+		self.m_CanvasFrame = CreateCanvasFrame(self)
+	end
+
+	return self.m_CanvasFrame
+end
+
+--- Converts a canvas position into a world position on a world space canvas, or returns nil on a
+--- screen space canvas
 ---@param x number
 ---@param y number
----@return number, number
+---@return Vector3|nil
+function Controller:CanvasToWorld(x, y)
+	local frame = self:GetCanvasFrame()
+
+	if not frame then
+		return nil
+	end
+
+	local alongRight = (x - frame.width * 0.5) * frame.scale
+	local alongUp = (frame.height * 0.5 - y) * frame.scale
+
+	return Vector3.new(
+		frame.x + frame.rightX * alongRight + frame.upX * alongUp,
+		frame.y + frame.rightY * alongRight + frame.upY * alongUp,
+		frame.z + frame.rightZ * alongRight + frame.upZ * alongUp
+	)
+end
+
+--- Converts a position in pixels of the rendered area into canvas space. On a world space canvas,
+--- casts a ray from the camera and returns nil when it misses the plane or no camera is set.
+---@param x number
+---@param y number
+---@return number|nil, number|nil
 function Controller:ViewportToCanvas(x, y)
+	if self:IsWorldSpace() then
+		local view = self:GetWorldView()
+
+		if not view then
+			return nil
+		end
+
+		local canvasX, canvasY = RayToCanvas(self, view, x, y)
+		return canvasX, canvasY
+	end
+
 	local width, height = GetViewport(self)
 	return CanvasSpace.ViewportToCanvas(self.m_Canvas, width, height, x, y)
 end
