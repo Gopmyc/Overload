@@ -204,6 +204,23 @@ local function UpdateWorld(self, panel, view, deltaTime)
 	end
 end
 
+-- Places what panels carry in the world (see DModelPanel), once the layout is final
+local function PlaceInWorld(self, panel, deltaTime)
+	if panel.m_Removed then
+		return
+	end
+
+	if panel.PlaceInWorld then
+		panel:PlaceInWorld(deltaTime)
+	end
+
+	local children = Array.Copy(panel.m_Children)
+
+	for i = 1, #children do
+		PlaceInWorld(self, children[i], deltaTime)
+	end
+end
+
 -- The plane of a world space canvas this frame. The engine lays it on the actor's local XY plane,
 -- centred on the actor, unscaled by the actor, facing the actor's +Z.
 local function CreateCanvasFrame(self)
@@ -551,6 +568,7 @@ function Controller:Update(deltaTime)
 		end
 	end
 
+	PlaceInWorld(self, root, deltaTime)
 	Paint(root)
 	UpdateCursorShape(self)
 end

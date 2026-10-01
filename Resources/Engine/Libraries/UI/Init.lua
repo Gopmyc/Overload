@@ -49,6 +49,7 @@ Resources.GetScript(":Libraries/UI/Panels/DWorldPanel.lua")
 Resources.GetScript(":Libraries/UI/Panels/DWorldPath.lua")
 Resources.GetScript(":Libraries/UI/Panels/DWorldArc.lua")
 Resources.GetScript(":Libraries/UI/Panels/DWorldLayer.lua")
+Resources.GetScript(":Libraries/UI/Panels/DModelPanel.lua")
 
 ---@class UI
 local UI = {}

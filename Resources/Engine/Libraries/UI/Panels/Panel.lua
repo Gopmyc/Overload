@@ -613,6 +613,41 @@ function Panel:LocalCursorPos()
 	return self:ScreenToLocal(self.m_Controller:GetCursorPos())
 end
 
+--- Converts a position local to the panel into a world position, on a world space canvas only
+---@param x number
+---@param y number
+---@return Vector3|nil
+function Panel:LocalToWorld(x, y)
+	return self.m_Controller:CanvasToWorld(self:LocalToScreen(x, y))
+end
+
+--- Returns where the panel stands in the world, on a world space canvas only: its centre, its right
+--- and up axes as laid out on the canvas, the canvas normal facing the viewer, and its width and
+--- height in world units
+---@return table|nil
+function Panel:GetWorldRect()
+	local frame = self.m_Controller:GetCanvasFrame()
+
+	if not frame then
+		return nil
+	end
+
+	local width, height = self.m_Width, self.m_Height
+	local centre = self:LocalToWorld(width * 0.5, height * 0.5)
+	local horizontal = self:LocalToWorld(width, height * 0.5) - self:LocalToWorld(0, height * 0.5)
+	local vertical = self:LocalToWorld(width * 0.5, 0) - self:LocalToWorld(width * 0.5, height)
+	local worldWidth, worldHeight = horizontal:Length(), vertical:Length()
+
+	return {
+		position = centre,
+		right = worldWidth > 0 and horizontal / worldWidth or Vector3.new(frame.rightX, frame.rightY, frame.rightZ),
+		up = worldHeight > 0 and vertical / worldHeight or Vector3.new(frame.upX, frame.upY, frame.upZ),
+		normal = Vector3.new(frame.normalX, frame.normalY, frame.normalZ),
+		width = worldWidth,
+		height = worldHeight
+	}
+end
+
 ---@return UIController
 function Panel:GetController()
 	return self.m_Controller
