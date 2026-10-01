@@ -59,7 +59,9 @@ function DModelPanel:SetModel(actor)
 		return
 	end
 
+	-- Hidden first: a built game never collects destroyed actors, which would otherwise stay drawn
 	if self.m_Model and self.m_Model:IsAlive() then
+		self.m_Model:SetActive(false)
 		self.m_Model:Destroy()
 	end
 
