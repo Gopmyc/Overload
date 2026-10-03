@@ -10,6 +10,7 @@
 #include <OvCore/Scripting/ScriptEngine.h>
 #include <OvDebug/Assertion.h>
 #include <OvEditor/Core/Context.h>
+#include <OvEditor/Core/EditorActions.h>
 #include <OvEditor/Utils/FileSystem.h>
 #include <OvEditor/Utils/ProjectManagement.h>
 #include <OvEditor/Settings/EditorSettings.h>
@@ -66,6 +67,42 @@ std::array<int, 4> FindBestFitWindowSizeAndPosition(std::array<int, 4> p_workAre
 	return {};
 }
 
+namespace
+{
+	/**
+	* Returns the most optimized build type for which a game builder is available.
+	* Debug builds are unoptimized and run with synchronous OpenGL debug output, so they should
+	* only be the default when no other builder is available.
+	*/
+	OvEditor::Core::EBuildType FindDefaultBuildType()
+	{
+		using enum OvEditor::Core::EBuildType;
+
+		const std::string executableName =
+#if defined(_WIN32)
+			"OvGame.exe";
+#else
+			"OvGame";
+#endif
+
+		for (const auto buildType : { Publish, Release, Debug })
+		{
+			const auto builderExecutable =
+				std::filesystem::current_path() /
+				"Builder" /
+				OvEditor::Core::GetBuildTypeName(buildType) /
+				executableName;
+
+			if (std::filesystem::exists(builderExecutable))
+			{
+				return buildType;
+			}
+		}
+
+		return Release;
+	}
+}
+
 OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	projectFolder(p_projectFolder),
 	projectFile(Utils::ProjectManagement::GetProjectFile(p_projectFolder)),
@@ -113,7 +150,14 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	device->SetVsync(true);
 
 	/* Graphics context creation */
-	driver = std::make_unique<OvRendering::Context::Driver>(OvRendering::Settings::DriverSettings{ true });
+	// The OpenGL debug output is synchronous, which serializes every GL call. Only enable it in debug builds.
+	driver = std::make_unique<OvRendering::Context::Driver>(OvRendering::Settings::DriverSettings{
+#ifdef _DEBUG
+		true
+#else
+		false
+#endif
+	});
 
 	std::filesystem::create_directories(Utils::FileSystem::kEditorDataPath);
 
@@ -199,7 +243,7 @@ void OvEditor::Core::Context::ResetProjectSettings()
 	projectSettings.Add<bool>("vsync", true);
 	projectSettings.Add<bool>("multisampling", false);
 	projectSettings.Add<int>("samples", 4);
-	projectSettings.Add<int>("build_type", 0);
+	projectSettings.Add<int>("build_type", static_cast<int>(FindDefaultBuildType()));
 	projectSettings.Add<std::string>("window_icon", "");
 }
 

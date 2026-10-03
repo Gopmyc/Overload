@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <atomic>
 #include <format>
 #include <ranges>
 
@@ -14,6 +15,8 @@
 
 namespace
 {
+	std::atomic<uint64_t> g_shaderGenerationCounter{ 0 };
+
 	void ValidateVariants(const OvRendering::Resources::Shader::Variants& p_variants)
 	{
 		OVASSERT(p_variants.contains({}), "Missing default pass.");
@@ -74,6 +77,7 @@ void OvRendering::Resources::Shader::SetVariants(Variants&& p_variants, Data::Fe
 {
 	ValidateVariants(p_variants);
 	m_variants = std::move(p_variants);
+	m_generation = ++g_shaderGenerationCounter;
 	m_engineFeatures = std::move(p_engineFeatures);
 
 	m_passes.clear();
@@ -100,4 +104,9 @@ void OvRendering::Resources::Shader::SetVariants(Variants&& p_variants, Data::Fe
 const OvRendering::Resources::Shader::Variants& OvRendering::Resources::Shader::GetVariants() const
 {
 	return m_variants;
+}
+
+uint64_t OvRendering::Resources::Shader::GetGeneration() const
+{
+	return m_generation;
 }

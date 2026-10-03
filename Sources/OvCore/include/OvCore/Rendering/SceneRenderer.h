@@ -7,6 +7,7 @@
 #pragma once
 
 #include <map>
+#include <vector>
 
 #include <baregl/Buffer.h>
 
@@ -38,9 +39,9 @@ namespace OvCore::Rendering
 		template<EOrderingMode OrderingMode, bool BatchMaterial>
 		struct DrawOrder
 		{
-			const int order;
-			const uintptr_t materialKey;
-			const float distance;
+			int order;
+			uintptr_t materialKey;
+			float distance;
 
 			/**
 			* Determines the order of the drawables.
@@ -74,8 +75,10 @@ namespace OvCore::Rendering
 			}
 		};
 
+		// Drawables sorted by draw order (filled, then sorted once with a stable sort, which preserves the
+		// insertion order of equivalent drawables, like a multimap would, without a node allocation per drawable)
 		template<EOrderingMode OrderingMode, bool BatchMaterial = false>
-		using DrawableMap = std::multimap<DrawOrder<OrderingMode, BatchMaterial>, OvRendering::Entities::Drawable>;
+		using DrawableMap = std::vector<std::pair<DrawOrder<OrderingMode, BatchMaterial>, OvRendering::Entities::Drawable>>;
 
 		/**
 		* Input data for the scene renderer.

@@ -37,7 +37,7 @@ namespace OvRendering::Entities
 		bool castShadows = false;
 		float shadowAreaSize = 50.0f;
 		bool shadowFollowCamera = true;
-		int16_t shadowMapResolution = 8192;
+		int16_t shadowMapResolution = 2048;
 
 		std::unique_ptr<baregl::Framebuffer> shadowBuffer;
 		std::optional<OvRendering::Entities::Camera> shadowCamera;

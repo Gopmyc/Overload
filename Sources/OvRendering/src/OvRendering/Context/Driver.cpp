@@ -94,7 +94,8 @@ namespace
 	}
 }
 
-OvRendering::Context::Driver::Driver(const OvRendering::Settings::DriverSettings& p_driverSettings)
+OvRendering::Context::Driver::Driver(const OvRendering::Settings::DriverSettings& p_driverSettings) :
+	m_maxQueuedFrames(p_driverSettings.maxQueuedFrames)
 {
 	baregl::debug::SetAssertHandler(std::make_unique<AssertHandler>());
 	baregl::debug::SetLogHandler(std::make_unique<LogHandler>());
@@ -129,6 +130,7 @@ OvRendering::Context::Driver::Driver(const OvRendering::Settings::DriverSettings
 
 OvRendering::Context::Driver::~Driver()
 {
+	m_frameFences.clear();
 	m_gfxContext.reset();
 }
 
@@ -139,6 +141,21 @@ void OvRendering::Context::Driver::OnFrameCompleted()
 	// Prevents state leak between frames, and especially useful when external code (like ImGui)
 	// requires a "neutral" pipeline state.
 	ResetPipelineState();
+
+	// Limits how far ahead of the GPU the CPU can be. Without this, the driver can queue several
+	// frames, and the input sampled at the beginning of a frame is only displayed a few frames later.
+	if (m_maxQueuedFrames > 0)
+	{
+		ZoneScopedN("Wait For Queued Frames");
+
+		m_frameFences.push_back(std::make_unique<baregl::Fence>());
+
+		while (m_frameFences.size() > m_maxQueuedFrames)
+		{
+			m_frameFences.front()->Wait();
+			m_frameFences.pop_front();
+		}
+	}
 }
 
 void OvRendering::Context::Driver::SetViewport(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height)
@@ -210,7 +227,8 @@ void OvRendering::Context::Driver::Draw(
 			}
 		}
 
-		p_mesh.Unbind();
+		// The vertex array is intentionally left bound: the next draw binds its own,
+		// so unbinding here would only add a state change per draw call.
 	}
 }
 

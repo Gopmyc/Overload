@@ -637,6 +637,11 @@ void OvEditor::Core::EditorActions::BuildAtLocation(
 
 	const std::string executableName = m_context.projectSettings.Get<std::string>("executable_name") + extension;
 
+	if (p_buildType == EBuildType::Debug)
+	{
+		OVLOG_WARNING("Building the game in Debug: the executable is unoptimized and uses synchronous OpenGL debug output. Use Release or Publish (Project Settings > Build) to measure performance.");
+	}
+
 	bool failed = false;
 
 	OVLOG_INFO(std::format("Preparing to build at location: \"{}\"", p_buildPath.string()));

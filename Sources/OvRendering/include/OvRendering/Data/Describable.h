@@ -6,8 +6,12 @@
 
 #pragma once
 
-#include <typeindex>
 #include <any>
+#include <type_traits>
+#include <typeindex>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include <OvRendering/Entities/Camera.h>
 
@@ -16,9 +20,27 @@
 namespace OvRendering::Data
 {
 	/**
+	* Defines how the descriptors of a describable are stored
+	*/
+	enum class EDescriptorStorage
+	{
+		/**
+		* Hash map: references to descriptors stay valid when other descriptors are added
+		*/
+		STABLE,
+
+		/**
+		* Contiguous list: much cheaper to build, copy and search for a handful of descriptors,
+		* but adding a descriptor can invalidate references to the other ones
+		*/
+		COMPACT
+	};
+
+	/**
 	* An object that can be described using additional data structures (descriptors)
 	*/
-	class Describable
+	template<EDescriptorStorage Storage>
+	class TDescribable
 	{
 	public:
 		/**
@@ -67,8 +89,29 @@ namespace OvRendering::Data
 		bool TryGetDescriptor(OvTools::Utils::OptRef<const T>& p_outDescriptor) const;
 
 	private:
-		std::unordered_map<std::type_index, std::any> m_descriptors;
+		using DescriptorContainer = std::conditional_t<
+			Storage == EDescriptorStorage::STABLE,
+			std::unordered_map<std::type_index, std::any>,
+			std::vector<std::pair<std::type_index, std::any>>
+		>;
+
+		auto FindDescriptor(const std::type_index& p_type);
+		auto FindDescriptor(const std::type_index& p_type) const;
+
+	private:
+		DescriptorContainer m_descriptors;
 	};
+
+	/**
+	* Describable keeping references to its descriptors valid (used by renderers, whose descriptors
+	* are referenced while other descriptors are added)
+	*/
+	using Describable = TDescribable<EDescriptorStorage::STABLE>;
+
+	/**
+	* Describable optimized for objects that are created and copied in large numbers every frame (drawables)
+	*/
+	using CompactDescribable = TDescribable<EDescriptorStorage::COMPACT>;
 }
 
 #include "OvRendering/Data/Describable.inl"

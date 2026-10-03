@@ -67,7 +67,14 @@ void OvRendering::Features::LightingRenderFeature::OnBeginFrame(const Data::Fram
 
 	const auto lightMatricesView = std::span{ lightMatrices };
 
-	if (m_lightBuffer->Allocate(lightMatricesView.size_bytes(), baregl::types::EAccessSpecifier::STREAM_DRAW))
+	// Only reallocate the buffer when the number of lights changes. The buffer size must match the light
+	// count exactly, as shaders iterate over the whole buffer (ssbo_Lights.length()).
+	if (m_lightBuffer->GetSize() != lightMatricesView.size_bytes())
+	{
+		m_lightBuffer->Allocate(lightMatricesView.size_bytes(), baregl::types::EAccessSpecifier::STREAM_DRAW);
+	}
+
+	if (!lightMatricesView.empty())
 	{
 		m_lightBuffer->Upload(lightMatricesView.data());
 	}

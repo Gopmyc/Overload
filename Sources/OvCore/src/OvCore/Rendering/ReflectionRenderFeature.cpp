@@ -4,6 +4,8 @@
 * @licence: MIT
 */
 
+#include <string>
+
 #include <tracy/Tracy.hpp>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
@@ -14,6 +16,9 @@
 
 namespace
 {
+	// Looked up for every draw call: keep it as a string to avoid constructing one each time
+	const std::string kEnvironmentMapPropertyName = "_EnvironmentMap";
+
 	bool IsAffectedByReflectionProbe(
 		const OvMaths::FMatrix4& p_modelMatrix,
 		const OvRendering::Geometry::BoundingSphere& p_bounds,
@@ -158,7 +163,7 @@ void OvCore::Rendering::ReflectionRenderFeature::SendProbeData(
 )
 {
 	p_material.SetProperty(
-		"_EnvironmentMap",
+		kEnvironmentMapPropertyName,
 		p_reflectionProbe.has_value() ? p_reflectionProbe->GetCubemap().get() : static_cast<baregl::Texture*>(nullptr),
 		true
 	);
@@ -191,7 +196,7 @@ void OvCore::Rendering::ReflectionRenderFeature::OnBeforeDraw(OvRendering::Data:
 	auto& material = p_drawable.material.value();
 
 	// Skip materials that aren't properly set to receive reflections.
-	if (!material.IsReflectionReceiver() || !material.HasProperty("_EnvironmentMap"))
+	if (!material.IsReflectionReceiver() || !material.HasProperty(kEnvironmentMapPropertyName))
 	{
 		return;
 	}

@@ -64,8 +64,13 @@ OvGame::Core::Context::Context() :
 	});
 
 	/* Settings */
+	// Only request a multisampled default framebuffer when multisampling is enabled.
+	// Otherwise the "samples" setting (4 by default) would allocate an unused MSAA back buffer.
+	const bool multisampling = projectSettings.GetOrDefault<bool>("multisampling", false);
+	const int samples = multisampling ? projectSettings.GetOrDefault<int>("samples", 0) : 0;
+
 	OvWindowing::Settings::DeviceSettings deviceSettings;
-	projectSettings.TryGet("samples", deviceSettings.samples);
+	deviceSettings.samples = static_cast<uint8_t>(samples);
 
 	OvWindowing::Settings::WindowSettings windowSettings;
 	projectSettings.TryGet("executable_name", windowSettings.title);
@@ -75,7 +80,7 @@ OvGame::Core::Context::Context() :
 	windowSettings.maximized = false;
 	projectSettings.TryGet("resizable", windowSettings.resizable);
 	projectSettings.TryGet("fullscreen", windowSettings.fullscreen);
-	projectSettings.TryGet("samples", windowSettings.samples);
+	windowSettings.samples = static_cast<uint32_t>(samples);
 
 	/* Window creation */
 	device = std::make_unique<OvWindowing::Context::Device>(deviceSettings);
@@ -119,7 +124,7 @@ OvGame::Core::Context::Context() :
 	device->SetVsync(projectSettings.GetOrDefault<bool>("vsync", true));
 
 	OvRendering::Data::PipelineState basePSO;
-	basePSO.multisample = projectSettings.GetOrDefault<bool>("multisampling", false);
+	basePSO.multisample = multisampling;
 
 	/* Graphics context creation */
 	driver = std::make_unique<OvRendering::Context::Driver>(OvRendering::Settings::DriverSettings{

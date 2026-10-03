@@ -20,6 +20,14 @@
 #include <OvRendering/Entities/Camera.h>
 #include <OvRendering/Features/DebugShapeRenderFeature.h>
 
+#include <baregl/Buffer.h>
+#include <baregl/Fence.h>
+
+#include <array>
+#include <deque>
+#include <memory>
+#include <optional>
+
 namespace OvEditor::Rendering
 {
 	/**
@@ -52,6 +60,20 @@ namespace OvEditor::Rendering
 			uint32_t p_y
 		);
 
+		/**
+		* Requests the picking result at the given coordinates without stalling the CPU,
+		* and returns the most recent result that the GPU already made available (usually from the previous frame).
+		* Use ReadbackPickingResult when the result is needed immediately.
+		* @param p_scene
+		* @param p_x
+		* @param p_y
+		*/
+		PickingResult RequestPickingResult(
+			const OvCore::SceneSystem::Scene& p_scene,
+			uint32_t p_x,
+			uint32_t p_y
+		);
+
 	private:
 		virtual void Draw(OvRendering::Data::PipelineState p_pso) override;
 		void DrawPickableModels(OvRendering::Data::PipelineState p_pso, OvCore::SceneSystem::Scene& p_scene);
@@ -65,8 +87,21 @@ namespace OvEditor::Rendering
 			OvEditor::Core::EGizmoOperation p_operation
 		);
 
+		PickingResult DecodePickingPixel(const OvCore::SceneSystem::Scene& p_scene, const std::array<uint8_t, 4>& p_pixel) const;
+
 	private:
+		struct AsyncReadback
+		{
+			std::unique_ptr<baregl::Buffer> buffer;
+			std::unique_ptr<baregl::Fence> fence;
+		};
+
+		static constexpr size_t kAsyncReadbackCount = 3;
+
 		baregl::Framebuffer m_actorPickingFramebuffer;
+		std::array<AsyncReadback, kAsyncReadbackCount> m_asyncReadbacks;
+		std::deque<size_t> m_pendingReadbacks;
+		std::optional<std::array<uint8_t, 4>> m_lastReadbackPixel;
 		OvCore::Resources::Material m_actorPickingFallbackMaterial;
 		OvCore::Resources::Material m_reflectionProbeMaterial;
 		OvCore::Resources::Material m_lightMaterial;

@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <algorithm>
 #include <ranges>
 #include <string>
 #include <tracy/Tracy.hpp>
@@ -132,6 +133,15 @@ namespace
 			}
 		}
 	};
+
+	template<typename TDrawableMap>
+	void SortDrawables(TDrawableMap& p_drawables)
+	{
+		// Stable sort: drawables with an equivalent draw order keep their insertion order (same as a multimap)
+		std::stable_sort(p_drawables.begin(), p_drawables.end(), [](const auto& p_lhs, const auto& p_rhs) {
+			return p_lhs.first < p_rhs.first;
+		});
+	}
 
 	OvRendering::Features::LightingRenderFeature::LightSet FindActiveLights(const OvCore::SceneSystem::Scene& p_scene)
 	{
@@ -327,7 +337,7 @@ SceneRenderer::SceneDrawablesDescriptor OvCore::Rendering::SceneRenderer::ParseS
 				SkinningUtils::ApplyDescriptor(drawable, *skinnedRenderer);
 			}
 
-			result.drawables.push_back(drawable);
+			result.drawables.push_back(std::move(drawable));
 		}
 	}
 
@@ -430,33 +440,36 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		}
 
 		// Categorize drawable based on their type.
-		// This is also where sorting happens, using
-		// the multimap key.
+		// The key is used to sort the drawables once they are all collected.
 		if (drawableCopy.material->IsUserInterface())
 		{
-			output.ui.emplace(decltype(decltype(output.ui)::value_type::first){
+			output.ui.emplace_back(decltype(decltype(output.ui)::value_type::first){
 				.order = drawableCopy.material->GetDrawOrder(),
 				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
 				.distance = distanceToCamera
-			}, drawableCopy);
+			}, std::move(drawableCopy));
 		}
 		else if (drawableCopy.material->IsBlendable())
 		{
-			output.transparents.emplace(decltype(decltype(output.transparents)::value_type::first){
+			output.transparents.emplace_back(decltype(decltype(output.transparents)::value_type::first){
 				.order = drawableCopy.material->GetDrawOrder(),
 				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
 				.distance = distanceToCamera
-			}, drawableCopy);
+			}, std::move(drawableCopy));
 		}
 		else
 		{
-			output.opaques.emplace(decltype(decltype(output.opaques)::value_type::first){
+			output.opaques.emplace_back(decltype(decltype(output.opaques)::value_type::first){
 				.order = drawableCopy.material->GetDrawOrder(),
 				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
 				.distance = distanceToCamera
-			}, drawableCopy);
+			}, std::move(drawableCopy));
 		}
 	}
+
+	SortDrawables(output.opaques);
+	SortDrawables(output.transparents);
+	SortDrawables(output.ui);
 
 	return output;
 }

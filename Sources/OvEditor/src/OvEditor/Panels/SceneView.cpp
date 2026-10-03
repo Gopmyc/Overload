@@ -196,7 +196,10 @@ void OvEditor::Panels::SceneView::HandleActorPicking()
 
 	if (!m_gizmoOperations.IsPicking() && IsHovered() && !IsResizing())
 	{
-		const auto pickingResult = GetPickingResult();
+		// Hovering only needs an approximate result: read it asynchronously, so the CPU doesn't wait for the GPU
+		// every frame. A click still reads the exact pixel under the cursor.
+		const bool clicked = inputManager.IsMouseButtonPressed(EMouseButton::MOUSE_BUTTON_LEFT);
+		const auto pickingResult = GetPickingResult(clicked);
 
 		m_highlightedActor = {};
 		m_highlightedGizmoDirection = {};
@@ -254,7 +257,7 @@ void OvEditor::Panels::SceneView::HandleActorPicking()
 	}
 }
 
-OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Panels::SceneView::GetPickingResult()
+OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Panels::SceneView::GetPickingResult(bool p_immediate)
 {
 	const auto mousePosition = GetMousePosition();
 
@@ -262,11 +265,13 @@ OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Panels::SceneVie
 
 	auto& actorPickingFeature = m_renderer->GetPass<OvEditor::Rendering::PickingRenderPass>("Picking");
 
-	return actorPickingFeature.ReadbackPickingResult(
-		scene,
-		static_cast<uint32_t>(mousePosition.x),
-		static_cast<uint32_t>(GetSafeSize().second - mousePosition.y)
-	);
+	const auto x = static_cast<uint32_t>(mousePosition.x);
+	const auto y = static_cast<uint32_t>(GetSafeSize().second - mousePosition.y);
+
+	return
+		p_immediate ?
+		actorPickingFeature.ReadbackPickingResult(scene, x, y) :
+		actorPickingFeature.RequestPickingResult(scene, x, y);
 }
 
 void OvEditor::Panels::SceneView::OnSceneDropped(const std::string& p_path)

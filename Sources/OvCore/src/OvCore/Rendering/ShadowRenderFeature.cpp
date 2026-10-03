@@ -4,6 +4,8 @@
 * @licence: MIT
 */
 
+#include <string>
+
 #include <tracy/Tracy.hpp>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
@@ -12,6 +14,13 @@
 #include <OvRendering/Features/LightingRenderFeature.h>
 
 constexpr uint8_t kMaxShadowMaps = 1;
+
+namespace
+{
+	// Property names are looked up for every draw call: keep them as strings to avoid constructing one each time
+	const std::string kShadowMapPropertyName = "_ShadowMap";
+	const std::string kLightSpaceMatrixPropertyName = "_LightSpaceMatrix";
+}
 
 OvCore::Rendering::ShadowRenderFeature::ShadowRenderFeature(
 	OvRendering::Core::CompositeRenderer& p_renderer,
@@ -28,7 +37,7 @@ void OvCore::Rendering::ShadowRenderFeature::OnBeforeDraw(OvRendering::Data::Pip
 	auto& material = p_drawable.material.value();
 
 	// Skip materials that aren't properly set to receive shadows.
-	if (!material.IsShadowReceiver() || !material.HasProperty("_ShadowMap") || !material.HasProperty("_LightSpaceMatrix"))
+	if (!material.IsShadowReceiver() || !material.HasProperty(kShadowMapPropertyName) || !material.HasProperty(kLightSpaceMatrixPropertyName))
 	{
 		return;
 	}
@@ -59,8 +68,8 @@ void OvCore::Rendering::ShadowRenderFeature::OnBeforeDraw(OvRendering::Data::Pip
 				baregl::types::EFramebufferAttachment::DEPTH
 			);
 
-			material.SetProperty("_ShadowMap", &shadowTex.value().get(), true);
-			material.SetProperty("_LightSpaceMatrix", light.lightSpaceMatrix.value(), true);
+			material.SetProperty(kShadowMapPropertyName, &shadowTex.value().get(), true);
+			material.SetProperty(kLightSpaceMatrixPropertyName, light.lightSpaceMatrix.value(), true);
 
 			++lightIndex;
 		}

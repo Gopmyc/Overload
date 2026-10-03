@@ -22,11 +22,14 @@ OvCore::Rendering::PostProcess::AutoExposureEffect::AutoExposureEffect(
 {
 	for (auto& buffer : m_exposurePingPongBuffer.GetFramebuffers())
 	{
+		// The exposure is progressively interpolated every frame. At high frame rates the per-frame
+		// delta is tiny, so these (1x1) buffers keep full float precision to avoid the adaptation stalling.
 		FramebufferUtil::SetupFramebuffer(
 			buffer,
 			kExposureBufferResolution,
 			kExposureBufferResolution,
-			false, false, false
+			false, false, false,
+			baregl::types::EInternalFormat::RGBA32F
 		);
 	}
 

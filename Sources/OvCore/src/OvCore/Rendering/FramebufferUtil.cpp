@@ -57,7 +57,8 @@ namespace OvCore::Rendering::FramebufferUtil
 		uint32_t p_height,
 		bool p_useDepth,
 		bool p_useStencil,
-		bool p_useMipMaps
+		bool p_useMipMaps,
+		baregl::types::EInternalFormat p_internalFormat
 	)
 	{
 		using namespace baregl::types;
@@ -73,7 +74,7 @@ namespace OvCore::Rendering::FramebufferUtil
 			.magFilter = ETextureFilteringMode::LINEAR,
 			.horizontalWrap = ETextureWrapMode::CLAMP_TO_BORDER,
 			.verticalWrap = ETextureWrapMode::CLAMP_TO_BORDER,
-			.internalFormat = EInternalFormat::RGBA32F,
+			.internalFormat = p_internalFormat,
 			.useMipMaps = p_useMipMaps,
 			.mutableDesc = MutableTextureDesc{
 				.format = EFormat::RGBA,

@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <cstring>
 #include <ranges>
 #include <string>
 
@@ -50,9 +51,17 @@ OvEditor::Rendering::PickingRenderPass::PickingRenderPass(OvRendering::Core::Com
 	OvRendering::Core::ARenderPass(p_renderer),
 	m_actorPickingFramebuffer("ActorPicking")
 {
+	// Picking IDs are encoded in the color channels, keep full float precision so they decode exactly
 	OvCore::Rendering::FramebufferUtil::SetupFramebuffer(
-		m_actorPickingFramebuffer, 1, 1, true, false, false
+		m_actorPickingFramebuffer, 1, 1, true, false, false,
+		baregl::types::EInternalFormat::RGBA32F
 	);
+
+	for (auto& readback : m_asyncReadbacks)
+	{
+		readback.buffer = std::make_unique<baregl::Buffer>();
+		readback.buffer->AllocatePersistent(sizeof(uint32_t), true);
+	}
 
 	/* Light Material */
 	m_lightMaterial.SetShader(EDITOR_CONTEXT(editorResources)->GetShader("Billboard"));
@@ -78,15 +87,81 @@ OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Rendering::Picki
 	uint32_t p_y
 )
 {
-	uint8_t pixel[3];
+	std::array<uint8_t, 4> pixel{};
 
 	m_actorPickingFramebuffer.ReadPixels(
 		p_x, p_y, 1, 1,
-		baregl::types::EPixelDataFormat::RGB,
+		baregl::types::EPixelDataFormat::RGBA,
 		baregl::types::EPixelDataType::UNSIGNED_BYTE,
-		pixel
+		pixel.data()
 	);
 
+	return DecodePickingPixel(p_scene, pixel);
+}
+
+OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Rendering::PickingRenderPass::RequestPickingResult(
+	const OvCore::SceneSystem::Scene& p_scene,
+	uint32_t p_x,
+	uint32_t p_y
+)
+{
+	// Collect the readbacks the GPU completed (oldest first, so the last one collected is the most recent)
+	while (!m_pendingReadbacks.empty() && m_asyncReadbacks[m_pendingReadbacks.front()].fence->IsSignaled())
+	{
+		auto& readback = m_asyncReadbacks[m_pendingReadbacks.front()];
+		std::memcpy(m_lastReadbackPixel.emplace().data(), readback.buffer->GetMappedData(), sizeof(uint32_t));
+		readback.fence.reset();
+		m_pendingReadbacks.pop_front();
+	}
+
+	// All the readback buffers are in flight (the GPU is late): wait for the oldest one to free a buffer
+	if (m_pendingReadbacks.size() == kAsyncReadbackCount)
+	{
+		auto& readback = m_asyncReadbacks[m_pendingReadbacks.front()];
+		readback.fence->Wait();
+		std::memcpy(m_lastReadbackPixel.emplace().data(), readback.buffer->GetMappedData(), sizeof(uint32_t));
+		readback.fence.reset();
+		m_pendingReadbacks.pop_front();
+	}
+
+	// Find a free readback buffer, and copy the pixel into it (on the GPU timeline, without waiting)
+	for (size_t i = 0; i < kAsyncReadbackCount; ++i)
+	{
+		auto& readback = m_asyncReadbacks[i];
+
+		if (!readback.fence)
+		{
+			readback.buffer->Bind(baregl::types::EBufferType::PIXEL_PACK);
+
+			// With a pixel pack buffer bound, the data pointer is an offset in that buffer
+			m_actorPickingFramebuffer.ReadPixels(
+				p_x, p_y, 1, 1,
+				baregl::types::EPixelDataFormat::RGBA,
+				baregl::types::EPixelDataType::UNSIGNED_BYTE,
+				nullptr
+			);
+
+			readback.buffer->Unbind();
+			readback.fence = std::make_unique<baregl::Fence>();
+			m_pendingReadbacks.push_back(i);
+			break;
+		}
+	}
+
+	if (m_lastReadbackPixel)
+	{
+		return DecodePickingPixel(p_scene, m_lastReadbackPixel.value());
+	}
+
+	return std::nullopt;
+}
+
+OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Rendering::PickingRenderPass::DecodePickingPixel(
+	const OvCore::SceneSystem::Scene& p_scene,
+	const std::array<uint8_t, 4>& p_pixel
+) const
+{
+	const auto& pixel = p_pixel;
 	uint32_t actorID = (0 << 24) | (pixel[2] << 16) | (pixel[1] << 8) | (pixel[0] << 0);
 	auto actorUnderMouse = p_scene.FindActorByID(actorID);
 

@@ -60,7 +60,7 @@ namespace OvEditor::Panels
 	private:
 		virtual void DrawFrame() override;
 		void HandleActorPicking();
-		OvEditor::Rendering::PickingRenderPass::PickingResult GetPickingResult();
+		OvEditor::Rendering::PickingRenderPass::PickingResult GetPickingResult(bool p_immediate = true);
 		void OnSceneDropped(const std::string& p_path);
 		void OnModelDropped(const std::string& p_path);
 		void OnMaterialDropped(const std::string& p_path);
