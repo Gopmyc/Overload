@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <string>
 #include <unordered_set>
 
 #include <OvWindowing/Inputs/EMouseButton.h>
@@ -68,6 +69,13 @@ namespace OvWindowing::Inputs
 		* @param p_button
 		*/
 		bool IsMouseButtonReleased(EMouseButton p_button) const;
+
+		/**
+		* Return the name of a printable key in the keyboard's current layout (the "z" of a French keyboard where the
+		* key is EKey::KEY_W), or an empty string for a key that prints nothing
+		* @param p_key
+		*/
+		std::string GetKeyName(EKey p_key) const;
 
 		/**
 		* Return the current mouse position relative to the window

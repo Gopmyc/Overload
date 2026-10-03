@@ -19,6 +19,12 @@ function Inputs.GetKeyUp(key) end
 ---@return boolean
 function Inputs.GetKey(key) end
 
+--- Returns the name of a printable key in the keyboard's current layout, as it prints it (the "z" of a French
+--- keyboard where the key is Key.W), or an empty string for a key that prints nothing
+---@param key Key
+---@return string
+function Inputs.GetKeyName(key) end
+
 --- Returns true if the mouse button has been pressed during the current frame
 ---@param button MouseButton
 ---@return boolean

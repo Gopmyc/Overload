@@ -270,6 +270,7 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"GetKeyDown", [](EKey p_key) { return OVSERVICE(InputManager).IsKeyPressed(p_key); },
 		"GetKeyUp", [](EKey p_key) { return OVSERVICE(InputManager).IsKeyReleased(p_key); },
 		"GetKey", [](EKey p_key) { return OVSERVICE(InputManager).GetKeyState(p_key) == EKeyState::KEY_DOWN; },
+		"GetKeyName", [](EKey p_key) { return OVSERVICE(InputManager).GetKeyName(p_key); },
 		"GetMouseButtonDown", [](EMouseButton p_button) { return OVSERVICE(InputManager).IsMouseButtonPressed(p_button); },
 		"GetMouseButtonUp", [](EMouseButton p_button) { return OVSERVICE(InputManager).IsMouseButtonReleased(p_button); },
 		"GetMouseButton", [](EMouseButton p_button) { return OVSERVICE(InputManager).GetMouseButtonState(p_button) == EMouseButtonState::MOUSE_DOWN; },

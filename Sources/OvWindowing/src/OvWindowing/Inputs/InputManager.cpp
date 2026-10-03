@@ -39,6 +39,12 @@ OvWindowing::Inputs::EKeyState OvWindowing::Inputs::InputManager::GetKeyState(EK
 	return EKeyState::KEY_UP;
 }
 
+std::string OvWindowing::Inputs::InputManager::GetKeyName(EKey p_key) const
+{
+	const char* name = glfwGetKeyName(static_cast<int>(p_key), 0);
+	return name ? name : "";
+}
+
 OvWindowing::Inputs::EMouseButtonState OvWindowing::Inputs::InputManager::GetMouseButtonState(EMouseButton p_button) const
 {
 	switch (glfwGetMouseButton(m_window.GetGlfwWindow(), static_cast<int>(p_button)))
