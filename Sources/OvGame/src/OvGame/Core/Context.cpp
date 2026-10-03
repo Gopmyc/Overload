@@ -175,6 +175,7 @@ OvGame::Core::Context::Context() :
 	ServiceLocator::Provide<OvCore::SceneSystem::SceneManager>(sceneManager);
 	ServiceLocator::Provide<OvAudio::Core::AudioEngine>(*audioEngine);
 	ServiceLocator::Provide<OvCore::Scripting::ScriptEngine>(*scriptEngine);
+	ServiceLocator::Provide<OvTools::Time::Clock>(clock);
 
 	framebuffer = std::make_unique<baregl::Framebuffer>("Main");
 

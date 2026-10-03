@@ -181,6 +181,7 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	ServiceLocator::Provide<OvCore::SceneSystem::SceneManager>(sceneManager);
 	ServiceLocator::Provide<OvAudio::Core::AudioEngine>(*audioEngine);
 	ServiceLocator::Provide<OvCore::Scripting::ScriptEngine>(*scriptEngine);
+	ServiceLocator::Provide<OvTools::Time::Clock>(clock);
 
 	ApplyProjectSettings();
 }
