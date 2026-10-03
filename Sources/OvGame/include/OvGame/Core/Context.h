@@ -25,6 +25,7 @@
 #include <OvAudio/Core/AudioEngine.h>
 
 #include <OvTools/Filesystem/IniFile.h>
+#include <OvTools/Time/Clock.h>
 
 namespace OvGame::Core
 {
@@ -59,6 +60,7 @@ namespace OvGame::Core
 		std::unique_ptr<baregl::Framebuffer> framebuffer;
 
 		OvCore::SceneSystem::SceneManager sceneManager;
+		OvTools::Time::Clock clock;
 
 		OvCore::ResourceManagement::ModelManager modelManager;
 		OvCore::ResourceManagement::TextureManager textureManager;

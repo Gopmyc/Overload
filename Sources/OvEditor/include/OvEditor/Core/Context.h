@@ -23,6 +23,7 @@
 #include <OvEditor/Core/EditorResources.h>
 #include <OvPhysics/Core/PhysicsEngine.h>
 #include <OvTools/Filesystem/IniFile.h>
+#include <OvTools/Time/Clock.h>
 #include <OvWindowing/Window.h>
 #include <OvUI/Core/UIManager.h>
 #include <OvWindowing/Context/Device.h>
@@ -89,6 +90,7 @@ namespace OvEditor::Core
 		std::unique_ptr<OvCore::Scripting::ScriptEngine> scriptEngine;
 
 		OvCore::SceneSystem::SceneManager sceneManager;
+		OvTools::Time::Clock clock;
 
 		OvCore::ResourceManagement::ModelManager modelManager;
 		OvCore::ResourceManagement::TextureManager textureManager;

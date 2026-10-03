@@ -7,7 +7,6 @@
 #include <tracy/Tracy.hpp>
 
 #include <OvGame/Core/Application.h>
-#include <OvTools/Time/Clock.h>
 
 OvGame::Core::Application::Application() :
 	m_game(m_context)
@@ -21,7 +20,7 @@ OvGame::Core::Application::~Application()
 
 void OvGame::Core::Application::Run()
 {
-	OvTools::Time::Clock clock;
+	auto& clock = m_context.clock;
 
 	while (IsRunning())
 	{

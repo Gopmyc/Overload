@@ -4,12 +4,14 @@
 * @licence: MIT
 */
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 
 #include <OvDebug/Logger.h>
 #include <OvMaths/FVector2.h>
 #include <OvMaths/FVector3.h>
+#include <OvTools/Time/Clock.h>
 #include <OvTools/Utils/PathParser.h>
 #include <OvTools/Utils/Random.h>
 
@@ -288,5 +290,11 @@ void BindLuaGlobal(sol::state& p_luaState)
 
 	p_luaState.create_named_table("Physics",
 		"Raycast", [](const OvMaths::FVector3& p_origin, const OvMaths::FVector3& p_direction, float p_distance) { return PhysicsWrapper::Raycast(p_origin, p_direction, p_distance); }
+	);
+
+	p_luaState.create_named_table("Time",
+		"GetScale", []() { return OVSERVICE(OvTools::Time::Clock).GetTimeScale(); },
+		"SetScale", [](float p_scale) { OVSERVICE(OvTools::Time::Clock).SetTimeScale(std::max(p_scale, 0.0f)); },
+		"GetUnscaledDeltaTime", []() { return OVSERVICE(OvTools::Time::Clock).GetDeltaTimeUnscaled(); }
 	);
 }

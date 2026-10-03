@@ -7,7 +7,6 @@
 #include <tracy/Tracy.hpp>
 
 #include <OvEditor/Core/Application.h>
-#include <OvTools/Time/Clock.h>
 
 OvEditor::Core::Application::Application(const std::filesystem::path& p_projectFolder) :
 	m_context(p_projectFolder),
@@ -21,7 +20,7 @@ OvEditor::Core::Application::~Application()
 
 void OvEditor::Core::Application::Run()
 {
-	OvTools::Time::Clock clock;
+	auto& clock = m_context.clock;
 
 	while (IsRunning())
 	{

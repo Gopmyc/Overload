@@ -991,6 +991,7 @@ void OvEditor::Core::EditorActions::StopPlaying()
 	if (m_editorMode != EEditorMode::EDIT)
 	{
 		m_context.window->SetCursorMode(OvWindowing::Cursor::ECursorMode::NORMAL);
+		m_context.clock.SetTimeScale(1.0f);
 		SetEditorMode(EEditorMode::EDIT);
 		bool loadedFromDisk = m_context.sceneManager.IsCurrentSceneLoadedFromDisk();
 		std::string sceneSourcePath = m_context.sceneManager.GetCurrentSceneSourcePath();
