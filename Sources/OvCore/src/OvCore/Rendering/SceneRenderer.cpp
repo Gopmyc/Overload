@@ -4,25 +4,19 @@
 * @licence: MIT
 */
 
-#include <ranges>
-#include <string>
 #include <tracy/Tracy.hpp>
 
-#include <OvCore/ECS/Components/CModelRenderer.h>
-#include <OvCore/ECS/Components/CMaterialRenderer.h>
-#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
+#include <OvCore/Rendering/FrameBuilder.h>
 #include <OvCore/Rendering/PostProcessRenderPass.h>
 #include <OvCore/Rendering/ReflectionRenderFeature.h>
 #include <OvCore/Rendering/ReflectionRenderPass.h>
 #include <OvCore/Rendering/SceneRenderer.h>
 #include <OvCore/Rendering/ShadowRenderFeature.h>
 #include <OvCore/Rendering/ShadowRenderPass.h>
-#include <OvCore/Rendering/SkinningDrawableDescriptor.h>
 #include <OvCore/Rendering/SkinningRenderFeature.h>
-#include <OvCore/Rendering/SkinningUtils.h>
 #include <OvCore/ResourceManagement/ShaderManager.h>
 #include <OvRendering/Data/Frustum.h>
 #include <OvRendering/Features/LightingRenderFeature.h>
@@ -32,7 +26,6 @@
 namespace
 {
 	using namespace OvCore::Rendering;
-	const std::string kSkinningFeatureName{ SkinningUtils::kFeatureName };
 
 	class SceneRenderPass : public OvRendering::Core::ARenderPass
 	{
@@ -76,12 +69,9 @@ namespace
 
 			PrepareStencilBuffer(p_pso);
 
-			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
+			const auto& filteringResult = m_renderer.GetDescriptor<FrameBuilder::FilteringResult>();
 
-			for (const auto& drawable : drawables.opaques | std::views::values)
-			{
-				m_renderer.DrawEntity(p_pso, drawable);
-			}
+			FrameBuilder::Draw(m_renderer, p_pso, filteringResult.opaques, {});
 		}
 	};
 
@@ -100,12 +90,9 @@ namespace
 
 			PrepareStencilBuffer(p_pso);
 
-			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
+			const auto& filteringResult = m_renderer.GetDescriptor<FrameBuilder::FilteringResult>();
 
-			for (const auto& drawable : drawables.transparents | std::views::values)
-			{
-				m_renderer.DrawEntity(p_pso, drawable);
-			}
+			FrameBuilder::Draw(m_renderer, p_pso, filteringResult.transparents, {});
 		}
 	};
 
@@ -124,12 +111,9 @@ namespace
 
 			PrepareStencilBuffer(p_pso);
 
-			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
+			const auto& filteringResult = m_renderer.GetDescriptor<FrameBuilder::FilteringResult>();
 
-			for (const auto& drawable : drawables.ui | std::views::values)
-			{
-				m_renderer.DrawEntity(p_pso, drawable);
-			}
+			FrameBuilder::Draw(m_renderer, p_pso, filteringResult.ui, {});
 		}
 	};
 
@@ -214,19 +198,19 @@ void OvCore::Rendering::SceneRenderer::BeginFrame(const OvRendering::Data::Frame
 
 	OvRendering::Core::CompositeRenderer::BeginFrame(p_frameDescriptor);
 
-	AddDescriptor<SceneDrawablesDescriptor>({
-		ParseScene(SceneParsingInput{
+	AddDescriptor<FrameBuilder::ParsingResult>({
+		FrameBuilder::Parse(FrameBuilder::ParsingInput{
 			.scene = sceneDescriptor.scene
 		})
 	});
 
-	// Default filtered drawables descriptor using the main camera (used by most render passes).
-	// Some other render passes can decide to filter the drawables themselves, using the 
-	// SceneDrawablesDescriptor instead of the SceneFilteredDrawablesDescriptor one.
-	AddDescriptor<SceneFilteredDrawablesDescriptor>({
-		FilterDrawables(
-			GetDescriptor<SceneDrawablesDescriptor>(),
-			SceneDrawablesFilteringInput{
+	// Default filtering result using the main camera (used by most render passes).
+	// Some other render passes can decide to filter the drawables themselves, using the
+	// FrameBuilder::ParsingResult instead of the FrameBuilder::FilteringResult one.
+	AddDescriptor<FrameBuilder::FilteringResult>({
+		FrameBuilder::Filter(
+			GetDescriptor<FrameBuilder::ParsingResult>(),
+			FrameBuilder::FilteringInput{
 				.camera = p_frameDescriptor.camera.value(),
 				.frustumOverride = sceneDescriptor.frustumOverride,
 				.overrideMaterial = sceneDescriptor.overrideMaterial,
@@ -257,206 +241,4 @@ void OvCore::Rendering::SceneRenderer::DrawModelWithSingleMaterial(OvRendering::
 
 		DrawEntity(p_pso, element);
 	}
-}
-
-SceneRenderer::SceneDrawablesDescriptor OvCore::Rendering::SceneRenderer::ParseScene(const SceneParsingInput& p_input)
-{
-	ZoneScoped;
-
-	using namespace OvCore::ECS::Components;
-
-	// Containers for the parsed drawables.
-	SceneRenderer::SceneDrawablesDescriptor result;
-
-	const auto& scene = p_input.scene;
-
-	for (const auto modelRenderer : scene.GetFastAccessComponents().modelRenderers)
-	{
-		auto& owner = modelRenderer->owner;
-		if (!owner.IsActive()) continue;
-		const auto model = modelRenderer->GetModel();
-		if (!model) continue;
-		const auto materialRenderer = modelRenderer->owner.GetComponent<CMaterialRenderer>();
-		if (!materialRenderer) continue;
-		const auto* skinnedRenderer = owner.GetComponent<CSkinnedMeshRenderer>();
-		const bool hasSkinning = SkinningUtils::IsSkinningActive(skinnedRenderer);
-
-		const auto& transform = owner.transform.GetFTransform();
-		const auto& materials = materialRenderer->GetMaterials();
-
-		for (auto& mesh : model->GetMeshes())
-		{
-			OvTools::Utils::OptRef<OvRendering::Data::Material> material;
-
-			if (mesh->GetMaterialIndex() < kMaxMaterialCount)
-			{
-				material = materials.at(mesh->GetMaterialIndex());
-			}
-
-			OvRendering::Entities::Drawable drawable{
-				.mesh = *mesh,
-				.material = material,
-				.stateMask = material.has_value() ? material->GenerateStateMask() : OvRendering::Data::StateMask{},
-			};
-
-			auto bounds = [&]() -> std::optional<OvRendering::Geometry::BoundingSphere> {
-				using enum CModelRenderer::EFrustumBehaviour;
-				switch (modelRenderer->GetFrustumBehaviour())
-				{
-				case MESH_BOUNDS: return mesh->GetBoundingSphere();
-				case DEPRECATED_MODEL_BOUNDS: return model->GetBoundingSphere();
-				case CUSTOM_BOUNDS: return modelRenderer->GetCustomBoundingSphere();
-				default: return std::nullopt;
-				}
-				return std::nullopt;
-			}();
-
-			drawable.AddDescriptor<SceneDrawableDescriptor>({
-				.actor = modelRenderer->owner,
-				.visibilityFlags = materialRenderer->GetVisibilityFlags(),
-				.bounds = bounds
-			});
-			
-			drawable.AddDescriptor<EngineDrawableDescriptor>({
-				transform.GetWorldMatrix(),
-				materialRenderer->GetUserMatrix()
-			});
-
-			if (hasSkinning && mesh->HasSkinningData())
-			{
-				SkinningUtils::ApplyDescriptor(drawable, *skinnedRenderer);
-			}
-
-			result.drawables.push_back(drawable);
-		}
-	}
-
-	return result;
-}
-
-SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer::FilterDrawables(
-	const SceneDrawablesDescriptor& p_drawables,
-	const SceneDrawablesFilteringInput& p_filteringInput
-)
-{
-	ZoneScoped;
-
-	using namespace OvCore::ECS::Components;
-
-	SceneFilteredDrawablesDescriptor output;
-
-	const auto& camera = p_filteringInput.camera;
-	const auto& frustumOverride = p_filteringInput.frustumOverride;
-
-	// Determine if we should use frustum culling
-	OvTools::Utils::OptRef<const OvRendering::Data::Frustum> frustum;
-	if (camera.HasFrustumGeometryCulling())
-	{
-		frustum = frustumOverride ? frustumOverride : camera.GetFrustum();
-	}
-
-	// Process each drawable
-	for (const auto& drawable : p_drawables.drawables)
-	{
-		const auto& desc = drawable.GetDescriptor<SceneDrawableDescriptor>();
-		OvTools::Utils::OptRef<const SkinningDrawableDescriptor> skinningDescriptor;
-		const bool hasSkinningDescriptor = drawable.TryGetDescriptor<SkinningDrawableDescriptor>(skinningDescriptor);
-
-		// Skip drawables that do not satisfy the required visibility flags
-		if (!SatisfiesVisibility(desc.visibilityFlags, p_filteringInput.requiredVisibilityFlags))
-		{
-			continue;
-		}
-
-		const auto targetMaterial = 
-			p_filteringInput.overrideMaterial.has_value() ?
-			p_filteringInput.overrideMaterial.value() :
-			(drawable.material.has_value() ? drawable.material.value() : p_filteringInput.fallbackMaterial);
-
-		// Skip if material is invalid
-		if (!targetMaterial || !targetMaterial->IsValid()) continue;
-
-		// Filter drawables based on the type (UI, opaque, transparent)
-		// Except for the fallback material, which is always included.
-		if (!p_filteringInput.fallbackMaterial || &p_filteringInput.fallbackMaterial.value() != &targetMaterial.value())
-		{
-			const bool isUI = targetMaterial->IsUserInterface();
-			if (isUI && !p_filteringInput.includeUI) continue;
-			if (!isUI && !targetMaterial->IsBlendable() && !p_filteringInput.includeOpaque) continue;
-			if (!isUI && targetMaterial->IsBlendable() && !p_filteringInput.includeTransparent) continue;
-		}
-
-		// Perform frustum culling if enabled
-		if (frustum && desc.bounds.has_value())
-		{
-			ZoneScopedN("Frustum Culling");
-
-			auto cullingBounds = desc.bounds.value();
-			if (hasSkinningDescriptor)
-			{
-				cullingBounds.radius *= skinningDescriptor->boundsScale;
-			}
-
-			if (!frustum->BoundingSphereInFrustum(cullingBounds, desc.actor.transform.GetFTransform()))
-			{
-				continue; // Skip this drawable as it's outside the frustum
-			}
-		}
-
-		// Calculate distance to camera for sorting
-		const float distanceToCamera = OvMaths::FVector3::Distance(
-			desc.actor.transform.GetWorldPosition(),
-			camera.GetPosition()
-		);
-
-		// At this point we want to copy the drawable to avoid modifying the original one.
-		// The copy will use the updated material.
-		// At this point, the filtered drawable should be guaranteed to have a valid material.
-		auto drawableCopy = drawable;
-		drawableCopy.material = targetMaterial;
-		drawableCopy.stateMask = targetMaterial->GenerateStateMask();
-
-		if (
-			hasSkinningDescriptor &&
-			targetMaterial->HasShader() &&
-			targetMaterial->SupportsFeature(kSkinningFeatureName)
-		)
-		{
-			drawableCopy.featureSetOverride = SkinningUtils::BuildFeatureSet(&targetMaterial->GetFeatures());
-		}
-		else
-		{
-			drawableCopy.featureSetOverride = std::nullopt;
-		}
-
-		// Categorize drawable based on their type.
-		// This is also where sorting happens, using
-		// the multimap key.
-		if (drawableCopy.material->IsUserInterface())
-		{
-			output.ui.emplace(decltype(decltype(output.ui)::value_type::first){
-				.order = drawableCopy.material->GetDrawOrder(),
-				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
-				.distance = distanceToCamera
-			}, drawableCopy);
-		}
-		else if (drawableCopy.material->IsBlendable())
-		{
-			output.transparents.emplace(decltype(decltype(output.transparents)::value_type::first){
-				.order = drawableCopy.material->GetDrawOrder(),
-				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
-				.distance = distanceToCamera
-			}, drawableCopy);
-		}
-		else
-		{
-			output.opaques.emplace(decltype(decltype(output.opaques)::value_type::first){
-				.order = drawableCopy.material->GetDrawOrder(),
-				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
-				.distance = distanceToCamera
-			}, drawableCopy);
-		}
-	}
-
-	return output;
 }

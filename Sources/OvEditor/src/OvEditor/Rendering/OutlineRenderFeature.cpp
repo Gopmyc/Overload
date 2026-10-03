@@ -4,10 +4,13 @@
 * @licence: MIT
 */
 
-#include <OvCore/ECS/Components/CMaterialRenderer.h>
-#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
+#include <functional>
+#include <string>
+
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
-#include <OvCore/Rendering/SkinningUtils.h>
+#include <OvCore/Rendering/FrameBuilder.h>
+#include <OvCore/Rendering/SceneDrawableDescriptor.h>
+#include <OvCore/Rendering/SceneRenderer.h>
 #include <OvEditor/Core/EditorActions.h>
 #include <OvEditor/Rendering/DebugModelRenderFeature.h>
 #include <OvEditor/Rendering/OutlineRenderFeature.h>
@@ -19,54 +22,38 @@ namespace
 	constexpr uint32_t kStencilMask = 0xFF;
 	constexpr int32_t kStencilReference = 1;
 	constexpr std::string_view kOutlinePassName = "OUTLINE_PASS";
-	const std::string kSkinningFeatureName = std::string{ OvCore::Rendering::SkinningUtils::kFeatureName };
 
-	using MaterialList = OvCore::ECS::Components::CMaterialRenderer::MaterialList;
-
-	OvCore::Resources::Material* FindMeshMaterial(
-		OvTools::Utils::OptRef<const MaterialList> p_materials,
-		uint32_t p_materialIndex
+	void DrawActorModels(
+		OvRendering::Core::CompositeRenderer& p_renderer,
+		OvRendering::Data::PipelineState p_pso,
+		const OvCore::ECS::Actor& p_actor,
+		OvCore::Resources::Material& p_material,
+		const std::function<void(OvRendering::Entities::Drawable&)>& p_customPreparation
 	)
 	{
-		if (!p_materials.has_value() || p_materialIndex >= kMaxMaterialCount)
-		{
-			return nullptr;
-		}
+		using namespace OvCore::Rendering;
 
-		return p_materials->at(static_cast<size_t>(p_materialIndex));
-	}
+		const auto& sceneDescriptor = p_renderer.GetDescriptor<SceneRenderer::SceneDescriptor>();
 
-	OvCore::Resources::Material& ResolveOutlineMaterial(
-		uint32_t p_materialIndex,
-		std::string_view p_passName,
-		OvTools::Utils::OptRef<const MaterialList> p_materials,
-		OvCore::Resources::Material& p_fallbackMaterial
-	)
-	{
-		auto* material = FindMeshMaterial(p_materials, p_materialIndex);
-		if (material && material->IsValid() && material->HasPass(std::string{ p_passName }))
-		{
-			return *material;
-		}
+		const auto filteringResult = FrameBuilder::Filter(
+			p_renderer.GetDescriptor<FrameBuilder::ParsingResult>(),
+			FrameBuilder::FilteringInput{
+				.camera = p_renderer.GetFrameDescriptor().camera.value(),
+				.frustumOverride = sceneDescriptor.frustumOverride,
+				.fallbackMaterial = p_material, // Drawables without material are outlined using the given material
+				.filter = [&p_actor](const OvRendering::Entities::Drawable& p_drawable, const OvRendering::Data::Material&) {
+					// Only keep the drawables of the given actor and its descendants
+					const auto& actor = p_drawable.GetDescriptor<SceneDrawableDescriptor>().actor;
+					return &actor == &p_actor || actor.IsDescendantOf(&p_actor);
+				}
+			}
+		);
 
-		return p_fallbackMaterial;
-	}
-
-	void ApplySkinningIfNeeded(
-		OvRendering::Entities::Drawable& p_drawable,
-		const OvCore::ECS::Components::CSkinnedMeshRenderer* p_skinnedRenderer,
-		bool p_skinningEnabled,
-		OvCore::Resources::Material& p_targetMaterial
-	)
-	{
-		if (p_skinningEnabled)
-		{
-			OvCore::Rendering::SkinningUtils::ApplyToDrawable(
-				p_drawable,
-				*p_skinnedRenderer,
-				&p_targetMaterial.GetFeatures()
-			);
-		}
+		FrameBuilder::Draw(p_renderer, p_pso, filteringResult, FrameBuilder::PreparationInput{
+			.pass = std::string{ kOutlinePassName },
+			.passFallbackMaterial = p_material,
+			.customPreparation = p_customPreparation
+		});
 	}
 }
 
@@ -106,6 +93,11 @@ void OvEditor::Rendering::OutlineRenderFeature::DrawStencilPass(OvCore::ECS::Act
 	pso.bothOpFail = baregl::types::EOperation::REPLACE;
 	pso.colorWriting.mask = 0x00;
 
+	DrawActorModels(m_renderer, pso, p_actor, m_stencilFillMaterial, [](OvRendering::Entities::Drawable& p_drawable) {
+		p_drawable.stateMask.depthTest = false;
+		p_drawable.stateMask.colorWriting = false;
+	});
+
 	DrawActorToStencil(pso, p_actor);
 }
 
@@ -123,6 +115,17 @@ void OvEditor::Rendering::OutlineRenderFeature::DrawOutlinePass(OvCore::ECS::Act
 	pso.rasterizationMode = baregl::types::ERasterizationMode::LINE;
 	pso.lineWidthPow2 = OvRendering::Utils::Conversions::FloatToPow2(p_thickness);
 
+	DrawActorModels(m_renderer, pso, p_actor, m_outlineMaterial, [&p_color](OvRendering::Entities::Drawable& p_drawable) {
+		p_drawable.stateMask.depthTest = false;
+
+		// Set the outline color property if it exists
+		auto& material = p_drawable.material.value();
+		if (material.GetProperty("_OutlineColor"))
+		{
+			material.SetProperty("_OutlineColor", p_color, true);
+		}
+	});
+
 	DrawActorOutline(pso, p_actor, p_color);
 }
 
@@ -130,22 +133,6 @@ void OvEditor::Rendering::OutlineRenderFeature::DrawActorToStencil(OvRendering::
 {
 	if (p_actor.IsActive())
 	{
-		/* Render static mesh outline and bounding spheres */
-		if (auto modelRenderer = p_actor.GetComponent<OvCore::ECS::Components::CModelRenderer>(); modelRenderer && modelRenderer->GetModel())
-		{
-			if (auto materialRenderer = p_actor.GetComponent<OvCore::ECS::Components::CMaterialRenderer>())
-			{
-				const auto skinnedRenderer = p_actor.GetComponent<OvCore::ECS::Components::CSkinnedMeshRenderer>();
-				DrawModelToStencil(
-					p_pso,
-					p_actor.transform.GetWorldMatrix(),
-					*modelRenderer->GetModel(),
-					materialRenderer->GetMaterials(),
-					skinnedRenderer
-				);
-			}
-		}
-
 		/* Render camera component outline */
 		if (auto cameraComponent = p_actor.GetComponent<OvCore::ECS::Components::CCamera>(); cameraComponent)
 		{
@@ -184,22 +171,6 @@ void OvEditor::Rendering::OutlineRenderFeature::DrawActorOutline(
 {
 	if (p_actor.IsActive())
 	{
-		if (auto modelRenderer = p_actor.GetComponent<OvCore::ECS::Components::CModelRenderer>(); modelRenderer && modelRenderer->GetModel())
-		{
-			if (auto materialRenderer = p_actor.GetComponent<OvCore::ECS::Components::CMaterialRenderer>())
-			{
-				const auto skinnedRenderer = p_actor.GetComponent<OvCore::ECS::Components::CSkinnedMeshRenderer>();
-				DrawModelOutline(
-					p_pso,
-					p_actor.transform.GetWorldMatrix(),
-					*modelRenderer->GetModel(),
-					p_color,
-					materialRenderer->GetMaterials(),
-					skinnedRenderer
-				);
-			}
-		}
-
 		if (auto cameraComponent = p_actor.GetComponent<OvCore::ECS::Components::CCamera>(); cameraComponent)
 		{
 			auto translation = OvMaths::FMatrix4::Translation(p_actor.transform.GetWorldPosition());
@@ -232,32 +203,14 @@ void OvEditor::Rendering::OutlineRenderFeature::DrawActorOutline(
 void OvEditor::Rendering::OutlineRenderFeature::DrawModelToStencil(
 	OvRendering::Data::PipelineState p_pso,
 	const OvMaths::FMatrix4& p_worldMatrix,
-	OvRendering::Resources::Model& p_model,
-	OvTools::Utils::OptRef<const OvCore::ECS::Components::CMaterialRenderer::MaterialList> p_materials,
-	const OvCore::ECS::Components::CSkinnedMeshRenderer* p_skinnedRenderer
+	OvRendering::Resources::Model& p_model
 )
 {
 	const std::string outlinePassName{ kOutlinePassName };
-	const bool hasSkinning = OvCore::Rendering::SkinningUtils::IsSkinningActive(p_skinnedRenderer);
 
 	for (auto mesh : p_model.GetMeshes())
 	{
-		const auto* originalMaterial = FindMeshMaterial(p_materials, mesh->GetMaterialIndex());
-		auto& targetMaterial = ResolveOutlineMaterial(
-			mesh->GetMaterialIndex(),
-			outlinePassName,
-			p_materials,
-			m_stencilFillMaterial
-		);
-		const bool originalMaterialSupportsSkinning =
-			!originalMaterial || originalMaterial->SupportsFeature(kSkinningFeatureName);
-		const bool skinningEnabled =
-			hasSkinning &&
-			mesh->HasSkinningData() &&
-			originalMaterialSupportsSkinning &&
-			targetMaterial.SupportsFeature(kSkinningFeatureName);
-
-		auto stateMask = targetMaterial.GenerateStateMask();
+		auto stateMask = m_stencilFillMaterial.GenerateStateMask();
 
 		auto engineDrawableDescriptor = OvCore::Rendering::EngineDrawableDescriptor{
 			p_worldMatrix,
@@ -266,14 +219,13 @@ void OvEditor::Rendering::OutlineRenderFeature::DrawModelToStencil(
 
 		OvRendering::Entities::Drawable element;
 		element.mesh = *mesh;
-		element.material = targetMaterial;
+		element.material = m_stencilFillMaterial;
 		element.stateMask = stateMask;
 		element.stateMask.depthTest = false;
 		element.stateMask.colorWriting = false;
 		element.pass = outlinePassName;
 
 		element.AddDescriptor(engineDrawableDescriptor);
-		ApplySkinningIfNeeded(element, p_skinnedRenderer, skinningEnabled, targetMaterial);
 
 		m_renderer.DrawEntity(p_pso, element);
 	}
@@ -283,38 +235,20 @@ void OvEditor::Rendering::OutlineRenderFeature::DrawModelOutline(
 	OvRendering::Data::PipelineState p_pso,
 	const OvMaths::FMatrix4& p_worldMatrix,
 	OvRendering::Resources::Model& p_model,
-	const OvMaths::FVector4& p_color,
-	OvTools::Utils::OptRef<const OvCore::ECS::Components::CMaterialRenderer::MaterialList> p_materials,
-	const OvCore::ECS::Components::CSkinnedMeshRenderer* p_skinnedRenderer
+	const OvMaths::FVector4& p_color
 )
 {
 	const std::string outlinePassName{ kOutlinePassName };
-	const bool hasSkinning = OvCore::Rendering::SkinningUtils::IsSkinningActive(p_skinnedRenderer);
 
 	for (auto mesh : p_model.GetMeshes())
 	{
-		const auto* originalMaterial = FindMeshMaterial(p_materials, mesh->GetMaterialIndex());
-		auto& targetMaterial = ResolveOutlineMaterial(
-			mesh->GetMaterialIndex(),
-			outlinePassName,
-			p_materials,
-			m_outlineMaterial
-		);
-		const bool originalMaterialSupportsSkinning =
-			!originalMaterial || originalMaterial->SupportsFeature(kSkinningFeatureName);
-		const bool skinningEnabled =
-			hasSkinning &&
-			mesh->HasSkinningData() &&
-			originalMaterialSupportsSkinning &&
-			targetMaterial.SupportsFeature(kSkinningFeatureName);
-
 		// Set the outline color property if it exists
-		if (targetMaterial.GetProperty("_OutlineColor"))
+		if (m_outlineMaterial.GetProperty("_OutlineColor"))
 		{
-			targetMaterial.SetProperty("_OutlineColor", p_color, true);
+			m_outlineMaterial.SetProperty("_OutlineColor", p_color, true);
 		}
 
-		auto stateMask = targetMaterial.GenerateStateMask();
+		auto stateMask = m_outlineMaterial.GenerateStateMask();
 
 		auto engineDrawableDescriptor = OvCore::Rendering::EngineDrawableDescriptor{
 			p_worldMatrix,
@@ -323,13 +257,12 @@ void OvEditor::Rendering::OutlineRenderFeature::DrawModelOutline(
 
 		OvRendering::Entities::Drawable drawable;
 		drawable.mesh = *mesh;
-		drawable.material = targetMaterial;
+		drawable.material = m_outlineMaterial;
 		drawable.stateMask = stateMask;
 		drawable.stateMask.depthTest = false;
 		drawable.pass = outlinePassName;
 
 		drawable.AddDescriptor(engineDrawableDescriptor);
-		ApplySkinningIfNeeded(drawable, p_skinnedRenderer, skinningEnabled, targetMaterial);
 
 		m_renderer.DrawEntity(p_pso, drawable);
 	}

@@ -4,15 +4,13 @@
 * @licence: MIT
 */
 
-#include <ranges>
 #include <string>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
-#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
+#include <OvCore/Rendering/FrameBuilder.h>
 #include <OvCore/Rendering/FramebufferUtil.h>
-#include <OvCore/Rendering/SkinningDrawableDescriptor.h>
-#include <OvCore/Rendering/SkinningUtils.h>
+#include <OvCore/Rendering/SceneDrawableDescriptor.h>
 
 #include <OvEditor/Core/EditorActions.h>
 #include <OvEditor/Rendering/DebugModelRenderFeature.h>
@@ -25,7 +23,6 @@
 namespace
 {
 	const std::string kPickingPassName = "PICKING_PASS";
-	const std::string kSkinningFeatureName = std::string{ OvCore::Rendering::SkinningUtils::kFeatureName };
 
 	void PreparePickingMaterial(
 		const OvCore::ECS::Actor& p_actor,
@@ -163,60 +160,23 @@ void OvEditor::Rendering::PickingRenderPass::DrawPickableModels(
 	OvCore::SceneSystem::Scene& p_scene
 )
 {
-	const auto& filteredDrawables = m_renderer.GetDescriptor<OvCore::Rendering::SceneRenderer::SceneFilteredDrawablesDescriptor>();
+	using namespace OvCore::Rendering;
 
-	auto drawPickableModels = [&](auto drawables) {
-		for (auto& drawable : drawables)
-		{
-			const auto& actor = drawable.template GetDescriptor<OvCore::Rendering::SceneRenderer::SceneDrawableDescriptor>().actor;
-			const auto skinnedRenderer = actor.template GetComponent<OvCore::ECS::Components::CSkinnedMeshRenderer>();
-			const bool hasSkinningDescriptor = drawable.template HasDescriptor<OvCore::Rendering::SkinningDrawableDescriptor>();
-			const bool skinningEnabled = hasSkinningDescriptor &&
-				skinnedRenderer &&
-				m_actorPickingFallbackMaterial.SupportsFeature(kSkinningFeatureName);
+	const auto& filteringResult = m_renderer.GetDescriptor<FrameBuilder::FilteringResult>();
 
-			if (skinningEnabled)
-			{
-				auto& targetMaterial = m_actorPickingFallbackMaterial;
+	const FrameBuilder::PreparationInput preparationInput{
+		.pass = kPickingPassName,
+		.passFallbackMaterial = m_actorPickingFallbackMaterial,
+		.customPreparation = [](OvRendering::Entities::Drawable& p_drawable) {
+			p_drawable.stateMask.frontfaceCulling = false;
+			p_drawable.stateMask.backfaceCulling = false;
 
-				PreparePickingMaterial(actor, targetMaterial);
-
-				OvRendering::Entities::Drawable finalDrawable = drawable;
-				finalDrawable.material = &targetMaterial;
-				finalDrawable.stateMask = targetMaterial.GenerateStateMask();
-				finalDrawable.stateMask.frontfaceCulling = false;
-				finalDrawable.stateMask.backfaceCulling = false;
-				finalDrawable.pass = kPickingPassName;
-
-				OvCore::Rendering::SkinningUtils::ApplyToDrawable(finalDrawable, *skinnedRenderer, &targetMaterial.GetFeatures());
-				m_renderer.DrawEntity(p_pso, finalDrawable);
-				continue;
-			}
-
-			auto& targetMaterial =
-				drawable.material &&
-				drawable.material->IsValid() &&
-				drawable.material->HasPass(kPickingPassName) ?
-				drawable.material.value() :
-				m_actorPickingFallbackMaterial;
-
-			PreparePickingMaterial(actor, targetMaterial);
-
-			OvRendering::Entities::Drawable finalDrawable = drawable;
-			finalDrawable.material = &targetMaterial;
-			finalDrawable.stateMask = targetMaterial.GenerateStateMask();
-			finalDrawable.stateMask.frontfaceCulling = false;
-			finalDrawable.stateMask.backfaceCulling = false;
-			finalDrawable.pass = kPickingPassName;
-			finalDrawable.featureSetOverride = std::nullopt;
-
-			m_renderer.DrawEntity(p_pso, finalDrawable);
+			const auto& actor = p_drawable.GetDescriptor<SceneDrawableDescriptor>().actor;
+			PreparePickingMaterial(actor, p_drawable.material.value());
 		}
 	};
 
-	drawPickableModels(filteredDrawables.opaques | std::views::values);
-	drawPickableModels(filteredDrawables.transparents | std::views::values);
-	drawPickableModels(filteredDrawables.ui | std::views::values);
+	FrameBuilder::Draw(m_renderer, p_pso, filteringResult, preparationInput);
 }
 
 void OvEditor::Rendering::PickingRenderPass::DrawPickableCameras(

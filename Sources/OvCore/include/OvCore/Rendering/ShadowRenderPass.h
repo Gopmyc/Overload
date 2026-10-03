@@ -36,7 +36,7 @@ namespace OvCore::Rendering
 
 		void _DrawShadows(
 			OvRendering::Data::PipelineState p_pso,
-			OvCore::SceneSystem::Scene& p_scene
+			const OvRendering::Entities::Camera& p_camera
 		);
 
 	private:
