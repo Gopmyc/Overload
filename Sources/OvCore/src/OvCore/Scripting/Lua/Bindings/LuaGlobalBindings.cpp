@@ -19,6 +19,7 @@
 
 #include "OvCore/ECS/Actor.h"
 #include "OvCore/ECS/PhysicsWrapper.h"
+#include "OvCore/Global/QuitRequest.h"
 #include "OvCore/Global/ServiceLocator.h"
 #include "OvCore/Helpers/InputHelpers.h"
 #include "OvCore/SceneSystem/SceneManager.h"
@@ -317,5 +318,9 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"GetScale", []() { return OVSERVICE(OvTools::Time::Clock).GetTimeScale(); },
 		"SetScale", [](float p_scale) { OVSERVICE(OvTools::Time::Clock).SetTimeScale(std::max(p_scale, 0.0f)); },
 		"GetUnscaledDeltaTime", []() { return OVSERVICE(OvTools::Time::Clock).GetDeltaTimeUnscaled(); }
+	);
+
+	p_luaState.create_named_table("Application",
+		"Quit", []() { OvCore::Global::QuitRequest::RequestedEvent.Invoke(); }
 	);
 }

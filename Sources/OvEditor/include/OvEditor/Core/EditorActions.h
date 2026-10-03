@@ -539,6 +539,7 @@ namespace OvEditor::Core
 		bool m_sceneUIRenderingEnabled = false;
 
 		std::vector<std::pair<uint32_t, std::function<void()>>> m_delayedActions;
+		OvTools::Eventing::ListenerID m_quitListener;
 
 		std::unique_ptr<tinyxml2::XMLDocument> m_sceneBackup;
 	};

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <OvTools/Eventing/Event.h>
+
 #include "OvGame/Core/Context.h"
 #include "OvGame/Core/Game.h"
 
@@ -40,5 +42,6 @@ namespace OvGame::Core
 	private:
 		Context m_context;
 		Game m_game;
+		OvTools::Eventing::ListenerID m_quitListener;
 	};
 }
