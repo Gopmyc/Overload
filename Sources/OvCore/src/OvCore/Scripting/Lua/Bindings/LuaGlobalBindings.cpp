@@ -15,6 +15,7 @@
 
 #include "OvCore/ECS/Actor.h"
 #include "OvCore/ECS/PhysicsWrapper.h"
+#include "OvCore/Global/QuitRequest.h"
 #include "OvCore/Global/ServiceLocator.h"
 #include "OvCore/Helpers/InputHelpers.h"
 #include "OvCore/SceneSystem/SceneManager.h"
@@ -288,5 +289,9 @@ void BindLuaGlobal(sol::state& p_luaState)
 
 	p_luaState.create_named_table("Physics",
 		"Raycast", [](const OvMaths::FVector3& p_origin, const OvMaths::FVector3& p_direction, float p_distance) { return PhysicsWrapper::Raycast(p_origin, p_direction, p_distance); }
+	);
+
+	p_luaState.create_named_table("Application",
+		"Quit", []() { OvCore::Global::QuitRequest::RequestedEvent.Invoke(); }
 	);
 }

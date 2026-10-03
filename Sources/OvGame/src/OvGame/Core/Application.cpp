@@ -6,17 +6,22 @@
 
 #include <tracy/Tracy.hpp>
 
+#include <OvCore/Global/QuitRequest.h>
 #include <OvGame/Core/Application.h>
 #include <OvTools/Time/Clock.h>
 
 OvGame::Core::Application::Application() :
 	m_game(m_context)
 {
-
+	m_quitListener = OvCore::Global::QuitRequest::RequestedEvent += [this]
+	{
+		m_context.window->SetShouldClose(true);
+	};
 }
 
 OvGame::Core::Application::~Application()
 {
+	OvCore::Global::QuitRequest::RequestedEvent -= m_quitListener;
 }
 
 void OvGame::Core::Application::Run()

@@ -28,6 +28,7 @@
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
 #include <OvCore/Resources/Loaders/MaterialLoader.h>
 
+#include <OvCore/Global/QuitRequest.h>
 #include <OvCore/Helpers/GUIDrawer.h>
 #include <OvCore/Helpers/GUIHelpers.h>
 
@@ -435,10 +436,17 @@ OvEditor::Core::EditorActions::EditorActions(Context& p_context, PanelsManager& 
 		std::string titleExtra = " - " + (p_newPath.empty() ? "Untitled Scene" : GetResourcePath(p_newPath));
 		m_context.window->SetTitle(m_context.windowSettings.title + titleExtra);
 	};
+
+	// A game asking to quit from the editor leaves play mode, once the frame running its scripts is over
+	m_quitListener = OvCore::Global::QuitRequest::RequestedEvent += [this]
+	{
+		DelayAction([this] { StopPlaying(); });
+	};
 }
 
 OvEditor::Core::EditorActions::~EditorActions()
 {
+	OvCore::Global::QuitRequest::RequestedEvent -= m_quitListener;
 }
 
 void OvEditor::Core::EditorActions::LoadEmptyScene()
