@@ -395,7 +395,7 @@ void OvCore::Helpers::Serializer::DeserializeSound(tinyxml2::XMLDocument& p_doc,
 
 bool OvCore::Helpers::Serializer::DeserializeBoolean(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node, const std::string & p_name)
 {
-	bool result;
+	bool result = false;
 	DeserializeBoolean(p_doc, p_node, p_name, result);
 	return result;
 }
@@ -409,35 +409,35 @@ std::string OvCore::Helpers::Serializer::DeserializeString(tinyxml2::XMLDocument
 
 float OvCore::Helpers::Serializer::DeserializeFloat(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node, const std::string & p_name)
 {
-	float result;
+	float result = 0.0f;
 	DeserializeFloat(p_doc, p_node, p_name, result);
 	return result;
 }
 
 double OvCore::Helpers::Serializer::DeserializeDouble(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node, const std::string & p_name)
 {
-	double result;
+	double result = 0.0;
 	DeserializeDouble(p_doc, p_node, p_name, result);
 	return result;
 }
 
 int OvCore::Helpers::Serializer::DeserializeInt(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node, const std::string & p_name)
 {
-	int result;
+	int result = 0;
 	DeserializeInt(p_doc, p_node, p_name, result);
 	return result;
 }
 
 uint32_t OvCore::Helpers::Serializer::DeserializeUint32(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node, const std::string & p_name)
 {
-	uint32_t result;
+	uint32_t result = 0;
 	DeserializeUint32(p_doc, p_node, p_name, result);
 	return result;
 }
 
 int64_t OvCore::Helpers::Serializer::DeserializeInt64(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node, const std::string & p_name)
 {
-	int64_t result;
+	int64_t result = 0;
 	DeserializeInt64(p_doc, p_node, p_name, result);
 	return result;
 }
