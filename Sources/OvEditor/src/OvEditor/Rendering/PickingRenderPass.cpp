@@ -50,8 +50,10 @@ OvEditor::Rendering::PickingRenderPass::PickingRenderPass(OvRendering::Core::Com
 	OvRendering::Core::ARenderPass(p_renderer),
 	m_actorPickingFramebuffer("ActorPicking")
 {
+	// Picking IDs are encoded in the color channels, keep full float precision so they decode exactly
 	OvCore::Rendering::FramebufferUtil::SetupFramebuffer(
-		m_actorPickingFramebuffer, 1, 1, true, false, false
+		m_actorPickingFramebuffer, 1, 1, true, false, false,
+		baregl::types::EInternalFormat::RGBA32F
 	);
 
 	/* Light Material */

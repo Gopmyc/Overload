@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include <baregl/Framebuffer.h>
+#include <baregl/types/EInternalFormat.h>
 
 namespace OvCore::Rendering::FramebufferUtil
 {
@@ -37,6 +38,8 @@ namespace OvCore::Rendering::FramebufferUtil
 	* @param p_useDepth
 	* @param p_useStencil
 	* @param p_useMipMaps
+	* @param p_internalFormat Format of the color attachment. Half-float is enough for HDR rendering
+	*	and uses half the memory bandwidth of a 32-bit float format.
 	*/
 	void SetupFramebuffer(
 		baregl::Framebuffer& p_framebuffer,
@@ -44,6 +47,7 @@ namespace OvCore::Rendering::FramebufferUtil
 		uint32_t p_height = 0,
 		bool p_useDepth = true,
 		bool p_useStencil = false,
-		bool p_useMipMaps = false
+		bool p_useMipMaps = false,
+		baregl::types::EInternalFormat p_internalFormat = baregl::types::EInternalFormat::RGBA16F
 	);
 }
