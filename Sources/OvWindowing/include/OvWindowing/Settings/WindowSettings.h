@@ -138,7 +138,9 @@ namespace OvWindowing::Settings
 
 		/**
 		* Defines the number of samples to use (For anti-aliasing)
+		* @note Defaults to 0: the engine renders into its own framebuffers, so a multisampled
+		* default framebuffer only adds memory and resolve cost.
 		*/
-		uint32_t samples = 4;
+		uint32_t samples = 0;
 	};
 }
