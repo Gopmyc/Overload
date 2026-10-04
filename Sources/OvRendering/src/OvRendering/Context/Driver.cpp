@@ -227,7 +227,8 @@ void OvRendering::Context::Driver::Draw(
 			}
 		}
 
-		p_mesh.Unbind();
+		// The vertex array is intentionally left bound: the next draw binds its own,
+		// so unbinding here would only add a state change per draw call.
 	}
 }
 
