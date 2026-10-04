@@ -10,10 +10,12 @@
 #include <map>
 #include <stack>
 
-#include <baregl/Buffer.h>
+#include <OvMaths/FMatrix4.h>
+#include <OvMaths/FVector3.h>
 
 #include <OvRendering/Features/ARenderFeature.h>
 #include <OvRendering/Entities/Camera.h>
+#include <OvRendering/Utils/UniformStreamingBuffer.h>
 
 namespace OvCore::Rendering
 {
@@ -44,8 +46,28 @@ namespace OvCore::Rendering
 		virtual void OnEndFrame() override;
 		virtual void OnBeforeDraw(OvRendering::Data::PipelineState& p_pso, const OvRendering::Entities::Drawable& p_drawable) override;
 
+	private:
+		/**
+		* Writes the current engine data into a new block of the streaming buffer, and binds it
+		*/
+		void UploadAndBind();
+
 	protected:
+		/**
+		* CPU-side copy of the engine UBO (std140 layout, see EngineUBO.ovfxh)
+		*/
+		struct EngineUBO
+		{
+			OvMaths::FMatrix4 modelMatrix;
+			OvMaths::FMatrix4 viewMatrix;
+			OvMaths::FMatrix4 projectionMatrix;
+			OvMaths::FVector3 cameraPosition;
+			float elapsedTime;
+			OvMaths::FMatrix4 userMatrix;
+		};
+
 		std::chrono::high_resolution_clock::time_point m_startTime;
-		std::unique_ptr<baregl::Buffer> m_engineBuffer;
+		OvRendering::Utils::UniformStreamingBuffer m_engineBuffer;
+		EngineUBO m_engineData;
 	};
 }
