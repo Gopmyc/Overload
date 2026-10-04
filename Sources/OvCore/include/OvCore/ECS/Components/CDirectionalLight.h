@@ -80,6 +80,24 @@ namespace OvCore::ECS::Components
 		uint32_t GetShadowMapResolution() const;
 
 		/**
+		* Defines when the shadow map is rendered.
+		* ON_CHANGE (default) only renders it when the light, or something drawn into the shadow map, changed.
+		* REALTIME renders it every frame, which is required if a custom shadow pass changes over time (e.g. vertex animation using ubo_Time).
+		* @param p_mode
+		*/
+		void SetShadowMapUpdateMode(OvRendering::Settings::EShadowMapUpdateMode p_mode);
+
+		/**
+		* Returns when the shadow map is rendered
+		*/
+		OvRendering::Settings::EShadowMapUpdateMode GetShadowMapUpdateMode() const;
+
+		/**
+		* Forces the shadow map to be rendered again (useful for changes the ON_CHANGE update mode cannot detect)
+		*/
+		void RequestShadowMapUpdate();
+
+		/**
 		* Serialize the component
 		* @param p_doc
 		* @param p_node

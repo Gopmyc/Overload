@@ -602,6 +602,11 @@ void OvRendering::Data::Material::RemoveFeature(const std::string& p_feature)
 	++m_featuresVersion;
 }
 
+uint64_t OvRendering::Data::Material::GetFeaturesVersion() const
+{
+	return m_featuresVersion;
+}
+
 bool OvRendering::Data::Material::HasFeature(const std::string& p_feature) const
 {
 	return m_features.contains(p_feature);

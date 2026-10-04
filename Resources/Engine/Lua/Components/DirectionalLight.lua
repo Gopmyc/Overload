@@ -35,3 +35,14 @@ function DirectionalLight:GetShadowMapResolution() end
 --- Sets the shadow map resolution (The resolution should be a power of 2 for better results)
 ---@param resolution integer
 function DirectionalLight:SetShadowMapResolution(resolution) end
+
+--- Returns when the shadow map is rendered
+---@return ShadowMapUpdateMode
+function DirectionalLight:GetShadowMapUpdateMode() end
+
+--- Defines when the shadow map is rendered (ON_CHANGE only renders it when the light, or something drawn into the shadow map, changed)
+---@param mode ShadowMapUpdateMode
+function DirectionalLight:SetShadowMapUpdateMode(mode) end
+
+--- Forces the shadow map to be rendered again (useful for changes the ON_CHANGE update mode cannot detect)
+function DirectionalLight:RequestShadowMapUpdate() end
