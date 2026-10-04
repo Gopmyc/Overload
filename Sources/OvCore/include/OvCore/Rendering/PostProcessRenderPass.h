@@ -31,7 +31,6 @@ namespace OvCore::Rendering
 	private:
 		OvRendering::Data::Material m_blitMaterial;
 		std::vector<std::unique_ptr<PostProcess::AEffect>> m_effects;
-		std::vector<std::pair<PostProcess::AEffect*, const PostProcess::EffectSettings*>> m_applicableEffects;
 		PingPongFramebuffer m_pingPongBuffers;
 	};
 }

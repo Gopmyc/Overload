@@ -40,19 +40,14 @@ namespace baregl
 		uint64_t Allocate(uint64_t p_size, types::EAccessSpecifier p_usage = types::EAccessSpecifier::STATIC_DRAW);
 
 		/**
-		* Allocates immutable memory for the buffer, and keeps it persistently mapped (coherent).
-		* The mapped memory can be accessed using GetMappedData().
-		* @note The buffer cannot be reallocated afterwards (immutable storage)
+		* Allocates an immutable storage for the buffer, and maps it persistently (and coherently) for CPU writes.
+		* The mapping stays valid for the whole lifetime of the buffer, so CPU writes are directly visible to
+		* subsequent GPU commands. It is up to the caller to not overwrite memory still in use by the GPU (see Fence).
+		* @note The storage is immutable: it cannot be reallocated.
 		* @param p_size
-		* @param p_readable If true, the memory is mapped for reading, otherwise for writing
-		* @return The size of the allocated memory in bytes
+		* @return Pointer to the mapped memory
 		*/
-		uint64_t AllocatePersistent(uint64_t p_size, bool p_readable = false);
-
-		/**
-		* Returns a pointer to the persistently mapped memory, or nullptr if the buffer isn't persistently mapped
-		*/
-		void* GetMappedData() const;
+		void* AllocatePersistentlyMapped(uint64_t p_size);
 
 		/**
 		* Uploads data to the buffer
@@ -60,6 +55,14 @@ namespace baregl
 		* @param p_range
 		*/
 		void Upload(const void* p_data, std::optional<data::BufferMemoryRange> p_range = std::nullopt);
+
+		/**
+		* Downloads data from the buffer
+		* @note Blocks until the GPU is done writing to the buffer: use a Fence to avoid stalling
+		* @param p_data
+		* @param p_range
+		*/
+		void Download(void* p_data, std::optional<data::BufferMemoryRange> p_range = std::nullopt) const;
 
 		/**
 		* Returns true if the buffer is valid (properly allocated)
@@ -87,12 +90,12 @@ namespace baregl
 		);
 
 		/**
-		* Binds a range of the buffer to the given indexed binding point
+		* Binds a range of the buffer to an indexed binding point (UNIFORM or SHADER_STORAGE)
 		* @param p_type Type of the buffer to bind
 		* @param p_index Index to bind the buffer to
-		* @param p_range Range of the buffer to bind
+		* @param p_range Range of the buffer to bind (offset must satisfy the binding point alignment)
 		*/
-		void BindRange(
+		void Bind(
 			types::EBufferType p_type,
 			uint32_t p_index,
 			const data::BufferMemoryRange& p_range
@@ -103,14 +106,9 @@ namespace baregl
 		*/
 		void Unbind();
 
-		/**
-		* Returns the alignment required for the offset of a uniform buffer range (see BindRange)
-		*/
-		static uint32_t GetUniformBufferOffsetAlignment();
-
 	protected:
 		uint64_t m_allocatedBytes = 0;
-		void* m_mappedData = nullptr;
+		bool m_immutable = false;
 		std::optional<types::EBufferType> m_boundAs = std::nullopt;
 		std::optional<uint32_t> m_bindIndex = std::nullopt;
 	};

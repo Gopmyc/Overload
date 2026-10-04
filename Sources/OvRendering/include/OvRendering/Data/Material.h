@@ -7,6 +7,7 @@
 #pragma once
 
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -158,7 +159,7 @@ namespace OvRendering::Data
 		* Gets a material property
 		* @param p_name
 		*/
-		OvTools::Utils::OptRef<const MaterialProperty> GetProperty(const std::string& p_name) const;
+		OvTools::Utils::OptRef<const MaterialProperty> GetProperty(const std::string p_name) const;
 
 		/**
 		* Returns the attached shader
@@ -342,6 +343,7 @@ namespace OvRendering::Data
 
 		/**
 		* Returns the feature set of this material
+		* @note Use SetFeatures, AddFeature or RemoveFeature to modify it
 		*/
 		const Data::FeatureSet& GetFeatures() const;
 
@@ -400,24 +402,18 @@ namespace OvRendering::Data
 	protected:
 		void InvalidatePropertySignature();
 
+		void AssignProperty(MaterialProperty& p_property, const MaterialPropertyType& p_value, bool p_singleUse);
+
+		baregl::ShaderProgram& FindVariant(
+			std::optional<const std::string_view> p_pass,
+			OvTools::Utils::OptRef<const Data::FeatureSet> p_featureSetOverride
+		);
+
 		MaterialSignatureSet CalculateSignature(
 			baregl::ShaderProgram& p_selectedProgram,
 			baregl::Texture* p_emptyTexture2D = nullptr,
 			baregl::Texture* p_emptyTextureCube = nullptr
 		);
-
-		/**
-		* Returns the program to use for the given pass with the material's own features.
-		* The result is cached, as resolving a variant requires hashing the feature set.
-		* @param p_pass
-		*/
-		baregl::ShaderProgram& GetCachedVariant(std::optional<const std::string_view> p_pass);
-
-		/**
-		* Rebuilds the list of properties that map to a uniform of the given program, if needed
-		* @param p_program
-		*/
-		void UpdateUniformBindings(const baregl::ShaderProgram& p_program);
 
 	protected:
 		OvRendering::Resources::Shader* m_shader = nullptr;
@@ -425,14 +421,10 @@ namespace OvRendering::Data
 		Data::FeatureSet m_features;
 		size_t m_stablePropertySignatureVersion = 0ULL;
 		size_t m_singleUsePropertySignatureVersion = 0ULL;
+		OvTools::Utils::OptRef<baregl::ShaderProgram> m_programInUse = std::nullopt;
 
-		// Incremented whenever properties are added or removed (pointers to properties may be invalidated)
-		uint64_t m_propertiesLayoutVersion = 0ULL;
-
-		// Incremented whenever the feature set changes
-		uint64_t m_featuresVersion = 0ULL;
-
-		// Cache of the programs used for each pass (with the material's own feature set)
+		// Programs resolved for each pass (without feature set override), to avoid hashing the
+		// feature set on every draw. Invalidated when the shader, its variants or the features change.
 		struct VariantCacheEntry
 		{
 			std::string pass;
@@ -441,22 +433,9 @@ namespace OvRendering::Data
 
 		std::vector<VariantCacheEntry> m_variantCache;
 		const OvRendering::Resources::Shader* m_variantCacheShader = nullptr;
-		uint64_t m_variantCacheShaderGeneration = 0ULL;
-		uint64_t m_variantCacheFeaturesVersion = 0ULL;
-
-		// Cache of the properties mapping to a uniform of the last program used for upload
-		struct UniformBinding
-		{
-			MaterialProperty* property;
-			const baregl::data::UniformInfo* uniform;
-		};
-
-		std::vector<UniformBinding> m_uniformBindings;
-		const PropertyMap* m_uniformBindingsOwner = nullptr; // Invalidates the cache if the material got copied
-		const baregl::ShaderProgram* m_uniformBindingsProgram = nullptr;
-		uint64_t m_uniformBindingsProgramLinkID = 0ULL;
-		uint64_t m_uniformBindingsLayoutVersion = 0ULL;
-		OvTools::Utils::OptRef<baregl::ShaderProgram> m_programInUse = std::nullopt;
+		uint64_t m_variantCacheShaderVersion = 0;
+		uint64_t m_variantCacheFeaturesVersion = 0;
+		uint64_t m_featuresVersion = 0;
 
 		bool m_supportOrthographic = true;
 		bool m_supportPerspective = true;

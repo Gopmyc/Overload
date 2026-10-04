@@ -152,7 +152,6 @@ void OvCore::Resources::Material::OnDeserialize(tinyxml2::XMLDocument& p_doc, ti
 	const auto shader = Serializer::DeserializeShader(p_doc, p_node, "shader");
 
 	m_properties.clear();
-	++m_propertiesLayoutVersion;
 
 	/* We verify that the shader is valid (Not null) */
 	if (shader)

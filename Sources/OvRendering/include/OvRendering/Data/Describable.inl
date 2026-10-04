@@ -6,48 +6,61 @@
 
 #pragma once
 
+#include <algorithm>
+
 #include <OvDebug/Assertion.h>
 #include <OvRendering/Data/Describable.h>
 
 namespace OvRendering::Data
 {
-	template<EDescriptorStorage Storage>
-	template<typename T>
-	inline void TDescribable<Storage>::AddDescriptor(T&& p_descriptor)
+	inline std::vector<Describable::DescriptorEntry>::iterator Describable::FindDescriptor(std::type_index p_type)
 	{
-		OVASSERT(!HasDescriptor<T>(), "Descriptor already added");
-
-		if constexpr (Storage == EDescriptorStorage::STABLE)
-		{
-			m_descriptors.emplace(typeid(T), std::move(p_descriptor));
-		}
-		else
-		{
-			m_descriptors.emplace_back(typeid(T), std::move(p_descriptor));
-		}
+		return std::find_if(m_descriptors.begin(), m_descriptors.end(), [p_type](const DescriptorEntry& p_entry) {
+			return p_entry.first == p_type;
+		});
 	}
 
-	template<EDescriptorStorage Storage>
+	inline std::vector<Describable::DescriptorEntry>::const_iterator Describable::FindDescriptor(std::type_index p_type) const
+	{
+		return std::find_if(m_descriptors.begin(), m_descriptors.end(), [p_type](const DescriptorEntry& p_entry) {
+			return p_entry.first == p_type;
+		});
+	}
+
 	template<typename T>
-	inline void TDescribable<Storage>::SetDescriptor(T&& p_descriptor)
+	inline void Describable::EmplaceDescriptor(T&& p_descriptor)
+	{
+		// Most describables hold a few descriptors: avoid growing the vector one element at a time
+		if (m_descriptors.capacity() == 0)
+		{
+			m_descriptors.reserve(4);
+		}
+
+		m_descriptors.emplace_back(typeid(T), std::make_shared<const std::decay_t<T>>(std::forward<T>(p_descriptor)));
+	}
+
+	template<typename T>
+	inline void Describable::AddDescriptor(T&& p_descriptor)
+	{
+		OVASSERT(!HasDescriptor<T>(), "Descriptor already added");
+		EmplaceDescriptor(std::forward<T>(p_descriptor));
+	}
+
+	template<typename T>
+	inline void Describable::SetDescriptor(T&& p_descriptor)
 	{
 		if (auto it = FindDescriptor(typeid(T)); it != m_descriptors.end())
 		{
-			it->second = std::move(p_descriptor);
-		}
-		else if constexpr (Storage == EDescriptorStorage::STABLE)
-		{
-			m_descriptors.emplace(typeid(T), std::move(p_descriptor));
+			it->second = std::make_shared<const std::decay_t<T>>(std::forward<T>(p_descriptor));
 		}
 		else
 		{
-			m_descriptors.emplace_back(typeid(T), std::move(p_descriptor));
+			EmplaceDescriptor(std::forward<T>(p_descriptor));
 		}
 	}
 
-	template<EDescriptorStorage Storage>
 	template<typename T>
-	inline void TDescribable<Storage>::RemoveDescriptor()
+	inline void Describable::RemoveDescriptor()
 	{
 		OVASSERT(HasDescriptor<T>(), "Descriptor doesn't exist.");
 		if (auto it = FindDescriptor(typeid(T)); it != m_descriptors.end())
@@ -56,68 +69,29 @@ namespace OvRendering::Data
 		}
 	}
 
-	template<EDescriptorStorage Storage>
-	inline void TDescribable<Storage>::ClearDescriptors()
-	{
-		m_descriptors.clear();
-	}
-
-	template<EDescriptorStorage Storage>
 	template<typename T>
-	inline bool TDescribable<Storage>::HasDescriptor() const
+	inline bool Describable::HasDescriptor() const
 	{
 		return FindDescriptor(typeid(T)) != m_descriptors.end();
 	}
 
-	template<EDescriptorStorage Storage>
 	template<typename T>
-	inline const T& TDescribable<Storage>::GetDescriptor() const
+	inline const T& Describable::GetDescriptor() const
 	{
 		auto it = FindDescriptor(typeid(T));
 		OVASSERT(it != m_descriptors.end(), "Couldn't find a descriptor matching the given type T.");
-		return std::any_cast<const T&>(it->second);
+		return *static_cast<const T*>(it->second.get());
 	}
 
-	template<EDescriptorStorage Storage>
 	template<typename T>
-	inline bool TDescribable<Storage>::TryGetDescriptor(OvTools::Utils::OptRef<const T>& p_outDescriptor) const
+	inline bool Describable::TryGetDescriptor(OvTools::Utils::OptRef<const T>& p_outDescriptor) const
 	{
 		if (auto it = FindDescriptor(typeid(T)); it != m_descriptors.end())
 		{
-			p_outDescriptor = std::any_cast<const T&>(it->second);
+			p_outDescriptor = *static_cast<const T*>(it->second.get());
 			return true;
 		}
 
 		return false;
-	}
-
-	template<EDescriptorStorage Storage>
-	inline auto TDescribable<Storage>::FindDescriptor(const std::type_index& p_type)
-	{
-		if constexpr (Storage == EDescriptorStorage::STABLE)
-		{
-			return m_descriptors.find(p_type);
-		}
-		else
-		{
-			auto it = m_descriptors.begin();
-			while (it != m_descriptors.end() && it->first != p_type) { ++it; }
-			return it;
-		}
-	}
-
-	template<EDescriptorStorage Storage>
-	inline auto TDescribable<Storage>::FindDescriptor(const std::type_index& p_type) const
-	{
-		if constexpr (Storage == EDescriptorStorage::STABLE)
-		{
-			return m_descriptors.find(p_type);
-		}
-		else
-		{
-			auto it = m_descriptors.begin();
-			while (it != m_descriptors.end() && it->first != p_type) { ++it; }
-			return it;
-		}
 	}
 }

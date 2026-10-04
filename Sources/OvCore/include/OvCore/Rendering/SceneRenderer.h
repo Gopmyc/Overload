@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <map>
+#include <utility>
 #include <vector>
 
 #include <baregl/Buffer.h>
@@ -75,8 +75,10 @@ namespace OvCore::Rendering
 			}
 		};
 
-		// Drawables sorted by draw order (filled, then sorted once with a stable sort, which preserves the
-		// insertion order of equivalent drawables, like a multimap would, without a node allocation per drawable)
+		/**
+		* Drawables sorted by draw order (drawables with an equal order keep their insertion order).
+		* A sorted vector is used instead of a multimap: no allocation per drawable, and better locality.
+		*/
 		template<EOrderingMode OrderingMode, bool BatchMaterial = false>
 		using DrawableMap = std::vector<std::pair<DrawOrder<OrderingMode, BatchMaterial>, OvRendering::Entities::Drawable>>;
 

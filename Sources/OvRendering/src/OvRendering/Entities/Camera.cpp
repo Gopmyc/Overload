@@ -143,6 +143,11 @@ bool OvRendering::Entities::Camera::HasFrustumLightCulling() const
 	return m_frustumLightCulling;
 }
 
+bool OvRendering::Entities::Camera::HasDepthPrePass() const
+{
+	return m_depthPrePass;
+}
+
 OvRendering::Settings::EProjectionMode OvRendering::Entities::Camera::GetProjectionMode() const
 {
     return m_projectionMode;
@@ -206,6 +211,11 @@ void OvRendering::Entities::Camera::SetFrustumGeometryCulling(bool p_enable)
 void OvRendering::Entities::Camera::SetFrustumLightCulling(bool p_enable)
 {
 	m_frustumLightCulling = p_enable;
+}
+
+void OvRendering::Entities::Camera::SetDepthPrePass(bool p_enable)
+{
+	m_depthPrePass = p_enable;
 }
 
 void OvRendering::Entities::Camera::SetProjectionMode(OvRendering::Settings::EProjectionMode p_projectionMode)

@@ -61,8 +61,7 @@ namespace OvCore::ECS
 	{
 		static_assert(std::is_base_of<Components::AComponent, T>::value, "T should derive from AComponent");
 
-		// Cast raw pointers: std::dynamic_pointer_cast would copy a shared_ptr (atomic reference count
-		// increment/decrement) for every component tested. This is called several times per actor per frame.
+		// Casting the raw pointers avoids the atomic reference counting of std::dynamic_pointer_cast
 		for (const auto& component : m_components)
 		{
 			if (auto result = dynamic_cast<T*>(component.get()))

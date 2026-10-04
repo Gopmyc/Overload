@@ -83,6 +83,16 @@ namespace baregl
 		void Unbind() const;
 
 		/**
+		* Sends a uniform value to the GPU, using the location stored in the given uniform info
+		* (avoids the name lookup of the name-based overload).
+		* @note The shader program must be bound before calling SetUniform
+		* @param p_uniform (as returned by GetUniformInfo)
+		* @param p_value
+		*/
+		template<SupportedUniformType T>
+		void SetUniform(const data::UniformInfo& p_uniform, const T& p_value);
+
+		/**
 		* Sends a uniform value associated with the given name to the GPU.
 		* @note The shader program must be bound before calling SetUniform
 		* @param p_name
@@ -90,15 +100,6 @@ namespace baregl
 		*/
 		template<SupportedUniformType T>
 		void SetUniform(const std::string& p_name, const T& p_value);
-
-		/**
-		* Send a uniform to the GPU using its location (see data::UniformInfo::location).
-		* Faster than SetUniform, as it doesn't require a lookup by name.
-		* @param p_location
-		* @param p_value
-		*/
-		template<SupportedUniformType T>
-		void SetUniformAtLocation(uint32_t p_location, const T& p_value);
 
 		/**
 		* Returns the value of a uniform associated with the given name.
@@ -120,19 +121,11 @@ namespace baregl
 		*/
 		const std::unordered_map<std::string, data::UniformInfo>& GetUniforms() const;
 
-		/**
-		* Returns a unique identifier for the last successful link of this program.
-		* Any data derived from the uniforms of this program (e.g. pointers to its uniform infos)
-		* must be invalidated when this identifier changes.
-		*/
-		uint64_t GetLinkID() const;
-
 	private:
 		void QueryUniforms();
 
 	private:
 		std::unordered_map<std::string, data::UniformInfo> m_uniforms;
-		uint64_t m_linkID = 0;
 		std::unordered_map<std::string, uint32_t> m_uniformsLocationCache;
 		std::vector<std::reference_wrapper<const ShaderStage>> m_attachedShaders;
 	};

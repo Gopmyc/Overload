@@ -129,6 +129,14 @@ struct LightContribution
     vec3 L;
 };
 
+// Point and spot lights store their effect range (distance at which their contribution becomes negligible)
+bool IsFragmentInLightRange(mat4 light, vec3 fragPos)
+{
+    const vec3 toLight = light[0].xyz - fragPos;
+    const float range = light[2][2];
+    return dot(toLight, toLight) <= range * range;
+}
+
 float CalculateAttenuation(vec3 lightPos, vec3 fragPos, float constant, float linear, float quadratic)
 {
     const float distance = length(lightPos - fragPos);

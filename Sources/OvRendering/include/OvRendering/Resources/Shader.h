@@ -73,11 +73,10 @@ namespace OvRendering::Resources
 		const Variants& GetVariants() const;
 
 		/**
-		* Returns a unique identifier for the current set of variants.
-		* It changes every time the variants are replaced (e.g. shader recompilation),
-		* so any reference to one of the previous programs must be invalidated.
+		* Returns a counter incremented every time the variants are replaced (e.g. shader recompilation).
+		* Programs previously returned by GetVariant() must not be used after it changed.
 		*/
-		uint64_t GetGeneration() const;
+		uint64_t GetVariantsVersion() const;
 
 	private:
 		Shader(
@@ -97,6 +96,6 @@ namespace OvRendering::Resources
 		Data::FeatureSet m_features;
 		Data::FeatureSet m_engineFeatures;
 		Variants m_variants;
-		uint64_t m_generation = 0;
+		uint64_t m_variantsVersion = 0;
 	};
 }

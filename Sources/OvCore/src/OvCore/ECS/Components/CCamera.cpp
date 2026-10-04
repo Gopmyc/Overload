@@ -60,6 +60,11 @@ void OvCore::ECS::Components::CCamera::SetFrustumLightCulling(bool p_enable)
 	m_camera.SetFrustumLightCulling(p_enable);
 }
 
+void OvCore::ECS::Components::CCamera::SetDepthPrePass(bool p_enable)
+{
+	m_camera.SetDepthPrePass(p_enable);
+}
+
 void OvCore::ECS::Components::CCamera::SetProjectionMode(OvRendering::Settings::EProjectionMode p_projectionMode)
 {
     m_camera.SetProjectionMode(p_projectionMode);
@@ -105,6 +110,11 @@ bool OvCore::ECS::Components::CCamera::HasFrustumLightCulling() const
 	return m_camera.HasFrustumLightCulling();
 }
 
+bool OvCore::ECS::Components::CCamera::HasDepthPrePass() const
+{
+	return m_camera.HasDepthPrePass();
+}
+
 OvRendering::Settings::EProjectionMode OvCore::ECS::Components::CCamera::GetProjectionMode() const
 {
     return m_camera.GetProjectionMode();
@@ -124,6 +134,7 @@ void OvCore::ECS::Components::CCamera::OnSerialize(tinyxml2::XMLDocument & p_doc
 	OvCore::Helpers::Serializer::SerializeVec3(p_doc, p_node, "clear_color", m_camera.GetClearColor());
 	OvCore::Helpers::Serializer::SerializeBoolean(p_doc, p_node, "frustum_geometry_culling", m_camera.HasFrustumGeometryCulling());
 	OvCore::Helpers::Serializer::SerializeBoolean(p_doc, p_node, "frustum_light_culling", m_camera.HasFrustumLightCulling());
+	OvCore::Helpers::Serializer::SerializeBoolean(p_doc, p_node, "depth_pre_pass", m_camera.HasDepthPrePass());
 	OvCore::Helpers::Serializer::SerializeInt(p_doc, p_node, "projection_mode", static_cast<int>(m_camera.GetProjectionMode()));
 }
 
@@ -136,6 +147,7 @@ void OvCore::ECS::Components::CCamera::OnDeserialize(tinyxml2::XMLDocument & p_d
 	m_camera.SetClearColor(OvCore::Helpers::Serializer::DeserializeVec3(p_doc, p_node, "clear_color"));
 	m_camera.SetFrustumGeometryCulling(OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "frustum_geometry_culling"));
 	m_camera.SetFrustumLightCulling(OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "frustum_light_culling"));
+	m_camera.SetDepthPrePass(OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "depth_pre_pass"));
 
     // We have to make sure the "projection_mode" exists in the serialized component, otherwise we do not want to modify the default setting (Perspective).
     // This is a bad practice to have each components calling setters in `OnDeserialize` even if no XML node hasn't been found for a given property.
@@ -165,6 +177,7 @@ void OvCore::ECS::Components::CCamera::OnInspector(OvUI::Internal::WidgetContain
 	OvCore::Helpers::GUIDrawer::DrawColor(p_root, "Clear color", [this]() {return reinterpret_cast<const OvUI::Types::Color&>(GetClearColor()); }, [this](OvUI::Types::Color p_color) { SetClearColor({ p_color.r, p_color.g, p_color.b }); }, false);
 	OvCore::Helpers::GUIDrawer::DrawBoolean(p_root, "Frustum Geometry Culling", std::bind(&CCamera::HasFrustumGeometryCulling, this), std::bind(&CCamera::SetFrustumGeometryCulling, this, std::placeholders::_1));
 	OvCore::Helpers::GUIDrawer::DrawBoolean(p_root, "Frustum Light Culling", std::bind(&CCamera::HasFrustumLightCulling, this), std::bind(&CCamera::SetFrustumLightCulling, this, std::placeholders::_1));
+	OvCore::Helpers::GUIDrawer::DrawBoolean(p_root, "Depth Pre-Pass", std::bind(&CCamera::HasDepthPrePass, this), std::bind(&CCamera::SetDepthPrePass, this, std::placeholders::_1));
 
     Helpers::GUIDrawer::CreateTitle(p_root, "Projection Mode");
     auto& projectionMode = p_root.CreateWidget<OvUI::Widgets::Selection::ComboBox>(static_cast<int>(GetProjectionMode()));

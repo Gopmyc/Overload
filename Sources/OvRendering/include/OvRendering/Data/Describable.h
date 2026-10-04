@@ -6,10 +6,8 @@
 
 #pragma once
 
-#include <any>
-#include <type_traits>
+#include <memory>
 #include <typeindex>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -20,27 +18,9 @@
 namespace OvRendering::Data
 {
 	/**
-	* Defines how the descriptors of a describable are stored
-	*/
-	enum class EDescriptorStorage
-	{
-		/**
-		* Hash map: references to descriptors stay valid when other descriptors are added
-		*/
-		STABLE,
-
-		/**
-		* Contiguous list: much cheaper to build, copy and search for a handful of descriptors,
-		* but adding a descriptor can invalidate references to the other ones
-		*/
-		COMPACT
-	};
-
-	/**
 	* An object that can be described using additional data structures (descriptors)
 	*/
-	template<EDescriptorStorage Storage>
-	class TDescribable
+	class Describable
 	{
 	public:
 		/**
@@ -89,29 +69,22 @@ namespace OvRendering::Data
 		bool TryGetDescriptor(OvTools::Utils::OptRef<const T>& p_outDescriptor) const;
 
 	private:
-		using DescriptorContainer = std::conditional_t<
-			Storage == EDescriptorStorage::STABLE,
-			std::unordered_map<std::type_index, std::any>,
-			std::vector<std::pair<std::type_index, std::any>>
-		>;
+		// Descriptors are immutable once added (they can only be replaced), so their storage
+		// is shared between copies: copying a Describable (e.g. a Drawable) doesn't deep copy them.
+		// The heap storage also keeps references returned by GetDescriptor() valid when adding descriptors.
+		using DescriptorEntry = std::pair<std::type_index, std::shared_ptr<const void>>;
 
-		auto FindDescriptor(const std::type_index& p_type);
-		auto FindDescriptor(const std::type_index& p_type) const;
+		std::vector<DescriptorEntry>::iterator FindDescriptor(std::type_index p_type);
+		std::vector<DescriptorEntry>::const_iterator FindDescriptor(std::type_index p_type) const;
+
+		template<typename T>
+		void EmplaceDescriptor(T&& p_descriptor);
 
 	private:
-		DescriptorContainer m_descriptors;
+		// Objects only hold a handful of descriptors: a flat vector avoids hashing type names
+		// on every lookup, and the node allocations of a hash map (Drawables are created every frame).
+		std::vector<DescriptorEntry> m_descriptors;
 	};
-
-	/**
-	* Describable keeping references to its descriptors valid (used by renderers, whose descriptors
-	* are referenced while other descriptors are added)
-	*/
-	using Describable = TDescribable<EDescriptorStorage::STABLE>;
-
-	/**
-	* Describable optimized for objects that are created and copied in large numbers every frame (drawables)
-	*/
-	using CompactDescribable = TDescribable<EDescriptorStorage::COMPACT>;
 }
 
 #include "OvRendering/Data/Describable.inl"

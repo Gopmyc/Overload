@@ -38,8 +38,7 @@ namespace OvCore::Rendering::FramebufferUtil
 	* @param p_useDepth
 	* @param p_useStencil
 	* @param p_useMipMaps
-	* @param p_internalFormat Format of the color attachment. Half-float is enough for HDR rendering
-	*	and uses half the memory bandwidth of a 32-bit float format.
+	* @param p_colorFormat (RGBA16F is enough for HDR rendering, and half the bandwidth of RGBA32F)
 	*/
 	void SetupFramebuffer(
 		baregl::Framebuffer& p_framebuffer,
@@ -48,6 +47,6 @@ namespace OvCore::Rendering::FramebufferUtil
 		bool p_useDepth = true,
 		bool p_useStencil = false,
 		bool p_useMipMaps = false,
-		baregl::types::EInternalFormat p_internalFormat = baregl::types::EInternalFormat::RGBA16F
+		baregl::types::EInternalFormat p_colorFormat = baregl::types::EInternalFormat::RGBA16F
 	);
 }

@@ -127,6 +127,11 @@ void OvRendering::Core::ABaseRenderer::SetViewport(uint32_t p_x, uint32_t p_y, u
 	m_driver.SetViewport(p_x, p_y, p_width, p_height);
 }
 
+void OvRendering::Core::ABaseRenderer::SetScissor(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height)
+{
+	m_driver.SetScissor(p_x, p_y, p_width, p_height);
+}
+
 void OvRendering::Core::ABaseRenderer::Clear(
 	bool p_colorBuffer,
 	bool p_depthBuffer,

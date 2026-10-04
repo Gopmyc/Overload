@@ -79,17 +79,15 @@ namespace
 	}
 
 	void BindTexture(
-		baregl::ShaderProgram& p_shader,
-		uint32_t p_uniformLocation,
 		baregl::Texture* p_texture,
 		baregl::Texture* p_fallback,
 		uint32_t p_textureSlot
 	)
 	{
+		// The sampler uniform itself is assigned to its texture slot once, when the program is linked
 		if (auto target = p_texture ? p_texture : p_fallback)
 		{
 			target->Bind(p_textureSlot);
-			p_shader.SetUniformAtLocation<int>(p_uniformLocation, p_textureSlot);
 		}
 	}
 }
@@ -102,6 +100,8 @@ OvRendering::Data::Material::Material(OvRendering::Resources::Shader* p_shader)
 void OvRendering::Data::Material::SetShader(OvRendering::Resources::Shader* p_shader)
 {
 	m_shader = p_shader;
+	m_variantCache.clear();
+	m_variantCacheShader = nullptr;
 
 	if (m_shader)
 	{
@@ -111,7 +111,6 @@ void OvRendering::Data::Material::SetShader(OvRendering::Resources::Shader* p_sh
 	else
 	{
 		m_properties.clear();
-		++m_propertiesLayoutVersion;
 		InvalidatePropertySignature();
 	}
 }
@@ -135,7 +134,6 @@ OvTools::Utils::OptRef<baregl::ShaderProgram> OvRendering::Data::Material::GetVa
 void OvRendering::Data::Material::UpdateProperties()
 {
 	InvalidatePropertySignature();
-	++m_propertiesLayoutVersion;
 
 	// Collect all uniform names currently used by the shader
 	std::unordered_set<std::string> usedUniforms;
@@ -180,10 +178,7 @@ OvRendering::Data::MaterialSignatureSet OvRendering::Data::Material::Bind(
 
 	OVASSERT(IsValid(), "Attempting to bind an invalid material.");
 
-	auto& program =
-		p_featureSetOverride ?
-		m_shader->GetVariant(p_pass, p_featureSetOverride.value()) :
-		GetCachedVariant(p_pass);
+	auto& program = FindVariant(p_pass, p_featureSetOverride);
 
 	const auto signature = CalculateSignature(
 		program,
@@ -199,6 +194,42 @@ OvRendering::Data::MaterialSignatureSet OvRendering::Data::Material::Bind(
 	m_programInUse = program;
 
 	return signature;
+}
+
+baregl::ShaderProgram& OvRendering::Data::Material::FindVariant(
+	std::optional<const std::string_view> p_pass,
+	OvTools::Utils::OptRef<const Data::FeatureSet> p_featureSetOverride
+)
+{
+	// Feature set overrides are specific to a drawable: resolve them directly
+	if (p_featureSetOverride)
+	{
+		return m_shader->GetVariant(p_pass, p_featureSetOverride.value());
+	}
+
+	if (m_variantCacheShader != m_shader ||
+		m_variantCacheShaderVersion != m_shader->GetVariantsVersion() ||
+		m_variantCacheFeaturesVersion != m_featuresVersion)
+	{
+		m_variantCache.clear();
+		m_variantCacheShader = m_shader;
+		m_variantCacheShaderVersion = m_shader->GetVariantsVersion();
+		m_variantCacheFeaturesVersion = m_featuresVersion;
+	}
+
+	const std::string_view pass = p_pass.value_or(std::string_view{});
+
+	for (const auto& entry : m_variantCache)
+	{
+		if (entry.pass == pass)
+		{
+			return *entry.program;
+		}
+	}
+
+	auto& program = m_shader->GetVariant(p_pass, m_features);
+	m_variantCache.push_back({ std::string{ pass }, &program });
+	return program;
 }
 
 void OvRendering::Data::Material::UploadProperties(
@@ -218,21 +249,23 @@ void OvRendering::Data::Material::UploadProperties(
 
 	auto& program = m_programInUse.value();
 
-	// Only the properties mapping to a uniform of the current program are uploaded.
-	// This list is cached, so we don't have to look up each property by name, for each draw.
-	UpdateUniformBindings(program);
-
-	for (const auto& binding : m_uniformBindings)
+	for (auto& [name, prop] : m_properties)
 	{
-		auto& prop = *binding.property;
-		const auto& uniformInfo = *binding.uniform;
-
 		if (!uploadStableProperties && !prop.singleUse) continue;
 		if (!uploadSingleUseProperties && prop.singleUse) continue;
 
-		const uint32_t location = uniformInfo.location;
+		const auto uniformData = program.GetUniformInfo(name);
+
+		// Skip this property if the current program isn't using its associated uniform
+		if (!uniformData)
+		{
+			continue;
+		}
+
+		// The uniform info holds the uniform location: no more name lookup is needed to upload the value
+		const auto& uniform = uniformData.value().get();
 		auto& value = prop.value;
-		auto uniformType = uniformInfo.type;
+		auto uniformType = uniform.type;
 
 		// Iterating over the properties to set them in the shader.
 		// This could have been cleaner with a visitor, but the performance impact
@@ -240,37 +273,37 @@ void OvRendering::Data::Material::UploadProperties(
 
 		if (uniformType == BOOL)
 		{
-			program.SetUniformAtLocation<int>(location, static_cast<int>(std::get<bool>(value)));
+			program.SetUniform<int>(uniform, static_cast<int>(std::get<bool>(value)));
 		}
 		else if (uniformType == INT)
 		{
-			program.SetUniformAtLocation<int>(location, std::get<int>(value));
+			program.SetUniform<int>(uniform, std::get<int>(value));
 		}
 		else if (uniformType == FLOAT)
 		{
-			program.SetUniformAtLocation<float>(location, std::get<float>(value));
+			program.SetUniform<float>(uniform, std::get<float>(value));
 		}
 		else if (uniformType == FLOAT_VEC2)
 		{
-			program.SetUniformAtLocation<Vec2>(location, (Vec2&)(std::get<FVector2>(value)));
+			program.SetUniform<Vec2>(uniform, (Vec2&)(std::get<FVector2>(value)));
 		}
 		else if (uniformType == FLOAT_VEC3)
 		{
-			program.SetUniformAtLocation<Vec3>(location, (Vec3&)std::get<FVector3>(value));
+			program.SetUniform<Vec3>(uniform, (Vec3&)std::get<FVector3>(value));
 		}
 		else if (uniformType == FLOAT_VEC4)
 		{
-			program.SetUniformAtLocation<Vec4>(location, (Vec4&)std::get<FVector4>(value));
+			program.SetUniform<Vec4>(uniform, (Vec4&)std::get<FVector4>(value));
 		}
 		else if (uniformType == FLOAT_MAT3)
 		{
 			const auto t = FMatrix3::Transpose(std::get<FMatrix3>(value));
-			program.SetUniformAtLocation<Mat3>(location, (Mat3&)t);
+			program.SetUniform<Mat3>(uniform, (Mat3&)t);
 		}
 		else if (uniformType == FLOAT_MAT4)
 		{
 			const auto t = FMatrix4::Transpose(std::get<FMatrix4>(value));
-			program.SetUniformAtLocation<Mat4>(location, (Mat4&)t);
+			program.SetUniform<Mat4>(uniform, (Mat4&)t);
 		}
 		else if (uniformType == SAMPLER_2D || uniformType == SAMPLER_CUBE)
 		{
@@ -287,13 +320,11 @@ void OvRendering::Data::Material::UploadProperties(
 				}
 			}
 			
-			const auto textureIndex = uniformInfo.textureIndex;
+			const auto textureIndex = uniform.textureIndex;
 
-			OVASSERT(textureIndex.has_value(), std::format("No texture index found for uniform: {}", uniformInfo.name));
+			OVASSERT(textureIndex.has_value(), std::format("No texture index found for uniform: {}", name));
 
 			BindTexture(
-				program,
-				location,
 				handle,
 				uniformType == SAMPLER_2D ?
 					p_emptyTexture2D :
@@ -335,15 +366,24 @@ void OvRendering::Data::Material::SetProperty(const std::string& p_name, const M
 	OVASSERT(IsValid(), "Attempting to SetProperty on an invalid material.");
 	OVASSERT(HasProperty(p_name), "Attempting to SetProperty on a non-existing property.");
 
-	auto [it, inserted] = m_properties.try_emplace(p_name);
+	AssignProperty(m_properties[p_name], p_value, p_singleUse);
+}
 
-	if (inserted)
+bool OvRendering::Data::Material::TrySetProperty(const std::string& p_name, const MaterialPropertyType& p_value, bool p_singleUse)
+{
+	if (auto it = m_properties.find(p_name); it != m_properties.end())
 	{
-		++m_propertiesLayoutVersion;
+		AssignProperty(it->second, p_value, p_singleUse);
+		return true;
 	}
 
-	it->second.value = p_value;
-	it->second.singleUse = p_singleUse;
+	return false;
+}
+
+void OvRendering::Data::Material::AssignProperty(MaterialProperty& p_property, const MaterialPropertyType& p_value, bool p_singleUse)
+{
+	p_property.value = p_value;
+	p_property.singleUse = p_singleUse;
 
 	if (p_singleUse)
 	{
@@ -355,24 +395,13 @@ void OvRendering::Data::Material::SetProperty(const std::string& p_name, const M
 	}
 }
 
-bool OvRendering::Data::Material::TrySetProperty(const std::string& p_name, const MaterialPropertyType& p_value, bool p_singleUse)
-{
-	if (HasProperty(p_name))
-	{
-		SetProperty(p_name, p_value, p_singleUse);
-		return true;
-	}
-
-	return false;
-}
-
-OvTools::Utils::OptRef<const OvRendering::Data::MaterialProperty> OvRendering::Data::Material::GetProperty(const std::string& p_key) const
+OvTools::Utils::OptRef<const OvRendering::Data::MaterialProperty> OvRendering::Data::Material::GetProperty(const std::string p_key) const
 {
 	OVASSERT(IsValid(), "Attempting to GetProperty on an invalid material.");
 
-	if (auto it = m_properties.find(p_key); it != m_properties.end())
+	if (m_properties.find(p_key) != m_properties.end())
 	{
-		return it->second;
+		return m_properties.at(p_key);
 	}
 
 	return std::nullopt;
@@ -547,8 +576,6 @@ const OvRendering::Data::StateMask OvRendering::Data::Material::GenerateStateMas
 
 OvRendering::Data::Material::PropertyMap& OvRendering::Data::Material::GetProperties()
 {
-	// The caller can add or remove properties through the returned reference
-	++m_propertiesLayoutVersion;
 	return m_properties;
 }
 
@@ -650,64 +677,3 @@ OvRendering::Data::MaterialSignatureSet OvRendering::Data::Material::CalculateSi
 	return signature;
 }
 
-baregl::ShaderProgram& OvRendering::Data::Material::GetCachedVariant(std::optional<const std::string_view> p_pass)
-{
-	OVASSERT(m_shader, "Cannot get a variant without a shader");
-
-	const bool isCacheValid =
-		m_variantCacheShader == m_shader &&
-		m_variantCacheShaderGeneration == m_shader->GetGeneration() &&
-		m_variantCacheFeaturesVersion == m_featuresVersion;
-
-	if (!isCacheValid)
-	{
-		m_variantCache.clear();
-		m_variantCacheShader = m_shader;
-		m_variantCacheShaderGeneration = m_shader->GetGeneration();
-		m_variantCacheFeaturesVersion = m_featuresVersion;
-	}
-
-	const std::string_view pass = p_pass.value_or(std::string_view{});
-
-	for (const auto& entry : m_variantCache)
-	{
-		if (entry.pass == pass)
-		{
-			return *entry.program;
-		}
-	}
-
-	auto& program = m_shader->GetVariant(p_pass, m_features);
-	m_variantCache.push_back({ std::string{ pass }, &program });
-	return program;
-}
-
-void OvRendering::Data::Material::UpdateUniformBindings(const baregl::ShaderProgram& p_program)
-{
-	const bool isCacheValid =
-		m_uniformBindingsOwner == &m_properties &&
-		m_uniformBindingsProgram == &p_program &&
-		m_uniformBindingsProgramLinkID == p_program.GetLinkID() &&
-		m_uniformBindingsLayoutVersion == m_propertiesLayoutVersion;
-
-	if (isCacheValid)
-	{
-		return;
-	}
-
-	m_uniformBindings.clear();
-
-	for (auto& [name, prop] : m_properties)
-	{
-		// Skip properties that the program isn't using
-		if (const auto uniformInfo = p_program.GetUniformInfo(name))
-		{
-			m_uniformBindings.push_back({ &prop, &uniformInfo.value().get() });
-		}
-	}
-
-	m_uniformBindingsOwner = &m_properties;
-	m_uniformBindingsProgram = &p_program;
-	m_uniformBindingsProgramLinkID = p_program.GetLinkID();
-	m_uniformBindingsLayoutVersion = m_propertiesLayoutVersion;
-}

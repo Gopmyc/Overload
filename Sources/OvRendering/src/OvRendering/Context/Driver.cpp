@@ -149,6 +149,7 @@ void OvRendering::Context::Driver::OnFrameCompleted()
 		ZoneScopedN("Wait For Queued Frames");
 
 		m_frameFences.push_back(std::make_unique<baregl::Fence>());
+		m_frameFences.back()->Insert();
 
 		while (m_frameFences.size() > m_maxQueuedFrames)
 		{
@@ -161,6 +162,11 @@ void OvRendering::Context::Driver::OnFrameCompleted()
 void OvRendering::Context::Driver::SetViewport(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height)
 {
 	m_gfxContext->SetViewport(p_x, p_y, p_width, p_height);
+}
+
+void OvRendering::Context::Driver::SetScissor(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height)
+{
+	m_gfxContext->SetScissor(p_x, p_y, p_width, p_height);
 }
 
 void OvRendering::Context::Driver::Clear(
@@ -198,6 +204,8 @@ void OvRendering::Context::Driver::Draw(
 {
 	ZoneScoped;
 
+	// [PERF-P1] One draw call per drawable: automatic instancing / MultiDrawIndirect of identical meshes would need
+	// per-instance data in shaders (ubo_Model is per draw).
 	if (p_instances > 0)
 	{
 		SetPipelineState(p_pso);
