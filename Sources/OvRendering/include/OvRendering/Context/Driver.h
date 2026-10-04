@@ -51,8 +51,15 @@ namespace OvRendering::Context
 
 		/**
 		* Notifies the driver that the frame is finished
+		* @note Can be called several times per presented frame (e.g. once per editor view)
 		*/
 		void OnFrameCompleted();
+
+		/**
+		* Notifies the driver that the frame has been presented (must be called once per presented frame, after swapping buffers).
+		* Limits the number of frames queued ahead of the GPU (see DriverSettings::maxQueuedFrames).
+		*/
+		void OnFramePresented();
 
 		/**
 		* Set the viewport

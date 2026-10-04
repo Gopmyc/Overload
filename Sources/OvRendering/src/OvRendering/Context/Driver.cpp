@@ -141,7 +141,10 @@ void OvRendering::Context::Driver::OnFrameCompleted()
 	// Prevents state leak between frames, and especially useful when external code (like ImGui)
 	// requires a "neutral" pipeline state.
 	ResetPipelineState();
+}
 
+void OvRendering::Context::Driver::OnFramePresented()
+{
 	// Limits how far ahead of the GPU the CPU can be. Without this, the driver can queue several
 	// frames, and the input sampled at the beginning of a frame is only displayed a few frames later.
 	if (m_maxQueuedFrames > 0)

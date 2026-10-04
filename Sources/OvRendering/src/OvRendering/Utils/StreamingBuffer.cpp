@@ -38,6 +38,8 @@ void OvRendering::Utils::StreamingBuffer::BeginFrame()
 
 void OvRendering::Utils::StreamingBuffer::EndFrame()
 {
+	ZoneScoped;
+
 	m_fences[m_frameIndex].Insert();
 }
 
