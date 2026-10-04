@@ -61,6 +61,58 @@ namespace
 		bool m_stencilWrite;
 	};
 
+	/**
+	* Opaque drawables written to the depth buffer by the depth pre-pass
+	*/
+	bool IsDepthPrePassCandidate(const OvRendering::Entities::Drawable& p_drawable)
+	{
+		return p_drawable.stateMask.depthTest && p_drawable.stateMask.depthWriting;
+	}
+
+	/**
+	* Optional pass (see Camera::SetDepthPrePass) writing the depth of opaque drawables before they get shaded,
+	* so that the opaque pass only shades the visible fragments (no overdraw of expensive fragment shaders).
+	* The same shader programs are used in both passes, so the depth values match exactly.
+	*/
+	class DepthPrePassRenderPass : public OvRendering::Core::ARenderPass
+	{
+	public:
+		DepthPrePassRenderPass(OvRendering::Core::CompositeRenderer& p_renderer) :
+			OvRendering::Core::ARenderPass(p_renderer)
+		{
+		}
+
+	protected:
+		virtual void Draw(OvRendering::Data::PipelineState p_pso) override
+		{
+			ZoneScoped;
+			TracyGpuZone("DepthPrePassRenderPass");
+
+			if (!m_renderer.GetFrameDescriptor().camera->HasDepthPrePass())
+			{
+				return;
+			}
+
+			auto& engineBufferRenderFeature = m_renderer.GetFeature<EngineBufferRenderFeature>();
+			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
+
+			// Lets shaders skip their shading once alpha testing is done (see ubo_DepthOnly)
+			engineBufferRenderFeature.SetDepthOnly(true);
+
+			for (const auto& drawable : drawables.opaques | std::views::values)
+			{
+				if (IsDepthPrePassCandidate(drawable))
+				{
+					auto depthDrawable = drawable;
+					depthDrawable.stateMask.colorWriting = false;
+					m_renderer.DrawEntity(p_pso, depthDrawable);
+				}
+			}
+
+			engineBufferRenderFeature.SetDepthOnly(false);
+		}
+	};
+
 	class OpaqueRenderPass : public SceneRenderPass
 	{
 	public:
@@ -79,9 +131,25 @@ namespace
 
 			const auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneFilteredDrawablesDescriptor>();
 
+			const bool depthPrePass = m_renderer.GetFrameDescriptor().camera->HasDepthPrePass();
+
+			// Drawables already written by the depth pre-pass only need to shade the fragments matching
+			// the depth buffer: no depth writes, so fragments shaders with discard don't prevent early depth testing.
+			auto prePassedPso = p_pso;
+			prePassedPso.depthFunc = baregl::types::EComparaisonAlgorithm::LESS_EQUAL;
+
 			for (const auto& drawable : drawables.opaques | std::views::values)
 			{
-				m_renderer.DrawEntity(p_pso, drawable);
+				if (depthPrePass && IsDepthPrePassCandidate(drawable))
+				{
+					auto shadedDrawable = drawable;
+					shadedDrawable.stateMask.depthWriting = false;
+					m_renderer.DrawEntity(prePassedPso, shadedDrawable);
+				}
+				else
+				{
+					m_renderer.DrawEntity(p_pso, drawable);
+				}
 			}
 		}
 	};
@@ -133,15 +201,6 @@ namespace
 			}
 		}
 	};
-
-	template<typename TDrawableMap>
-	void SortDrawables(TDrawableMap& p_drawables)
-	{
-		// Stable sort: drawables with an equivalent draw order keep their insertion order (same as a multimap)
-		std::stable_sort(p_drawables.begin(), p_drawables.end(), [](const auto& p_lhs, const auto& p_rhs) {
-			return p_lhs.first < p_rhs.first;
-		});
-	}
 
 	OvRendering::Features::LightingRenderFeature::LightSet FindActiveLights(const OvCore::SceneSystem::Scene& p_scene)
 	{
@@ -197,6 +256,7 @@ OvCore::Rendering::SceneRenderer::SceneRenderer(OvRendering::Context::Driver& p_
 
 	AddPass<ShadowRenderPass>("Shadows", ERenderPassOrder::Shadows);
 	AddPass<ReflectionRenderPass>("ReflectionRenderPass", ERenderPassOrder::Reflections);
+	AddPass<DepthPrePassRenderPass>("DepthPrePass", ERenderPassOrder::Opaque - 1);
 	AddPass<OpaqueRenderPass>("Opaques", ERenderPassOrder::Opaque, p_stencilWrite);
 	AddPass<TransparentRenderPass>("Transparents", ERenderPassOrder::Transparent, p_stencilWrite);
 	AddPass<PostProcessRenderPass>("Post-Process", ERenderPassOrder::PostProcessing);
@@ -279,8 +339,12 @@ SceneRenderer::SceneDrawablesDescriptor OvCore::Rendering::SceneRenderer::ParseS
 	SceneRenderer::SceneDrawablesDescriptor result;
 
 	const auto& scene = p_input.scene;
+	const auto& modelRenderers = scene.GetFastAccessComponents().modelRenderers;
 
-	for (const auto modelRenderer : scene.GetFastAccessComponents().modelRenderers)
+	// At least one drawable per model renderer
+	result.drawables.reserve(modelRenderers.size());
+
+	for (const auto modelRenderer : modelRenderers)
 	{
 		auto& owner = modelRenderer->owner;
 		if (!owner.IsActive()) continue;
@@ -354,6 +418,9 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 	using namespace OvCore::ECS::Components;
 
 	SceneFilteredDrawablesDescriptor output;
+
+	// Most drawables are opaque
+	output.opaques.reserve(p_drawables.drawables.size());
 
 	const auto& camera = p_filteringInput.camera;
 	const auto& frustumOverride = p_filteringInput.frustumOverride;
@@ -440,36 +507,40 @@ SceneRenderer::SceneFilteredDrawablesDescriptor OvCore::Rendering::SceneRenderer
 		}
 
 		// Categorize drawable based on their type.
-		// The key is used to sort the drawables once they are all collected.
-		if (drawableCopy.material->IsUserInterface())
-		{
-			output.ui.emplace_back(decltype(decltype(output.ui)::value_type::first){
-				.order = drawableCopy.material->GetDrawOrder(),
-				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
+		// Sorting happens once all the drawables are gathered.
+		auto& material = drawableCopy.material.value();
+
+		const auto drawOrder = [&]<typename TKey>(TKey) {
+			return TKey{
+				.order = material.GetDrawOrder(),
+				.materialKey = reinterpret_cast<uintptr_t>(&material),
 				.distance = distanceToCamera
-			}, std::move(drawableCopy));
+			};
+		};
+
+		if (material.IsUserInterface())
+		{
+			output.ui.emplace_back(drawOrder(decltype(output.ui)::value_type::first_type{}), std::move(drawableCopy));
 		}
-		else if (drawableCopy.material->IsBlendable())
+		else if (material.IsBlendable())
 		{
-			output.transparents.emplace_back(decltype(decltype(output.transparents)::value_type::first){
-				.order = drawableCopy.material->GetDrawOrder(),
-				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
-				.distance = distanceToCamera
-			}, std::move(drawableCopy));
+			output.transparents.emplace_back(drawOrder(decltype(output.transparents)::value_type::first_type{}), std::move(drawableCopy));
 		}
 		else
 		{
-			output.opaques.emplace_back(decltype(decltype(output.opaques)::value_type::first){
-				.order = drawableCopy.material->GetDrawOrder(),
-				.materialKey = reinterpret_cast<uintptr_t>(&drawableCopy.material.value()),
-				.distance = distanceToCamera
-			}, std::move(drawableCopy));
+			output.opaques.emplace_back(drawOrder(decltype(output.opaques)::value_type::first_type{}), std::move(drawableCopy));
 		}
 	}
 
-	SortDrawables(output.opaques);
-	SortDrawables(output.transparents);
-	SortDrawables(output.ui);
+	const auto sortByDrawOrder = [](auto& p_drawables) {
+		std::stable_sort(p_drawables.begin(), p_drawables.end(), [](const auto& p_lhs, const auto& p_rhs) {
+			return p_lhs.first < p_rhs.first;
+		});
+	};
+
+	sortByDrawOrder(output.opaques);
+	sortByDrawOrder(output.transparents);
+	sortByDrawOrder(output.ui);
 
 	return output;
 }

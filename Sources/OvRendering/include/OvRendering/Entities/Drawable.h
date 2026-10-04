@@ -16,7 +16,7 @@ namespace OvRendering::Entities
 	/**
 	* Drawable entity
 	*/
-	struct Drawable : public Data::CompactDescribable
+	struct Drawable : public Data::Describable
 	{
 		OvTools::Utils::OptRef<OvRendering::Resources::IMesh> mesh;
 		OvTools::Utils::OptRef<OvRendering::Data::Material> material;

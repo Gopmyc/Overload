@@ -4,6 +4,9 @@
 * @licence: MIT
 */
 
+#include <utility>
+#include <vector>
+
 #include <tracy/Tracy.hpp>
 
 #include <OvCore/ECS/Components/CPostProcessStack.h>
@@ -62,52 +65,46 @@ void OvCore::Rendering::PostProcessRenderPass::Draw(OvRendering::Data::PipelineS
 
 	if (auto stack = FindPostProcessStack(scene))
 	{
-		auto& output = m_renderer.GetFrameDescriptor().outputBuffer.value();
+		auto& framebuffer = m_renderer.GetFrameDescriptor().outputBuffer.value();
 
-		m_applicableEffects.clear();
+		std::vector<std::pair<PostProcess::AEffect*, const PostProcess::EffectSettings*>> applicableEffects;
 
 		for (auto& effect : m_effects)
 		{
 			if (effect)
 			{
 				auto& effectRef = *effect;
-				const auto& effectType = typeid(effectRef);
-				const auto& settings = stack->Get(effectType);
+				const auto& settings = stack->Get(typeid(effectRef));
 
 				if (effect->IsApplicable(settings))
 				{
-					m_applicableEffects.emplace_back(effect.get(), &settings);
+					applicableEffects.emplace_back(effect.get(), &settings);
 				}
 			}
 		}
 
-		// The first effect reads directly from the output framebuffer, and the last one writes directly into it.
-		// This avoids copying the whole image into the ping-pong buffers and back (2 full-screen passes).
-		baregl::Framebuffer* source = &output;
+		// The first effect reads the output buffer directly, and the last one writes into it directly:
+		// no need to copy the image to the ping-pong buffers, and back to the output buffer.
+		// Effects can't read and write the same buffer, so a single effect still needs a final copy.
+		baregl::Framebuffer* src = &framebuffer;
 
-		for (size_t i = 0; i < m_applicableEffects.size(); ++i)
+		for (size_t i = 0; i < applicableEffects.size(); ++i)
 		{
-			const auto [effect, settings] = m_applicableEffects[i];
-			const bool isLastEffect = i == m_applicableEffects.size() - 1;
+			const auto [effect, settings] = applicableEffects[i];
+			const bool isLastEffect = i == applicableEffects.size() - 1;
 
-			// An effect cannot write into the framebuffer it reads from (feedback loop), which
-			// happens when a single effect is applied. In that case, the result is copied back below.
-			const bool writeToOutput = isLastEffect && source != &output;
-			auto& destination = writeToOutput ? output : m_pingPongBuffers[0];
+			baregl::Framebuffer* dst =
+				isLastEffect && src != &framebuffer ?
+				&framebuffer :
+				(src == &m_pingPongBuffers[0] ? &m_pingPongBuffers[1] : &m_pingPongBuffers[0]);
 
-			effect->Draw(p_pso, *source, destination, *settings);
-
-			source = &destination;
-
-			if (!writeToOutput)
-			{
-				++m_pingPongBuffers;
-			}
+			effect->Draw(p_pso, *src, *dst, *settings);
+			src = dst;
 		}
 
-		if (source != &output)
+		if (src != &framebuffer)
 		{
-			m_renderer.Blit(p_pso, *source, output, m_blitMaterial);
+			m_renderer.Blit(p_pso, *src, framebuffer, m_blitMaterial);
 		}
 	}
 }

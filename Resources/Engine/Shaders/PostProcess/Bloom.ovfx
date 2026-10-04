@@ -18,13 +18,40 @@ void main()
 in vec2 TexCoords;
 out vec4 FRAGMENT_COLOR;
 
-uniform sampler2D _InputTexture;
-uniform sampler2D _BloomTexture;
+uniform sampler2D _InputTexture; // Scene color
+uniform sampler2D _BloomTexture; // First (half resolution) mip of the bloom chain
 uniform float _BloomStrength;
+uniform float _FilterRadius;
+
+// Same tent filter as BloomUpsampling.ovfx: the last upsampling step (to full resolution)
+// is done here, instead of being written to an intermediate full resolution buffer.
+vec3 UpsampleBloom(vec2 texCoords)
+{
+    float x = _FilterRadius;
+    float y = _FilterRadius;
+
+    vec3 a = texture(_BloomTexture, vec2(texCoords.x - x, texCoords.y + y)).rgb;
+    vec3 b = texture(_BloomTexture, vec2(texCoords.x,     texCoords.y + y)).rgb;
+    vec3 c = texture(_BloomTexture, vec2(texCoords.x + x, texCoords.y + y)).rgb;
+
+    vec3 d = texture(_BloomTexture, vec2(texCoords.x - x, texCoords.y)).rgb;
+    vec3 e = texture(_BloomTexture, vec2(texCoords.x,     texCoords.y)).rgb;
+    vec3 f = texture(_BloomTexture, vec2(texCoords.x + x, texCoords.y)).rgb;
+
+    vec3 g = texture(_BloomTexture, vec2(texCoords.x - x, texCoords.y - y)).rgb;
+    vec3 h = texture(_BloomTexture, vec2(texCoords.x,     texCoords.y - y)).rgb;
+    vec3 i = texture(_BloomTexture, vec2(texCoords.x + x, texCoords.y - y)).rgb;
+
+    vec3 upsample = e*4.0;
+    upsample += (b+d+f+h)*2.0;
+    upsample += (a+c+g+i);
+    upsample *= 1.0 / 16.0;
+    return upsample;
+}
 
 void main()
 {
     const vec3 hdrColor = texture(_InputTexture, TexCoords).rgb;
-    const vec3 bloomColor = texture(_BloomTexture, TexCoords).rgb;
+    const vec3 bloomColor = hdrColor + UpsampleBloom(TexCoords);
     FRAGMENT_COLOR = vec4(mix(hdrColor, bloomColor, _BloomStrength), 1.0);
 }

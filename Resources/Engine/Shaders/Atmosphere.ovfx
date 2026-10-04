@@ -65,7 +65,7 @@ void main()
     vs_out.SunPosition = sunInfo.position;
     vs_out.SunIntensity = sunInfo.intensity;
 
-    gl_Position = ubo_Projection * ubo_View * vec4(ubo_ViewPos + vs_out.FragPos, 1.0);
+    gl_Position = ubo_ViewProjection * vec4(ubo_ViewPos + vs_out.FragPos, 1.0);
 
     // Push the atmosphere to the far plane (just in front of the cleared depth, so it passes the LESS depth test).
     // The atmosphere is drawn after opaque geometry with depth testing enabled, so pixels already covered by

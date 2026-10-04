@@ -5,7 +5,6 @@
 */
 
 #include <ranges>
-#include <string>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
 #include <OvCore/Global/ServiceLocator.h>
@@ -20,8 +19,8 @@
 
 namespace
 {
-	constexpr uint32_t kProbeFaceCount = 6;
 	const std::string kReflectionPassName = "REFLECTION_PASS";
+	constexpr uint32_t kProbeFaceCount = 6;
 	const OvMaths::FVector3 kCubeFaceRotations[kProbeFaceCount] = {
 		{ 0.0f, -90.0f, 180.0f },	// (Right)
 		{ 0.0f, 90.0f, 180.0f },	// (Left)
@@ -128,7 +127,7 @@ void OvCore::Rendering::ReflectionRenderPass::_DrawReflections(
 		}
 	);
 
-	// The filtered drawables are already copies, so they can be modified in place
+	// The filtered drawables are copies owned by this function, so they can be modified in place
 	auto captureDrawable = [&](OvRendering::Entities::Drawable& drawable) {
 		if (drawable.material && drawable.material->IsCapturedByReflectionProbes())
 		{

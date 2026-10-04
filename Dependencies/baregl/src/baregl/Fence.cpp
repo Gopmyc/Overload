@@ -10,39 +10,62 @@
 
 namespace baregl
 {
-	Fence::Fence() :
-		m_sync(glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0))
+	Fence::~Fence()
 	{
+		Reset();
 	}
 
-	Fence::~Fence()
+	void Fence::Insert()
+	{
+		Reset();
+		m_sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	}
+
+	void Fence::Wait()
+	{
+		if (!m_sync)
+		{
+			return;
+		}
+
+		const auto sync = static_cast<GLsync>(m_sync);
+
+		while (true)
+		{
+			// The flush bit ensures the fence reaches the GPU, otherwise we could wait forever
+			const GLenum result = glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, 1'000'000'000ULL /* 1s */);
+
+			if (result == GL_ALREADY_SIGNALED || result == GL_CONDITION_SATISFIED || result == GL_WAIT_FAILED)
+			{
+				break;
+			}
+		}
+
+		Reset();
+	}
+
+	bool Fence::IsSignaled()
+	{
+		if (!m_sync)
+		{
+			return false;
+		}
+
+		const GLenum result = glClientWaitSync(static_cast<GLsync>(m_sync), GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+		return result == GL_ALREADY_SIGNALED || result == GL_CONDITION_SATISFIED;
+	}
+
+	void Fence::Reset()
 	{
 		if (m_sync)
 		{
 			glDeleteSync(static_cast<GLsync>(m_sync));
+			m_sync = nullptr;
 		}
 	}
 
-	bool Fence::IsSignaled() const
+	bool Fence::IsPending() const
 	{
-		if (!m_sync)
-		{
-			return true;
-		}
-
-		const GLenum result = glClientWaitSync(static_cast<GLsync>(m_sync), 0, 0);
-		return result == GL_ALREADY_SIGNALED || result == GL_CONDITION_SATISFIED;
-	}
-
-	bool Fence::Wait(uint64_t p_timeoutNs) const
-	{
-		if (!m_sync)
-		{
-			return true;
-		}
-
-		// The flush bit ensures the fence is submitted to the GPU, otherwise we could wait forever
-		const GLenum result = glClientWaitSync(static_cast<GLsync>(m_sync), GL_SYNC_FLUSH_COMMANDS_BIT, p_timeoutNs);
-		return result == GL_ALREADY_SIGNALED || result == GL_CONDITION_SATISFIED;
+		return m_sync != nullptr;
 	}
 }

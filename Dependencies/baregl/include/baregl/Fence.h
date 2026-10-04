@@ -6,49 +6,54 @@
 
 #pragma once
 
-#include <cstdint>
-#include <limits>
-
 namespace baregl
 {
 	/**
-	* Represents a GPU fence (sync object), inserted in the command stream when created.
-	* Can be used to know when the GPU has finished processing all the commands submitted before it.
+	* GPU synchronization primitive, used to know when the GPU is done with the commands
+	* issued before the fence (e.g. to safely reuse memory of a persistently mapped buffer)
 	*/
 	class Fence final
 	{
 	public:
 		/**
-		* Creates a fence and inserts it in the command stream
+		* Creates an empty fence (not inserted in the command stream)
 		*/
-		Fence();
+		Fence() = default;
 
 		/**
 		* Destroys the fence
 		*/
 		~Fence();
 
-		/**
-		* Deleted copy constructor
-		*/
 		Fence(const Fence&) = delete;
-
-		/**
-		* Deleted assignment operator
-		*/
 		Fence& operator=(const Fence&) = delete;
 
 		/**
-		* Returns true if the GPU has reached this fence (non-blocking)
+		* Inserts the fence in the command stream (replaces the previously inserted fence, if any)
 		*/
-		bool IsSignaled() const;
+		void Insert();
 
 		/**
-		* Blocks the calling thread until the GPU reaches this fence, or until the timeout expires
-		* @param p_timeoutNs
-		* @return true if the fence got signaled, false if the timeout expired or an error occurred
+		* Blocks until the GPU executed all the commands issued before the fence, then clears the fence.
+		* Returns immediately if the fence hasn't been inserted.
 		*/
-		bool Wait(uint64_t p_timeoutNs = std::numeric_limits<uint64_t>::max()) const;
+		void Wait();
+
+		/**
+		* Returns true if the GPU executed all the commands issued before the fence (never blocks).
+		* Returns false if the fence hasn't been inserted.
+		*/
+		bool IsSignaled();
+
+		/**
+		* Clears the fence without waiting for it
+		*/
+		void Reset();
+
+		/**
+		* Returns true if the fence has been inserted and not waited for yet
+		*/
+		bool IsPending() const;
 
 	private:
 		void* m_sync = nullptr;

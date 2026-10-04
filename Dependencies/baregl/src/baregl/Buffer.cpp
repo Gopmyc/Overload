@@ -21,11 +21,6 @@ namespace baregl
 
 	Buffer::~Buffer()
 	{
-		if (m_mappedData)
-		{
-			glUnmapNamedBuffer(m_id);
-		}
-
 		glDeleteBuffers(1, &m_id);
 		NOTIFY_BUFFER_DESTROYED;
 	}
@@ -33,41 +28,44 @@ namespace baregl
 	uint64_t Buffer::Allocate(uint64_t p_size, types::EAccessSpecifier p_usage)
 	{
 		BAREGL_ASSERT(IsValid(), "Cannot allocate memory for an invalid buffer");
-		BAREGL_ASSERT(!m_mappedData, "Cannot reallocate a persistently mapped buffer");
+		BAREGL_ASSERT(!m_immutable, "Cannot reallocate a buffer with an immutable storage");
 		glNamedBufferData(m_id, p_size, nullptr, utils::EnumToValue<GLenum>(p_usage));
 		return m_allocatedBytes = p_size;
 	}
 
-	uint64_t Buffer::AllocatePersistent(uint64_t p_size, bool p_readable)
+	void* Buffer::AllocatePersistentlyMapped(uint64_t p_size)
 	{
 		BAREGL_ASSERT(IsValid(), "Cannot allocate memory for an invalid buffer");
-		BAREGL_ASSERT(!m_mappedData && m_allocatedBytes == 0, "Persistent storage can only be allocated once");
+		BAREGL_ASSERT(!m_immutable, "Cannot reallocate a buffer with an immutable storage");
+		BAREGL_ASSERT(p_size > 0, "Cannot allocate an empty persistently mapped buffer");
 
-		const GLbitfield accessFlags =
-			(p_readable ? GL_MAP_READ_BIT : GL_MAP_WRITE_BIT) |
-			GL_MAP_PERSISTENT_BIT |
-			GL_MAP_COHERENT_BIT;
+		constexpr GLbitfield kFlags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
+		glNamedBufferStorage(m_id, p_size, nullptr, kFlags);
+		m_immutable = true;
+		m_allocatedBytes = p_size;
 
-		glNamedBufferStorage(m_id, p_size, nullptr, accessFlags);
-		m_mappedData = glMapNamedBufferRange(m_id, 0, p_size, accessFlags);
-
-		BAREGL_ASSERT(m_mappedData != nullptr, "Failed to persistently map buffer");
-
-		return m_allocatedBytes = p_size;
-	}
-
-	void* Buffer::GetMappedData() const
-	{
-		return m_mappedData;
+		return glMapNamedBufferRange(m_id, 0, p_size, kFlags);
 	}
 
 	void Buffer::Upload(const void* p_data, std::optional<data::BufferMemoryRange> p_range)
 	{
 		BAREGL_ASSERT(IsValid(), "Trying to upload data to an invalid buffer");
 		BAREGL_ASSERT(!IsEmpty(), "Trying to upload data to an empty buffer");
-		BAREGL_ASSERT(!m_mappedData, "Persistently mapped buffers must be written through GetMappedData()");
 
 		glNamedBufferSubData(
+			m_id,
+			p_range ? p_range->offset : 0,
+			p_range ? p_range->size : m_allocatedBytes,
+			p_data
+		);
+	}
+
+	void Buffer::Download(void* p_data, std::optional<data::BufferMemoryRange> p_range) const
+	{
+		BAREGL_ASSERT(IsValid(), "Trying to download data from an invalid buffer");
+		BAREGL_ASSERT(!IsEmpty(), "Trying to download data from an empty buffer");
+
+		glGetNamedBufferSubData(
 			m_id,
 			p_range ? p_range->offset : 0,
 			p_range ? p_range->size : m_allocatedBytes,
@@ -95,14 +93,14 @@ namespace baregl
 		m_bindIndex = p_index;
 	}
 
-	void Buffer::BindRange(
+	void Buffer::Bind(
 		types::EBufferType p_type,
 		uint32_t p_index,
 		const data::BufferMemoryRange& p_range
 	)
 	{
 		BAREGL_ASSERT(IsValid(), "Cannot bind an invalid buffer");
-		BAREGL_ASSERT(p_range.offset + p_range.size <= m_allocatedBytes, "Buffer range out of bounds");
+		BAREGL_ASSERT(p_range.offset + p_range.size <= m_allocatedBytes, "Cannot bind a range outside of the buffer");
 
 		glBindBufferRange(
 			utils::EnumToValue<GLenum>(p_type),
@@ -131,18 +129,6 @@ namespace baregl
 		}
 
 		m_boundAs.reset();
-	}
-
-	uint32_t Buffer::GetUniformBufferOffsetAlignment()
-	{
-		// Only a single context is supported, so the value can be queried once
-		static const uint32_t alignment = []() {
-			GLint value = 0;
-			glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &value);
-			return static_cast<uint32_t>(value > 0 ? value : 256);
-		}();
-
-		return alignment;
 	}
 
 	bool Buffer::IsValid() const

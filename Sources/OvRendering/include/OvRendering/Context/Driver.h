@@ -69,6 +69,15 @@ namespace OvRendering::Context
 		);
 
 		/**
+		* Set the scissor rectangle (only used when the pipeline state enables the scissor test)
+		* @param p_x
+		* @param p_y
+		* @param p_width
+		* @param p_height
+		*/
+		void SetScissor(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height);
+
+		/**
 		* Clear the screen using the previously defined clear color (With Renderer::SetClearColor()) or by
 		* using the OpenGL default one.
 		* @param p_colorBuffer

@@ -4,6 +4,8 @@
 * @licence: MIT
 */
 
+#include <algorithm>
+
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
 
 #include <OvEditor/Rendering/DebugSceneRenderer.h>
@@ -121,11 +123,27 @@ void OvEditor::Panels::SceneView::InitFrame()
 	auto& pickingPass = m_renderer->GetPass<OvEditor::Rendering::PickingRenderPass>("Picking");
 
 	// Enable picking pass only when the scene view is hovered, not picking, and not operating the camera
-	pickingPass.SetEnabled(
+	const bool pickingEnabled =
 		IsHovered() &&
 		!m_gizmoOperations.IsPicking() &&
-		!m_cameraController.IsOperating()
-	);
+		!m_cameraController.IsOperating();
+
+	pickingPass.SetEnabled(pickingEnabled);
+
+	if (pickingEnabled)
+	{
+		const auto mousePosition = GetMousePosition();
+		const auto [width, height] = GetSafeSize();
+
+		pickingPass.SetPickingPosition(
+			static_cast<uint32_t>(std::max(mousePosition.x, 0.0f)),
+			static_cast<uint32_t>(std::max(static_cast<float>(height) - mousePosition.y, 0.0f))
+		);
+	}
+	else
+	{
+		pickingPass.ResetPickingResult();
+	}
 }
 
 OvCore::SceneSystem::Scene* OvEditor::Panels::SceneView::GetScene()
@@ -196,10 +214,7 @@ void OvEditor::Panels::SceneView::HandleActorPicking()
 
 	if (!m_gizmoOperations.IsPicking() && IsHovered() && !IsResizing())
 	{
-		// Hovering only needs an approximate result: read it asynchronously, so the CPU doesn't wait for the GPU
-		// every frame. A click still reads the exact pixel under the cursor.
-		const bool clicked = inputManager.IsMouseButtonPressed(EMouseButton::MOUSE_BUTTON_LEFT);
-		const auto pickingResult = GetPickingResult(clicked);
+		const auto pickingResult = GetPickingResult();
 
 		m_highlightedActor = {};
 		m_highlightedGizmoDirection = {};
@@ -257,21 +272,14 @@ void OvEditor::Panels::SceneView::HandleActorPicking()
 	}
 }
 
-OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Panels::SceneView::GetPickingResult(bool p_immediate)
+OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Panels::SceneView::GetPickingResult()
 {
-	const auto mousePosition = GetMousePosition();
-
 	auto& scene = *GetScene();
 
 	auto& actorPickingFeature = m_renderer->GetPass<OvEditor::Rendering::PickingRenderPass>("Picking");
 
-	const auto x = static_cast<uint32_t>(mousePosition.x);
-	const auto y = static_cast<uint32_t>(GetSafeSize().second - mousePosition.y);
-
-	return
-		p_immediate ?
-		actorPickingFeature.ReadbackPickingResult(scene, x, y) :
-		actorPickingFeature.RequestPickingResult(scene, x, y);
+	// Asynchronous: the result comes from a previous frame, so reading it never stalls on the GPU
+	return actorPickingFeature.GetPickingResult(scene);
 }
 
 void OvEditor::Panels::SceneView::OnSceneDropped(const std::string& p_path)

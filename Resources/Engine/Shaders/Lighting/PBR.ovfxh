@@ -107,7 +107,16 @@ vec3 PBRLightingModel(
 
     for (int i = 0; i < ssbo_Lights.length(); ++i) 
     {
-        const Light light = ExtractLight(ssbo_Lights[i]);
+        const mat4 lightData = ssbo_Lights[i];
+        const int lightType = int(lightData[3][0]);
+
+        // Skip point and spot lights that are too far away to contribute to this fragment
+        if ((lightType == 0 || lightType == 2) && !IsFragmentInLightRange(lightData, fragPos))
+        {
+            continue;
+        }
+
+        const Light light = ExtractLight(lightData);
 
         switch(light.type)
         {

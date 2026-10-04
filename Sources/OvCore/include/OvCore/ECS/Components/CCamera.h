@@ -82,6 +82,13 @@ namespace OvCore::ECS::Components
 		*/
 		void SetFrustumLightCulling(bool p_enable);
 
+		/**
+		* Defines if opaque geometry should be rendered to the depth buffer before being shaded
+		* (removes overdraw, at the cost of drawing opaque geometry twice)
+		* @param p_enable
+		*/
+		void SetDepthPrePass(bool p_enable);
+
         /**
         * Defines the projection mode the camera should adopt
         * @param p_projectionMode
@@ -122,6 +129,11 @@ namespace OvCore::ECS::Components
 		* Returns true if the frustum light culling is enabled
 		*/
 		bool HasFrustumLightCulling() const;
+
+		/**
+		* Returns true if the depth pre-pass is enabled
+		*/
+		bool HasDepthPrePass() const;
 
         /**
         * Returns the current projection mode
