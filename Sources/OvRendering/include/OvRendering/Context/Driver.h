@@ -8,6 +8,7 @@
 
 #include <string>
 #include <array>
+#include <deque>
 #include <memory>
 
 #include <OvMaths/FVector4.h>
@@ -19,6 +20,7 @@
 #include <OvRendering/Settings/ECullingOptions.h>
 
 #include <baregl/Context.h>
+#include <baregl/Fence.h>
 #include <baregl/types/ERenderingCapability.h>
 #include <baregl/types/EPrimitiveMode.h>
 #include <baregl/types/ERasterizationMode.h>
@@ -132,5 +134,7 @@ namespace OvRendering::Context
 		std::string m_shadingLanguageVersion;
 		Data::PipelineState m_defaultPipelineState;
 		Data::PipelineState m_pipelineState;
+		uint32_t m_maxQueuedFrames;
+		std::deque<std::unique_ptr<baregl::Fence>> m_frameFences;
 	};
 }
