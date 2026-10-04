@@ -23,5 +23,6 @@ namespace baregl::data
 		std::string name;
 		std::any defaultValue;
 		std::optional<uint32_t> textureIndex;
+		uint32_t location = 0;
 	};
 }

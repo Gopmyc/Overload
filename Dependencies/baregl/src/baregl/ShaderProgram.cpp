@@ -15,7 +15,13 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <functional>
+
+namespace
+{
+	std::atomic<uint64_t> g_linkCounter{ 0 };
+}
 
 namespace baregl
 {
@@ -92,6 +98,8 @@ namespace baregl
 
 		QueryUniforms();
 
+		m_linkID = ++g_linkCounter;
+
 		return {
 			.success = true
 		};
@@ -137,11 +145,27 @@ void ShaderProgram::SetUniform<type>(const std::string& p_name, const type& valu
 	DECLARE_SET_UNIFORM_FUNCTION(math::Mat3, glUniformMatrix3fv, 1, GL_FALSE, &value[0][0]);
 	DECLARE_SET_UNIFORM_FUNCTION(math::Mat4, glUniformMatrix4fv, 1, GL_FALSE, &value[0][0]);
 
+#define DECLARE_SET_UNIFORM_AT_LOCATION_FUNCTION(type, func, ...) \
+template<> \
+void ShaderProgram::SetUniformAtLocation<type>(uint32_t p_location, const type& value) \
+{ \
+	func(static_cast<GLint>(p_location), __VA_ARGS__); \
+}
+
+	DECLARE_SET_UNIFORM_AT_LOCATION_FUNCTION(int, glUniform1i, value);
+	DECLARE_SET_UNIFORM_AT_LOCATION_FUNCTION(unsigned int, glUniform1ui, value);
+	DECLARE_SET_UNIFORM_AT_LOCATION_FUNCTION(float, glUniform1f, value);
+	DECLARE_SET_UNIFORM_AT_LOCATION_FUNCTION(math::Vec2, glUniform2f, value.x, value.y);
+	DECLARE_SET_UNIFORM_AT_LOCATION_FUNCTION(math::Vec3, glUniform3f, value.x, value.y, value.z);
+	DECLARE_SET_UNIFORM_AT_LOCATION_FUNCTION(math::Vec4, glUniform4f, value.x, value.y, value.z, value.w);
+	DECLARE_SET_UNIFORM_AT_LOCATION_FUNCTION(math::Mat3, glUniformMatrix3fv, 1, GL_FALSE, &value[0][0]);
+	DECLARE_SET_UNIFORM_AT_LOCATION_FUNCTION(math::Mat4, glUniformMatrix4fv, 1, GL_FALSE, &value[0][0]);
+
 	std::optional<std::reference_wrapper<const baregl::data::UniformInfo>> ShaderProgram::GetUniformInfo(const std::string& p_name) const
 	{
-		if (m_uniforms.contains(p_name))
+		if (auto it = m_uniforms.find(p_name); it != m_uniforms.end())
 		{
-			return m_uniforms.at(p_name);
+			return it->second;
 		}
 
 		return std::nullopt;
@@ -152,9 +176,15 @@ void ShaderProgram::SetUniform<type>(const std::string& p_name, const type& valu
 		return m_uniforms;
 	}
 
+	uint64_t ShaderProgram::GetLinkID() const
+	{
+		return m_linkID;
+	}
+
 	void ShaderProgram::QueryUniforms()
 	{
 		m_uniforms.clear();
+		m_uniformsLocationCache.clear();
 
 		std::array<GLchar, 256> nameBuffer;
 
@@ -180,7 +210,7 @@ void ShaderProgram::SetUniform<type>(const std::string& p_name, const type& valu
 				continue; // Skip uniforms that don't have a valid location (e.g. uniform buffer members)
 			}
 
-			m_uniformsLocationCache.emplace(name, static_cast<uint32_t>(location));
+			m_uniformsLocationCache.insert_or_assign(name, static_cast<uint32_t>(location));
 
 			const std::any uniformValue = [&]() -> std::any {
 				switch (uniformType)
@@ -216,7 +246,8 @@ void ShaderProgram::SetUniform<type>(const std::string& p_name, const type& valu
 					.type = uniformType,
 					.name = name,
 					.defaultValue = uniformValue,
-					.textureIndex = isTexture ? std::make_optional(textureIndex++) : std::nullopt
+					.textureIndex = isTexture ? std::make_optional(textureIndex++) : std::nullopt,
+					.location = static_cast<uint32_t>(location)
 				});
 			}
 		}
