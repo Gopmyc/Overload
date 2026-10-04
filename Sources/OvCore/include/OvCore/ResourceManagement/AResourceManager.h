@@ -7,6 +7,7 @@
 #pragma once
 
 #include <any>
+#include <cstdint>
 #include <filesystem>
 #include <unordered_map>
 
@@ -43,6 +44,12 @@ namespace OvCore::ResourceManagement
 		* @param p_path
 		*/
 		void ReloadResource(const std::filesystem::path& p_path);
+
+		/**
+		* Returns the number of resources of this type reloaded so far.
+		* A reloaded resource keeps its address but gets a new content, so this lets caches detect reloads.
+		*/
+		static uint64_t GetReloadCount();
 
 		/**
 		* Return true if the resource exists (= Is registered)
@@ -111,6 +118,7 @@ namespace OvCore::ResourceManagement
 	private:
 		inline static std::filesystem::path __PROJECT_ASSETS_PATH;
 		inline static std::filesystem::path __ENGINE_ASSETS_PATH;
+		inline static uint64_t s_reloadCount = 0;
 
 		std::unordered_map<std::filesystem::path, T*> m_resources;
 	};

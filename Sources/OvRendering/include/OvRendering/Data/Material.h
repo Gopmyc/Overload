@@ -366,6 +366,11 @@ namespace OvRendering::Data
 		void RemoveFeature(const std::string& p_feature);
 
 		/**
+		* Returns a version number incremented every time the feature set changes
+		*/
+		uint64_t GetFeaturesVersion() const;
+
+		/**
 		* Returns true if the material has a feature
 		* @param p_feature
 		*/

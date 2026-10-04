@@ -110,6 +110,7 @@ void OvRendering::Entities::Light::PrepareForShadowRendering(const OvRendering::
 	{
 		shadowBuffer = std::make_unique<baregl::Framebuffer>("DirectionalShadow");
 		SetupFramebufferForShadowMapping(*shadowBuffer, static_cast<uint32_t>(shadowMapResolution));
+		InvalidateShadowMap();
 	}
 	else
 	{
@@ -121,6 +122,11 @@ void OvRendering::Entities::Light::PrepareForShadowRendering(const OvRendering::
 		shadowCamera->GetViewMatrix();
 
 	OVASSERT(IsSetupForShadowRendering(), "Light failed to setup for shadow rendering!");
+}
+
+void OvRendering::Entities::Light::InvalidateShadowMap()
+{
+	shadowMapSignature.clear();
 }
 
 bool OvRendering::Entities::Light::IsSetupForShadowRendering() const

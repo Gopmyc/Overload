@@ -69,6 +69,21 @@ uint32_t OvCore::ECS::Components::CDirectionalLight::GetShadowMapResolution() co
 	return m_data.shadowMapResolution;
 }
 
+void OvCore::ECS::Components::CDirectionalLight::SetShadowMapUpdateMode(OvRendering::Settings::EShadowMapUpdateMode p_mode)
+{
+	m_data.shadowMapUpdateMode = p_mode;
+}
+
+OvRendering::Settings::EShadowMapUpdateMode OvCore::ECS::Components::CDirectionalLight::GetShadowMapUpdateMode() const
+{
+	return m_data.shadowMapUpdateMode;
+}
+
+void OvCore::ECS::Components::CDirectionalLight::RequestShadowMapUpdate()
+{
+	m_data.InvalidateShadowMap();
+}
+
 void OvCore::ECS::Components::CDirectionalLight::OnSerialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node)
 {
 	CLight::OnSerialize(p_doc, p_node);
@@ -76,6 +91,7 @@ void OvCore::ECS::Components::CDirectionalLight::OnSerialize(tinyxml2::XMLDocume
 	OvCore::Helpers::Serializer::SerializeFloat(p_doc, p_node, "shadow_area_size", m_data.shadowAreaSize);
 	OvCore::Helpers::Serializer::SerializeBoolean(p_doc, p_node, "shadow_follow_camera", m_data.shadowFollowCamera);
 	OvCore::Helpers::Serializer::SerializeInt(p_doc, p_node, "shadow_map_resolution", m_data.shadowMapResolution);
+	OvCore::Helpers::Serializer::SerializeUint32(p_doc, p_node, "shadow_map_update_mode", static_cast<uint32_t>(m_data.shadowMapUpdateMode));
 }
 
 void OvCore::ECS::Components::CDirectionalLight::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node)
@@ -85,6 +101,11 @@ void OvCore::ECS::Components::CDirectionalLight::OnDeserialize(tinyxml2::XMLDocu
 	m_data.shadowAreaSize = OvCore::Helpers::Serializer::DeserializeFloat(p_doc, p_node, "shadow_area_size");
 	m_data.shadowFollowCamera = OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "shadow_follow_camera");
 	m_data.shadowMapResolution = OvCore::Helpers::Serializer::DeserializeInt(p_doc, p_node, "shadow_map_resolution");
+
+	// Scenes saved before this setting existed keep the default mode
+	auto shadowMapUpdateMode = static_cast<uint32_t>(m_data.shadowMapUpdateMode);
+	OvCore::Helpers::Serializer::DeserializeUint32(p_doc, p_node, "shadow_map_update_mode", shadowMapUpdateMode);
+	m_data.shadowMapUpdateMode = static_cast<OvRendering::Settings::EShadowMapUpdateMode>(shadowMapUpdateMode);
 }
 
 void OvCore::ECS::Components::CDirectionalLight::OnInspector(OvUI::Internal::WidgetContainer& p_root)
@@ -109,4 +130,18 @@ void OvCore::ECS::Components::CDirectionalLight::OnInspector(OvUI::Internal::Wid
 	auto& shadowMapResolutionDispatcher = shadowMapResolution.AddPlugin<OvUI::Plugins::DataDispatcher<int>>();
 	shadowMapResolutionDispatcher.RegisterGatherer([this]() { return m_data.shadowMapResolution; });
 	shadowMapResolutionDispatcher.RegisterProvider([this](int p_choice) { m_data.shadowMapResolution = p_choice; });
+
+	Helpers::GUIDrawer::CreateTitle(p_root, "Shadow Map Update");
+
+	using enum OvRendering::Settings::EShadowMapUpdateMode;
+
+	auto& shadowMapUpdateMode = p_root.CreateWidget<OvUI::Widgets::Selection::ComboBox>(static_cast<int>(m_data.shadowMapUpdateMode));
+	shadowMapUpdateMode.choices = {
+		{ static_cast<int>(ON_CHANGE), "On Change" },
+		{ static_cast<int>(REALTIME), "Realtime" }
+	};
+
+	auto& shadowMapUpdateModeDispatcher = shadowMapUpdateMode.AddPlugin<OvUI::Plugins::DataDispatcher<int>>();
+	shadowMapUpdateModeDispatcher.RegisterGatherer([this]() { return static_cast<int>(GetShadowMapUpdateMode()); });
+	shadowMapUpdateModeDispatcher.RegisterProvider([this](int p_choice) { SetShadowMapUpdateMode(static_cast<OvRendering::Settings::EShadowMapUpdateMode>(p_choice)); });
 }

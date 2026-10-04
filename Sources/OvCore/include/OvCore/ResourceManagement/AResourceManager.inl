@@ -70,7 +70,14 @@ namespace OvCore::ResourceManagement
 		if (auto resource = GetResource(p_path, false); resource)
 		{
 			ReloadResource(resource, p_path);
+			++s_reloadCount;
 		}
+	}
+
+	template<typename T>
+	inline uint64_t AResourceManager<T>::GetReloadCount()
+	{
+		return s_reloadCount;
 	}
 
 	template<typename T>
