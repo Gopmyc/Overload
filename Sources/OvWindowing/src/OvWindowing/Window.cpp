@@ -259,6 +259,17 @@ void OvWindowing::Window::SetCursorMode(Cursor::ECursorMode p_cursorMode)
 #endif
 
 	glfwSetInputMode(m_glfwWindow, GLFW_CURSOR, static_cast<int>(p_cursorMode));
+
+	// When the cursor is disabled (camera/FPS controls), use raw mouse motion if available.
+	// Raw motion bypasses the OS pointer acceleration and smoothing, giving more direct mouse input.
+	if (glfwRawMouseMotionSupported())
+	{
+		glfwSetInputMode(
+			m_glfwWindow,
+			GLFW_RAW_MOUSE_MOTION,
+			p_cursorMode == Cursor::ECursorMode::DISABLED ? GLFW_TRUE : GLFW_FALSE
+		);
+	}
 }
 
 void OvWindowing::Window::SetCursorShape(Cursor::ECursorShape p_cursorShape)
