@@ -26,6 +26,12 @@ workspace "Overload"
 		defines {
 			"TRACY_ENABLE",
 			"TRACY_ON_DEMAND",
+		}
+
+	-- Memory profiling overrides the global new/delete operators, which adds overhead to every allocation.
+	-- Keep it for Debug builds only, so Release builds stay representative of the shipped performance.
+	filter {"configurations:Debug"}
+		defines {
 			"TRACY_MEMORY_ENABLE",
 		}
 	filter{}
