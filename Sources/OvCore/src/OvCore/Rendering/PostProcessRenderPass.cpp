@@ -62,9 +62,9 @@ void OvCore::Rendering::PostProcessRenderPass::Draw(OvRendering::Data::PipelineS
 
 	if (auto stack = FindPostProcessStack(scene))
 	{
-		auto& framebuffer = m_renderer.GetFrameDescriptor().outputBuffer.value();
+		auto& output = m_renderer.GetFrameDescriptor().outputBuffer.value();
 
-		m_renderer.Blit(p_pso, framebuffer, m_pingPongBuffers[0], m_blitMaterial);
+		m_applicableEffects.clear();
 
 		for (auto& effect : m_effects)
 		{
@@ -76,18 +76,38 @@ void OvCore::Rendering::PostProcessRenderPass::Draw(OvRendering::Data::PipelineS
 
 				if (effect->IsApplicable(settings))
 				{
-					effect->Draw(
-						p_pso,
-						m_pingPongBuffers[0],
-						m_pingPongBuffers[1],
-						settings
-					);
-
-					++m_pingPongBuffers;
+					m_applicableEffects.emplace_back(effect.get(), &settings);
 				}
 			}
 		}
 
-		m_renderer.Blit(p_pso, m_pingPongBuffers[0], framebuffer, m_blitMaterial);
+		// The first effect reads directly from the output framebuffer, and the last one writes directly into it.
+		// This avoids copying the whole image into the ping-pong buffers and back (2 full-screen passes).
+		baregl::Framebuffer* source = &output;
+
+		for (size_t i = 0; i < m_applicableEffects.size(); ++i)
+		{
+			const auto [effect, settings] = m_applicableEffects[i];
+			const bool isLastEffect = i == m_applicableEffects.size() - 1;
+
+			// An effect cannot write into the framebuffer it reads from (feedback loop), which
+			// happens when a single effect is applied. In that case, the result is copied back below.
+			const bool writeToOutput = isLastEffect && source != &output;
+			auto& destination = writeToOutput ? output : m_pingPongBuffers[0];
+
+			effect->Draw(p_pso, *source, destination, *settings);
+
+			source = &destination;
+
+			if (!writeToOutput)
+			{
+				++m_pingPongBuffers;
+			}
+		}
+
+		if (source != &output)
+		{
+			m_renderer.Blit(p_pso, *source, output, m_blitMaterial);
+		}
 	}
 }
