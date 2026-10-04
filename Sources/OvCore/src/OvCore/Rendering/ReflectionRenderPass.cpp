@@ -5,6 +5,7 @@
 */
 
 #include <ranges>
+#include <string>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
 #include <OvCore/Global/ServiceLocator.h>
@@ -20,6 +21,7 @@
 namespace
 {
 	constexpr uint32_t kProbeFaceCount = 6;
+	const std::string kReflectionPassName = "REFLECTION_PASS";
 	const OvMaths::FVector3 kCubeFaceRotations[kProbeFaceCount] = {
 		{ 0.0f, -90.0f, 180.0f },	// (Right)
 		{ 0.0f, 90.0f, 180.0f },	// (Left)
@@ -114,7 +116,7 @@ void OvCore::Rendering::ReflectionRenderPass::_DrawReflections(
 {
 	auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneDrawablesDescriptor>();
 
-	const auto filteredDrawables = static_cast<SceneRenderer&>(m_renderer).FilterDrawables(
+	auto filteredDrawables = static_cast<SceneRenderer&>(m_renderer).FilterDrawables(
 		drawables,
 		SceneRenderer::SceneDrawablesFilteringInput{
 			.camera = p_camera,
@@ -126,21 +128,21 @@ void OvCore::Rendering::ReflectionRenderPass::_DrawReflections(
 		}
 	);
 
-	auto captureDrawable = [&](const OvRendering::Entities::Drawable& drawable) {
+	// The filtered drawables are already copies, so they can be modified in place
+	auto captureDrawable = [&](OvRendering::Entities::Drawable& drawable) {
 		if (drawable.material && drawable.material->IsCapturedByReflectionProbes())
 		{
-			auto drawableCopy = drawable;
-			drawableCopy.pass = "REFLECTION_PASS";
-			m_renderer.DrawEntity(p_pso, drawableCopy);
+			drawable.pass = kReflectionPassName;
+			m_renderer.DrawEntity(p_pso, drawable);
 		}
 	};
 
-	for (const auto& drawable : filteredDrawables.opaques | std::views::values)
+	for (auto& drawable : filteredDrawables.opaques | std::views::values)
 	{
 		captureDrawable(drawable);
 	}
 
-	for (const auto& drawable : filteredDrawables.transparents | std::views::values)
+	for (auto& drawable : filteredDrawables.transparents | std::views::values)
 	{
 		captureDrawable(drawable);
 	}
