@@ -20,7 +20,7 @@
 namespace OvCore::Rendering
 {
 	/**
-	* Draw the scene to a depth buffer from the point of view of the shadow casting light
+	* Draw the scene to a depth buffer from the point of view of each light source
 	*/
 	class ShadowRenderPass : public OvRendering::Core::ARenderPass
 	{
@@ -36,7 +36,7 @@ namespace OvCore::Rendering
 
 		void _DrawShadows(
 			OvRendering::Data::PipelineState p_pso,
-			const OvRendering::Data::Frustum& p_lightFrustum
+			const OvRendering::Entities::Camera& p_camera
 		);
 
 	private:
