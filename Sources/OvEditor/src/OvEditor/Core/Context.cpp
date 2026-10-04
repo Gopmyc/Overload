@@ -113,7 +113,14 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	device->SetVsync(true);
 
 	/* Graphics context creation */
-	driver = std::make_unique<OvRendering::Context::Driver>(OvRendering::Settings::DriverSettings{ true });
+	// The OpenGL debug output is synchronous, which serializes every GL call. Only enable it in debug builds.
+	driver = std::make_unique<OvRendering::Context::Driver>(OvRendering::Settings::DriverSettings{
+#ifdef _DEBUG
+		true
+#else
+		false
+#endif
+	});
 
 	std::filesystem::create_directories(Utils::FileSystem::kEditorDataPath);
 
