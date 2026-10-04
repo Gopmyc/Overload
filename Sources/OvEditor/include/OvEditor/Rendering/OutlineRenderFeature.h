@@ -55,17 +55,13 @@ namespace OvEditor::Rendering
 		void DrawModelToStencil(
 			OvRendering::Data::PipelineState p_pso,
 			const OvMaths::FMatrix4& p_worldMatrix,
-			OvRendering::Resources::Model& p_model,
-			OvTools::Utils::OptRef<const OvCore::ECS::Components::CMaterialRenderer::MaterialList> p_materials = std::nullopt,
-			const OvCore::ECS::Components::CSkinnedMeshRenderer* p_skinnedRenderer = nullptr
+			OvRendering::Resources::Model& p_model
 		);
 		void DrawModelOutline(
 			OvRendering::Data::PipelineState p_pso,
 			const OvMaths::FMatrix4& p_worldMatrix,
 			OvRendering::Resources::Model& p_model,
-			const OvMaths::FVector4& p_color,
-			OvTools::Utils::OptRef<const OvCore::ECS::Components::CMaterialRenderer::MaterialList> p_materials = std::nullopt,
-			const OvCore::ECS::Components::CSkinnedMeshRenderer* p_skinnedRenderer = nullptr
+			const OvMaths::FVector4& p_color
 		);
 
 	private:

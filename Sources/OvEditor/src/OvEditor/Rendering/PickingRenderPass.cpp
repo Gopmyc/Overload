@@ -9,11 +9,10 @@
 #include <string>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
-#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
+#include <OvCore/Rendering/FrameBuilder.h>
 #include <OvCore/Rendering/FramebufferUtil.h>
-#include <OvCore/Rendering/SkinningDrawableDescriptor.h>
-#include <OvCore/Rendering/SkinningUtils.h>
+#include <OvCore/Rendering/SceneDrawableDescriptor.h>
 
 #include <OvEditor/Core/EditorActions.h>
 #include <OvEditor/Rendering/DebugModelRenderFeature.h>
@@ -58,7 +57,6 @@ namespace
 		frustum.CalculateFrustum(pickMatrix * p_camera.GetProjectionMatrix() * p_camera.GetViewMatrix());
 		return frustum;
 	}
-	const std::string kSkinningFeatureName = std::string{ OvCore::Rendering::SkinningUtils::kFeatureName };
 
 	void PreparePickingMaterial(
 		const OvCore::ECS::Actor& p_actor,
@@ -260,7 +258,9 @@ void OvEditor::Rendering::PickingRenderPass::DrawPickableModels(
 	OvCore::SceneSystem::Scene& p_scene
 )
 {
-	const auto& filteredDrawables = m_renderer.GetDescriptor<OvCore::Rendering::SceneRenderer::SceneFilteredDrawablesDescriptor>();
+	using namespace OvCore::Rendering;
+
+	const auto& filteringResult = m_renderer.GetDescriptor<FrameBuilder::FilteringResult>();
 	const auto& frameDescriptor = m_renderer.GetFrameDescriptor();
 	const auto pickingFrustum = CalculatePickingFrustum(
 		frameDescriptor.camera.value(),
@@ -270,77 +270,32 @@ void OvEditor::Rendering::PickingRenderPass::DrawPickableModels(
 		frameDescriptor.renderHeight
 	);
 
-	auto drawPickableModels = [&](auto drawables) {
-		for (auto& drawable : drawables)
-		{
-			const auto& sceneDrawableDescriptor = drawable.template GetDescriptor<OvCore::Rendering::SceneRenderer::SceneDrawableDescriptor>();
-			const auto& actor = sceneDrawableDescriptor.actor;
+	const FrameBuilder::PreparationInput preparationInput{
+		.pass = kPickingPassName,
+		.passFallbackMaterial = m_actorPickingFallbackMaterial,
+		.customPreparation = [](OvRendering::Entities::Drawable& p_drawable) {
+			p_drawable.stateMask.frontfaceCulling = false;
+			p_drawable.stateMask.backfaceCulling = false;
 
-			// Skip models that cannot cover the picked pixel
-			if (sceneDrawableDescriptor.bounds.has_value())
-			{
-				auto bounds = sceneDrawableDescriptor.bounds.value();
-
-				OvTools::Utils::OptRef<const OvCore::Rendering::SkinningDrawableDescriptor> skinningDescriptor;
-				if (drawable.template TryGetDescriptor<OvCore::Rendering::SkinningDrawableDescriptor>(skinningDescriptor))
-				{
-					bounds.radius *= skinningDescriptor->boundsScale;
-				}
-
-				if (!pickingFrustum.BoundingSphereInFrustum(bounds, actor.transform.GetFTransform()))
-				{
-					continue;
-				}
-			}
-
-			const auto skinnedRenderer = actor.template GetComponent<OvCore::ECS::Components::CSkinnedMeshRenderer>();
-			const bool hasSkinningDescriptor = drawable.template HasDescriptor<OvCore::Rendering::SkinningDrawableDescriptor>();
-			const bool skinningEnabled = hasSkinningDescriptor &&
-				skinnedRenderer &&
-				m_actorPickingFallbackMaterial.SupportsFeature(kSkinningFeatureName);
-
-			if (skinningEnabled)
-			{
-				auto& targetMaterial = m_actorPickingFallbackMaterial;
-
-				PreparePickingMaterial(actor, targetMaterial);
-
-				OvRendering::Entities::Drawable finalDrawable = drawable;
-				finalDrawable.material = &targetMaterial;
-				finalDrawable.stateMask = targetMaterial.GenerateStateMask();
-				finalDrawable.stateMask.frontfaceCulling = false;
-				finalDrawable.stateMask.backfaceCulling = false;
-				finalDrawable.pass = kPickingPassName;
-
-				OvCore::Rendering::SkinningUtils::ApplyToDrawable(finalDrawable, *skinnedRenderer, &targetMaterial.GetFeatures());
-				m_renderer.DrawEntity(p_pso, finalDrawable);
-				continue;
-			}
-
-			auto& targetMaterial =
-				drawable.material &&
-				drawable.material->IsValid() &&
-				drawable.material->HasPass(kPickingPassName) ?
-				drawable.material.value() :
-				m_actorPickingFallbackMaterial;
-
-			PreparePickingMaterial(actor, targetMaterial);
-
-			OvRendering::Entities::Drawable finalDrawable = drawable;
-			finalDrawable.material = &targetMaterial;
-			finalDrawable.stateMask = targetMaterial.GenerateStateMask();
-			finalDrawable.stateMask.frontfaceCulling = false;
-			finalDrawable.stateMask.backfaceCulling = false;
-			finalDrawable.pass = kPickingPassName;
-			finalDrawable.featureSetOverride = std::nullopt;
-
-			m_renderer.DrawEntity(p_pso, finalDrawable);
+			const auto& actor = p_drawable.GetDescriptor<SceneDrawableDescriptor>().actor;
+			PreparePickingMaterial(actor, p_drawable.material.value());
 		}
 	};
 
-	drawPickableModels(filteredDrawables.opaques | std::views::values);
-	drawPickableModels(filteredDrawables.transparents | std::views::values);
-	drawPickableModels(filteredDrawables.ui | std::views::values);
+	auto drawPickableModels = [&](const auto& p_filteredDrawables) {
+		for (const auto& filteredDrawable : p_filteredDrawables | std::views::values)
+		{
+			// Skip models that cannot cover the picked pixel
+			if (FrameBuilder::IsInFrustum(filteredDrawable.drawable.get(), pickingFrustum))
+			{
+				m_renderer.DrawEntity(p_pso, FrameBuilder::Prepare(filteredDrawable, preparationInput));
+			}
+		}
+	};
+
+	drawPickableModels(filteringResult.opaques);
+	drawPickableModels(filteringResult.transparents);
+	drawPickableModels(filteringResult.ui);
 }
 
 void OvEditor::Rendering::PickingRenderPass::DrawPickableCameras(
