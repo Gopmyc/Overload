@@ -5,9 +5,11 @@
 */
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
+#include <OvCore/ECS/Components/CModelRenderer.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
@@ -20,6 +22,28 @@
 #include <OvRendering/Utils/Profiling.h>
 
 constexpr uint8_t kMaxShadowMaps = 1;
+
+namespace
+{
+	std::optional<OvRendering::Geometry::BoundingSphere> GetShadowCasterBounds(
+		const OvCore::ECS::Components::CModelRenderer& p_modelRenderer,
+		const OvRendering::Resources::Model& p_model,
+		const OvRendering::Resources::Mesh& p_mesh,
+		OvCore::ECS::Components::CModelRenderer::EFrustumBehaviour p_frustumBehaviour
+	)
+	{
+		using enum OvCore::ECS::Components::CModelRenderer::EFrustumBehaviour;
+
+		switch (p_frustumBehaviour)
+		{
+		case MESH_BOUNDS: return p_mesh.GetBoundingSphere();
+		case DEPRECATED_MODEL_BOUNDS: return p_model.GetBoundingSphere();
+		case CUSTOM_BOUNDS: return p_modelRenderer.GetCustomBoundingSphere();
+		default: return std::nullopt;
+		}
+	}
+}
+
 const std::string kShadowPassName = "SHADOW_PASS";
 const std::string kSkinningFeatureName = std::string{ OvCore::Rendering::SkinningUtils::kFeatureName };
 
@@ -72,7 +96,7 @@ void OvCore::Rendering::ShadowRenderPass::Draw(OvRendering::Data::PipelineState 
 					light.shadowBuffer->Bind();
 					m_renderer.SetViewport(0, 0, light.shadowMapResolution, light.shadowMapResolution);
 					m_renderer.Clear(true, true, true);
-					_DrawShadows(pso, scene);
+					_DrawShadows(pso, scene, light.shadowCamera->GetFrustum());
 					light.shadowBuffer->Unbind();
 
 					engineBufferRenderFeature.SetCamera(frameDescriptor.camera.value());
@@ -95,7 +119,8 @@ void OvCore::Rendering::ShadowRenderPass::Draw(OvRendering::Data::PipelineState 
 
 void OvCore::Rendering::ShadowRenderPass::_DrawShadows(
 	OvRendering::Data::PipelineState p_pso,
-	OvCore::SceneSystem::Scene& p_scene
+	OvCore::SceneSystem::Scene& p_scene,
+	const OvRendering::Data::Frustum& p_lightFrustum
 )
 {
 	using namespace OvCore::Rendering;
@@ -120,9 +145,28 @@ void OvCore::Rendering::ShadowRenderPass::_DrawShadows(
 
 					const auto& materials = materialRenderer->GetMaterials();
 					const auto& modelMatrix = actor.transform.GetWorldMatrix();
+					const auto& actorTransform = actor.transform.GetFTransform();
+					const auto frustumBehaviour = modelRenderer->GetFrustumBehaviour();
 
 					for (auto mesh : model->GetMeshes())
 					{
+						// Skip meshes outside of the light frustum: they would be clipped by the rasterizer anyway,
+						// so culling them on the CPU produces the exact same shadow map for a fraction of the cost.
+						if (const auto bounds = GetShadowCasterBounds(*modelRenderer, *model, *mesh, frustumBehaviour))
+						{
+							auto cullingBounds = bounds.value();
+
+							if (hasSkinning && mesh->HasSkinningData())
+							{
+								cullingBounds.radius *= skinnedRenderer->GetMeshBoundsScale();
+							}
+
+							if (!p_lightFrustum.BoundingSphereInFrustum(cullingBounds, actorTransform))
+							{
+								continue;
+							}
+						}
+
 						if (auto material = materials.at(mesh->GetMaterialIndex()); material && material->IsValid() && material->IsShadowCaster())
 						{
 							// Skinning is only applied if the original material explicitly supports it.
