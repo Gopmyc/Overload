@@ -65,10 +65,8 @@ namespace OvCore::Rendering::PostProcess
 
 	private:
 		std::array<baregl::Framebuffer, BloomConstants::kMaxPassCount> m_bloomSamplingBuffers;
-		baregl::Framebuffer m_bloomOutputBuffer;
 		OvRendering::Data::Material m_downsamplingMaterial;
 		OvRendering::Data::Material m_upsamplingMaterial;
 		OvRendering::Data::Material m_bloomMaterial;
-		OvRendering::Data::Material m_blitMaterial;
 	};
 }

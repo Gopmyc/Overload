@@ -232,6 +232,15 @@ namespace baregl
 		void SetViewport(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height);
 
 		/**
+		* Sets the scissor rectangle (only used when the scissor test is enabled).
+		* @param p_x The lower left x-coordinate of the scissor rectangle.
+		* @param p_y The lower left y-coordinate of the scissor rectangle.
+		* @param p_width The width of the scissor rectangle.
+		* @param p_height The height of the scissor rectangle.
+		*/
+		void SetScissor(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height);
+
+		/**
 		* Returns the value or values for a given parameter
 		* @return Query result
 		*/

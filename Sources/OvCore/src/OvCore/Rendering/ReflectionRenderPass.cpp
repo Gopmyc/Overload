@@ -4,12 +4,13 @@
 * @licence: MIT
 */
 
-#include <ranges>
+#include <string>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
+#include <OvCore/Rendering/FrameBuilder.h>
 #include <OvCore/Rendering/ReflectionRenderFeature.h>
 #include <OvCore/Rendering/ReflectionRenderPass.h>
 #include <OvCore/Rendering/SceneRenderer.h>
@@ -19,6 +20,7 @@
 
 namespace
 {
+	const std::string kReflectionPassName = "REFLECTION_PASS";
 	constexpr uint32_t kProbeFaceCount = 6;
 	const OvMaths::FVector3 kCubeFaceRotations[kProbeFaceCount] = {
 		{ 0.0f, -90.0f, 180.0f },	// (Right)
@@ -112,36 +114,24 @@ void OvCore::Rendering::ReflectionRenderPass::_DrawReflections(
 	const OvRendering::Entities::Camera& p_camera
 )
 {
-	auto& drawables = m_renderer.GetDescriptor<SceneRenderer::SceneDrawablesDescriptor>();
+	auto& parsingResult = m_renderer.GetDescriptor<FrameBuilder::ParsingResult>();
 
-	const auto filteredDrawables = static_cast<SceneRenderer&>(m_renderer).FilterDrawables(
-		drawables,
-		SceneRenderer::SceneDrawablesFilteringInput{
+	const auto filteringResult = FrameBuilder::Filter(
+		parsingResult,
+		FrameBuilder::FilteringInput{
 			.camera = p_camera,
 			.frustumOverride = std::nullopt, // No frustum override for reflections
 			.overrideMaterial = std::nullopt, // No override material for reflections
 			.fallbackMaterial = std::nullopt, // No fallback material for reflections
 			.requiredVisibilityFlags = EVisibilityFlags::REFLECTION,
 			.includeUI = false, // Exclude UI elements from contribution
+			.filter = [](const OvRendering::Entities::Drawable&, const OvRendering::Data::Material& p_material) {
+				return p_material.IsCapturedByReflectionProbes();
+			}
 		}
 	);
 
-	auto captureDrawable = [&](const OvRendering::Entities::Drawable& drawable) {
-		if (drawable.material && drawable.material->IsCapturedByReflectionProbes())
-		{
-			auto drawableCopy = drawable;
-			drawableCopy.pass = "REFLECTION_PASS";
-			m_renderer.DrawEntity(p_pso, drawableCopy);
-		}
-	};
-
-	for (const auto& drawable : filteredDrawables.opaques | std::views::values)
-	{
-		captureDrawable(drawable);
-	}
-
-	for (const auto& drawable : filteredDrawables.transparents | std::views::values)
-	{
-		captureDrawable(drawable);
-	}
+	FrameBuilder::Draw(m_renderer, p_pso, filteringResult, FrameBuilder::PreparationInput{
+		.pass = kReflectionPassName
+	});
 }

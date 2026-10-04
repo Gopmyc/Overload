@@ -15,12 +15,12 @@ layout (location = 6) in vec4 geo_BoneWeights;
 
 void main()
 {
-    mat4 skinningMatrix = mat4(1.0);
+    vec4 position = vec4(geo_Pos, 1.0);
 #if defined(SKINNING)
-    skinningMatrix = ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights);
+    position = ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights) * position;
 #endif
 
-    gl_Position = ubo_Projection * ubo_View * ubo_Model * skinningMatrix * vec4(geo_Pos, 1.0);
+    gl_Position = ubo_ViewProjection * (ubo_Model * position);
 }
 
 #shader fragment
@@ -28,5 +28,6 @@ void main()
 
 void main()
 {
-    gl_FragDepth = gl_FragCoord.z;
+    // Depth-only pass: the depth is written by the fixed-function pipeline.
+    // Writing gl_FragDepth here would disable early depth testing.
 }

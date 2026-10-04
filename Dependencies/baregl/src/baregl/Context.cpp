@@ -447,6 +447,11 @@ namespace baregl
 		glViewport(x, y, width, height);
 	}
 
+	void Context::SetScissor(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+	{
+		glScissor(x, y, width, height);
+	}
+
 	template<auto PName>
 		requires (data::GetResult<PName>::non_indexed)
 	data::GetResultType<PName> Context::Get()

@@ -143,6 +143,11 @@ namespace OvRendering::Entities
 		bool HasFrustumLightCulling() const;
 
 		/**
+		* Returns true if opaque geometry should be rendered to the depth buffer before being shaded
+		*/
+		bool HasDepthPrePass() const;
+
+		/**
 		* Returns the current projection mode
 		*/
 		OvRendering::Settings::EProjectionMode GetProjectionMode() const;
@@ -220,6 +225,14 @@ namespace OvRendering::Entities
 		void SetFrustumLightCulling(bool p_enable);
 
 		/**
+		* Defines if opaque geometry should be rendered to the depth buffer before being shaded.
+		* The depth pre-pass ensures each pixel is shaded at most once (no overdraw), at the cost
+		* of drawing the opaque geometry twice: it pays off when the scene is limited by fragment shading.
+		* @param p_enable
+		*/
+		void SetDepthPrePass(bool p_enable);
+
+		/**
 		* Defines the projection mode the camera should adopt
 		* @param p_projectionMode
 		*/
@@ -241,6 +254,7 @@ namespace OvRendering::Entities
 		float m_far;
 
 		bool m_frustumLightCulling;
+		bool m_depthPrePass = false;
 		bool m_frustumGeometryCulling;
 
 		OvMaths::FVector3 m_clearColor;

@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <algorithm>
 #include <optional>
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
@@ -156,11 +157,27 @@ void OvEditor::Panels::SceneView::InitFrame()
 	auto& pickingPass = m_renderer->GetPass<OvEditor::Rendering::PickingRenderPass>("Picking");
 
 	// Enable picking pass only when the scene view is hovered, not picking, and not operating the camera
-	pickingPass.SetEnabled(
+	const bool pickingEnabled =
 		IsHovered() &&
 		!m_gizmoOperations.IsPicking() &&
-		!m_cameraController.IsOperating()
-	);
+		!m_cameraController.IsOperating();
+
+	pickingPass.SetEnabled(pickingEnabled);
+
+	if (pickingEnabled)
+	{
+		const auto mousePosition = GetMousePosition();
+		const auto [width, height] = GetSafeSize();
+
+		pickingPass.SetPickingPosition(
+			static_cast<uint32_t>(std::max(mousePosition.x, 0.0f)),
+			static_cast<uint32_t>(std::max(static_cast<float>(height) - mousePosition.y, 0.0f))
+		);
+	}
+	else
+	{
+		pickingPass.ResetPickingResult();
+	}
 }
 
 OvCore::SceneSystem::Scene* OvEditor::Panels::SceneView::GetScene()
@@ -309,17 +326,12 @@ void OvEditor::Panels::SceneView::HandleActorPicking()
 
 OvEditor::Rendering::PickingRenderPass::PickingResult OvEditor::Panels::SceneView::GetPickingResult()
 {
-	const auto mousePosition = GetMousePosition();
-
 	auto& scene = *GetScene();
 
 	auto& actorPickingFeature = m_renderer->GetPass<OvEditor::Rendering::PickingRenderPass>("Picking");
 
-	return actorPickingFeature.ReadbackPickingResult(
-		scene,
-		static_cast<uint32_t>(mousePosition.x),
-		static_cast<uint32_t>(GetSafeSize().second - mousePosition.y)
-	);
+	// Asynchronous: the result comes from a previous frame, so reading it never stalls on the GPU
+	return actorPickingFeature.GetPickingResult(scene);
 }
 
 void OvEditor::Panels::SceneView::OnSceneDropped(const std::string& p_path)

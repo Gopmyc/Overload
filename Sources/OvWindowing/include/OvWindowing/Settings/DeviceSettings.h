@@ -42,7 +42,9 @@ namespace OvWindowing::Settings
 
 		/**
 		* Defines the amount of samples to use (Requiered for multi-sampling)
+		* @note Defaults to 0: the engine renders into its own framebuffers, so a multisampled
+		* default framebuffer only adds memory and resolve cost.
 		*/
-		uint8_t samples = 4;
+		uint8_t samples = 0;
 	};
 }

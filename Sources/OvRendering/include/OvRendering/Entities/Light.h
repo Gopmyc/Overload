@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <cstddef>
+#include <vector>
+
 #include <baregl/Framebuffer.h>
 
 #include <OvMaths/FVector3.h>
@@ -17,6 +20,7 @@
 #include <OvRendering/Entities/Entity.h>
 #include <OvRendering/Resources/Texture.h>
 #include <OvRendering/Settings/ELightType.h>
+#include <OvRendering/Settings/EShadowMapUpdateMode.h>
 
 namespace OvRendering::Entities
 {
@@ -37,11 +41,21 @@ namespace OvRendering::Entities
 		bool castShadows = false;
 		float shadowAreaSize = 50.0f;
 		bool shadowFollowCamera = true;
-		int16_t shadowMapResolution = 8192;
+		int16_t shadowMapResolution = 2048;
+		Settings::EShadowMapUpdateMode shadowMapUpdateMode = Settings::EShadowMapUpdateMode::ON_CHANGE;
 
 		std::unique_ptr<baregl::Framebuffer> shadowBuffer;
 		std::optional<OvRendering::Entities::Camera> shadowCamera;
 		std::optional<OvMaths::FMatrix4> lightSpaceMatrix;
+
+		// Description of everything the current content of the shadow map has been rendered from (empty if invalid).
+		// Stored with the shadow map, as it can be rendered by several renderers (e.g. editor views).
+		std::vector<std::byte> shadowMapSignature;
+
+		/**
+		* Forces the shadow map to be rendered again the next time it is used
+		*/
+		void InvalidateShadowMap();
 
 		/**
 		* Generate and cache light space matrix for the light

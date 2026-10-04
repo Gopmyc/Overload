@@ -8,6 +8,7 @@
 
 #include <OvRendering/Entities/Camera.h>
 #include <OvRendering/Features/DebugShapeRenderFeature.h>
+#include <OvRendering/Features/LightingRenderFeature.h>
 
 #include <OvCore/ECS/Actor.h>
 #include <OvCore/SceneSystem/SceneManager.h>
@@ -36,7 +37,22 @@ namespace OvCore::Rendering
 			OvRendering::Features::EFeatureExecutionPolicy p_executionPolicy
 		);
 
+		/**
+		* Returns the light used for shadow rendering (the first directional light casting shadows).
+		* Only one shadow map is currently supported.
+		* @param p_lights
+		*/
+		static OvTools::Utils::OptRef<OvRendering::Entities::Light> FindShadowCastingLight(
+			const OvRendering::Features::LightingRenderFeature::LightSet& p_lights
+		);
+
 	protected:
-		virtual void OnBeforeDraw(OvRendering::Data::PipelineState& p_pso, const OvRendering::Entities::Drawable& p_drawable);
+		virtual void OnBeginFrame(const OvRendering::Data::FrameDescriptor& p_frameDescriptor) override;
+		virtual void OnEndFrame() override;
+		virtual void OnBeforeDraw(OvRendering::Data::PipelineState& p_pso, const OvRendering::Entities::Drawable& p_drawable) override;
+
+	private:
+		OvTools::Utils::OptRef<const OvRendering::Entities::Light> m_shadowCastingLight;
+		bool m_multipleShadowCastersWarned = false;
 	};
 }

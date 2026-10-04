@@ -4,6 +4,9 @@
 * @licence: MIT
 */
 
+#include <utility>
+#include <vector>
+
 #include <tracy/Tracy.hpp>
 
 #include <OvCore/ECS/Components/CPostProcessStack.h>
@@ -64,30 +67,44 @@ void OvCore::Rendering::PostProcessRenderPass::Draw(OvRendering::Data::PipelineS
 	{
 		auto& framebuffer = m_renderer.GetFrameDescriptor().outputBuffer.value();
 
-		m_renderer.Blit(p_pso, framebuffer, m_pingPongBuffers[0], m_blitMaterial);
+		std::vector<std::pair<PostProcess::AEffect*, const PostProcess::EffectSettings*>> applicableEffects;
 
 		for (auto& effect : m_effects)
 		{
 			if (effect)
 			{
 				auto& effectRef = *effect;
-				const auto& effectType = typeid(effectRef);
-				const auto& settings = stack->Get(effectType);
+				const auto& settings = stack->Get(typeid(effectRef));
 
 				if (effect->IsApplicable(settings))
 				{
-					effect->Draw(
-						p_pso,
-						m_pingPongBuffers[0],
-						m_pingPongBuffers[1],
-						settings
-					);
-
-					++m_pingPongBuffers;
+					applicableEffects.emplace_back(effect.get(), &settings);
 				}
 			}
 		}
 
-		m_renderer.Blit(p_pso, m_pingPongBuffers[0], framebuffer, m_blitMaterial);
+		// The first effect reads the output buffer directly, and the last one writes into it directly:
+		// no need to copy the image to the ping-pong buffers, and back to the output buffer.
+		// Effects can't read and write the same buffer, so a single effect still needs a final copy.
+		baregl::Framebuffer* src = &framebuffer;
+
+		for (size_t i = 0; i < applicableEffects.size(); ++i)
+		{
+			const auto [effect, settings] = applicableEffects[i];
+			const bool isLastEffect = i == applicableEffects.size() - 1;
+
+			baregl::Framebuffer* dst =
+				isLastEffect && src != &framebuffer ?
+				&framebuffer :
+				(src == &m_pingPongBuffers[0] ? &m_pingPongBuffers[1] : &m_pingPongBuffers[0]);
+
+			effect->Draw(p_pso, *src, *dst, *settings);
+			src = dst;
+		}
+
+		if (src != &framebuffer)
+		{
+			m_renderer.Blit(p_pso, *src, framebuffer, m_blitMaterial);
+		}
 	}
 }

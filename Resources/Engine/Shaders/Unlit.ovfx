@@ -25,17 +25,16 @@ out VS_OUT
 
 void main()
 {
-    mat4 skinningMatrix = mat4(1.0);
 #if defined(SKINNING)
-    skinningMatrix = ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights);
+    const mat4 modelMatrix = ubo_Model * ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights);
+#else
+    const mat4 modelMatrix = ubo_Model;
 #endif
-
-    const mat4 modelMatrix = ubo_Model * skinningMatrix;
 
     vs_out.FragPos = vec3(modelMatrix * vec4(geo_Pos, 1.0));
     vs_out.TexCoords = geo_TexCoords;
 
-    gl_Position = ubo_Projection * ubo_View * vec4(vs_out.FragPos, 1.0);
+    gl_Position = ubo_ViewProjection * vec4(vs_out.FragPos, 1.0);
 }
 
 #shader fragment

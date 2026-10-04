@@ -155,6 +155,11 @@ namespace baregl
 		BAREGL_ASSERT(IsValid(), "Cannot upload data to a texture before it has been allocated");
 		BAREGL_ASSERT(p_data, "Cannot upload texture data from a null pointer");
 
+		// Rows of formats with less than 4 bytes per pixel (e.g. RED) aren't necessarily 4-byte aligned
+		GLint previousUnpackAlignment = 4;
+		glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousUnpackAlignment);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
 		if (IsMutable())
 		{
 			m_desc.mutableDesc.value().data = p_data;
@@ -196,6 +201,8 @@ namespace baregl
 				);
 			}
 		}
+
+		glPixelStorei(GL_UNPACK_ALIGNMENT, previousUnpackAlignment);
 	}
 
 	void Texture::Resize(uint32_t p_width, uint32_t p_height)
@@ -212,6 +219,25 @@ namespace baregl
 
 			Allocate(desc);
 		}
+	}
+
+	void Texture::SetSwizzle(
+		types::ETextureSwizzle p_r,
+		types::ETextureSwizzle p_g,
+		types::ETextureSwizzle p_b,
+		types::ETextureSwizzle p_a
+	)
+	{
+		BAREGL_ASSERT(IsValid(), "Cannot set the swizzle of a texture before it has been allocated");
+
+		const GLint swizzle[4] = {
+			static_cast<GLint>(utils::EnumToValue<GLenum>(p_r)),
+			static_cast<GLint>(utils::EnumToValue<GLenum>(p_g)),
+			static_cast<GLint>(utils::EnumToValue<GLenum>(p_b)),
+			static_cast<GLint>(utils::EnumToValue<GLenum>(p_a))
+		};
+
+		glTextureParameteriv(m_id, GL_TEXTURE_SWIZZLE_RGBA, swizzle);
 	}
 
 	const baregl::data::TextureDesc& Texture::GetDesc() const

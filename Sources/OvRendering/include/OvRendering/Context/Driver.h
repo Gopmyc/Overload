@@ -8,6 +8,7 @@
 
 #include <string>
 #include <array>
+#include <deque>
 #include <memory>
 
 #include <OvMaths/FVector4.h>
@@ -19,6 +20,7 @@
 #include <OvRendering/Settings/ECullingOptions.h>
 
 #include <baregl/Context.h>
+#include <baregl/Fence.h>
 #include <baregl/types/ERenderingCapability.h>
 #include <baregl/types/EPrimitiveMode.h>
 #include <baregl/types/ERasterizationMode.h>
@@ -49,8 +51,15 @@ namespace OvRendering::Context
 
 		/**
 		* Notifies the driver that the frame is finished
+		* @note Can be called several times per presented frame (e.g. once per editor view)
 		*/
 		void OnFrameCompleted();
+
+		/**
+		* Notifies the driver that the frame has been presented (must be called once per presented frame, after swapping buffers).
+		* Limits the number of frames queued ahead of the GPU (see DriverSettings::maxQueuedFrames).
+		*/
+		void OnFramePresented();
 
 		/**
 		* Set the viewport
@@ -65,6 +74,15 @@ namespace OvRendering::Context
 			uint32_t p_width,
 			uint32_t p_height
 		);
+
+		/**
+		* Set the scissor rectangle (only used when the pipeline state enables the scissor test)
+		* @param p_x
+		* @param p_y
+		* @param p_width
+		* @param p_height
+		*/
+		void SetScissor(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height);
 
 		/**
 		* Clear the screen using the previously defined clear color (With Renderer::SetClearColor()) or by
@@ -132,5 +150,7 @@ namespace OvRendering::Context
 		std::string m_shadingLanguageVersion;
 		Data::PipelineState m_defaultPipelineState;
 		Data::PipelineState m_pipelineState;
+		uint32_t m_maxQueuedFrames;
+		std::deque<std::unique_ptr<baregl::Fence>> m_frameFences;
 	};
 }

@@ -94,7 +94,8 @@ namespace
 	}
 }
 
-OvRendering::Context::Driver::Driver(const OvRendering::Settings::DriverSettings& p_driverSettings)
+OvRendering::Context::Driver::Driver(const OvRendering::Settings::DriverSettings& p_driverSettings) :
+	m_maxQueuedFrames(p_driverSettings.maxQueuedFrames)
 {
 	baregl::debug::SetAssertHandler(std::make_unique<AssertHandler>());
 	baregl::debug::SetLogHandler(std::make_unique<LogHandler>());
@@ -129,6 +130,7 @@ OvRendering::Context::Driver::Driver(const OvRendering::Settings::DriverSettings
 
 OvRendering::Context::Driver::~Driver()
 {
+	m_frameFences.clear();
 	m_gfxContext.reset();
 }
 
@@ -141,9 +143,33 @@ void OvRendering::Context::Driver::OnFrameCompleted()
 	ResetPipelineState();
 }
 
+void OvRendering::Context::Driver::OnFramePresented()
+{
+	// Limits how far ahead of the GPU the CPU can be. Without this, the driver can queue several
+	// frames, and the input sampled at the beginning of a frame is only displayed a few frames later.
+	if (m_maxQueuedFrames > 0)
+	{
+		ZoneScopedN("Wait For Queued Frames");
+
+		m_frameFences.push_back(std::make_unique<baregl::Fence>());
+		m_frameFences.back()->Insert();
+
+		while (m_frameFences.size() > m_maxQueuedFrames)
+		{
+			m_frameFences.front()->Wait();
+			m_frameFences.pop_front();
+		}
+	}
+}
+
 void OvRendering::Context::Driver::SetViewport(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height)
 {
 	m_gfxContext->SetViewport(p_x, p_y, p_width, p_height);
+}
+
+void OvRendering::Context::Driver::SetScissor(uint32_t p_x, uint32_t p_y, uint32_t p_width, uint32_t p_height)
+{
+	m_gfxContext->SetScissor(p_x, p_y, p_width, p_height);
 }
 
 void OvRendering::Context::Driver::Clear(
@@ -181,6 +207,8 @@ void OvRendering::Context::Driver::Draw(
 {
 	ZoneScoped;
 
+	// [PERF-P1] One draw call per drawable: automatic instancing / MultiDrawIndirect of identical meshes would need
+	// per-instance data in shaders (ubo_Model is per draw).
 	if (p_instances > 0)
 	{
 		SetPipelineState(p_pso);
@@ -210,7 +238,8 @@ void OvRendering::Context::Driver::Draw(
 			}
 		}
 
-		p_mesh.Unbind();
+		// The vertex array is intentionally left bound: the next draw binds its own,
+		// so unbinding here would only add a state change per draw call.
 	}
 }
 

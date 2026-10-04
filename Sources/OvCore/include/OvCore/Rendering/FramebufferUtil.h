@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include <baregl/Framebuffer.h>
+#include <baregl/types/EInternalFormat.h>
 
 namespace OvCore::Rendering::FramebufferUtil
 {
@@ -37,6 +38,7 @@ namespace OvCore::Rendering::FramebufferUtil
 	* @param p_useDepth
 	* @param p_useStencil
 	* @param p_useMipMaps
+	* @param p_colorFormat (RGBA16F is enough for HDR rendering, and half the bandwidth of RGBA32F)
 	*/
 	void SetupFramebuffer(
 		baregl::Framebuffer& p_framebuffer,
@@ -44,6 +46,7 @@ namespace OvCore::Rendering::FramebufferUtil
 		uint32_t p_height = 0,
 		bool p_useDepth = true,
 		bool p_useStencil = false,
-		bool p_useMipMaps = false
+		bool p_useMipMaps = false,
+		baregl::types::EInternalFormat p_colorFormat = baregl::types::EInternalFormat::RGBA16F
 	);
 }

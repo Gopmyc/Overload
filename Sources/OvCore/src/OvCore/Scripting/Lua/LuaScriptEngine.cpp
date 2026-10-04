@@ -45,9 +45,12 @@ namespace
 
 		try
 		{
-			if (table[p_functionName].valid())
+			// Single lookup (it is done for every behaviour, for every callback, every frame)
+			const sol::object function = table[p_functionName];
+
+			if (function.valid())
 			{
-				sol::protected_function pfr = table[p_functionName];
+				sol::protected_function pfr = function;
 				auto pfrResult = pfr.call(table, std::forward<Args>(p_args)...);
 				if (!pfrResult.valid())
 				{

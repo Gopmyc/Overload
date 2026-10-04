@@ -237,9 +237,11 @@ void BindLuaComponents(sol::state& p_luaState)
 		"SetClearColor", &CCamera::SetClearColor,
 		"HasFrustumGeometryCulling", &CCamera::HasFrustumGeometryCulling,
 		"HasFrustumLightCulling", &CCamera::HasFrustumLightCulling,
+		"HasDepthPrePass", &CCamera::HasDepthPrePass,
 		"GetProjectionMode", &CCamera::GetProjectionMode,
 		"SetFrustumGeometryCulling", &CCamera::SetFrustumGeometryCulling,
 		"SetFrustumLightCulling", &CCamera::SetFrustumLightCulling,
+		"SetDepthPrePass", &CCamera::SetDepthPrePass,
 		"SetProjectionMode", &CCamera::SetProjectionMode
 	);
 
@@ -459,6 +461,11 @@ void BindLuaComponents(sol::state& p_luaState)
 		"SetRadius", &CAmbientSphereLight::SetRadius
 	);
 
+	p_luaState.new_enum<OvRendering::Settings::EShadowMapUpdateMode>("ShadowMapUpdateMode", {
+		{ "REALTIME", OvRendering::Settings::EShadowMapUpdateMode::REALTIME },
+		{ "ON_CHANGE", OvRendering::Settings::EShadowMapUpdateMode::ON_CHANGE }
+	});
+
 	p_luaState.new_usertype<CDirectionalLight>("DirectionalLight",
 		sol::base_classes, sol::bases<CLight>(),
 		"GetCastShadow", &CDirectionalLight::GetCastShadows,
@@ -468,7 +475,10 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetShadowFollowCamera", &CDirectionalLight::GetShadowFollowCamera,
 		"SetShadowFollowCamera", &CDirectionalLight::SetShadowFollowCamera,
 		"GetShadowMapResolution", &CDirectionalLight::GetShadowMapResolution,
-		"SetShadowMapResolution", &CDirectionalLight::SetShadowMapResolution
+		"SetShadowMapResolution", &CDirectionalLight::SetShadowMapResolution,
+		"GetShadowMapUpdateMode", &CDirectionalLight::GetShadowMapUpdateMode,
+		"SetShadowMapUpdateMode", &CDirectionalLight::SetShadowMapUpdateMode,
+		"RequestShadowMapUpdate", &CDirectionalLight::RequestShadowMapUpdate
 	);
 
 	p_luaState.new_usertype<CAudioSource>("AudioSource",

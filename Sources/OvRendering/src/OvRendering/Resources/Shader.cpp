@@ -74,6 +74,7 @@ void OvRendering::Resources::Shader::SetVariants(Variants&& p_variants, Data::Fe
 {
 	ValidateVariants(p_variants);
 	m_variants = std::move(p_variants);
+	++m_variantsVersion;
 	m_engineFeatures = std::move(p_engineFeatures);
 
 	m_passes.clear();
@@ -100,4 +101,9 @@ void OvRendering::Resources::Shader::SetVariants(Variants&& p_variants, Data::Fe
 const OvRendering::Resources::Shader::Variants& OvRendering::Resources::Shader::GetVariants() const
 {
 	return m_variants;
+}
+
+uint64_t OvRendering::Resources::Shader::GetVariantsVersion() const
+{
+	return m_variantsVersion;
 }

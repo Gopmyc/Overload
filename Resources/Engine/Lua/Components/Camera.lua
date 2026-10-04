@@ -56,6 +56,10 @@ function Camera:HasFrustumGeometryCulling() end
 ---@return boolean
 function Camera:HasFrustumLightCulling() end
 
+--- Returns true if the camera renders opaque geometry to the depth buffer before shading it
+---@return boolean
+function Camera:HasDepthPrePass() end
+
 --- Returns the projection mode used by the camera (Orthographic or Perspective)
 ---@return ProjectionMode
 function Camera:GetProjectionMode() end
@@ -67,6 +71,11 @@ function Camera:SetFrustumGeometryCulling(enabled) end
 --- Defines if the camera should cull lights outside of its frustum
 ---@param enabled boolean
 function Camera:SetFrustumLightCulling(enabled) end
+
+--- Defines if the camera should render opaque geometry to the depth buffer before shading it
+--- (removes overdraw, at the cost of drawing opaque geometry twice)
+---@param enabled boolean
+function Camera:SetDepthPrePass(enabled) end
 
 --- Defines the projection mode the camera should be using (Orthographic or Perspective)
 ---@param mode ProjectionMode

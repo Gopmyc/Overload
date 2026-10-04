@@ -11,6 +11,7 @@
 #include <baregl/types/EBlendingEquation.h>
 #include <baregl/types/EBlendingFactor.h>
 #include <baregl/types/EBufferType.h>
+#include <baregl/types/ETextureSwizzle.h>
 #include <baregl/types/EComparaisonAlgorithm.h>
 #include <baregl/types/EContextFlags.h>
 #include <baregl/types/ECullFace.h>
@@ -544,7 +545,22 @@ struct baregl::utils::MappingFor<baregl::types::EBufferType, GLenum>
 		EnumValuePair<EnumType::VERTEX, GL_ARRAY_BUFFER>,
 		EnumValuePair<EnumType::INDEX, GL_ELEMENT_ARRAY_BUFFER>,
 		EnumValuePair<EnumType::UNIFORM, GL_UNIFORM_BUFFER>,
-		EnumValuePair<EnumType::SHADER_STORAGE, GL_SHADER_STORAGE_BUFFER>
+		EnumValuePair<EnumType::SHADER_STORAGE, GL_SHADER_STORAGE_BUFFER>,
+		EnumValuePair<EnumType::PIXEL_PACK, GL_PIXEL_PACK_BUFFER>
+	>;
+};
+
+template <>
+struct baregl::utils::MappingFor<baregl::types::ETextureSwizzle, GLenum>
+{
+	using EnumType = baregl::types::ETextureSwizzle;
+	using type = std::tuple<
+		EnumValuePair<EnumType::RED, GL_RED>,
+		EnumValuePair<EnumType::GREEN, GL_GREEN>,
+		EnumValuePair<EnumType::BLUE, GL_BLUE>,
+		EnumValuePair<EnumType::ALPHA, GL_ALPHA>,
+		EnumValuePair<EnumType::ZERO, GL_ZERO>,
+		EnumValuePair<EnumType::ONE, GL_ONE>
 	>;
 };
 

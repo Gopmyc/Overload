@@ -8,6 +8,7 @@
 
 #include <baregl/Buffer.h>
 #include <baregl/Context.h>
+#include <baregl/Fence.h>
 #include <baregl/Framebuffer.h>
 #include <baregl/Renderbuffer.h>
 #include <baregl/ShaderProgram.h>
