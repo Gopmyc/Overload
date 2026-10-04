@@ -397,7 +397,7 @@ void OvCore::ECS::Components::CReflectionProbe::_AllocateResources()
 				.magFilter = baregl::types::ETextureFilteringMode::LINEAR,
 				.horizontalWrap = baregl::types::ETextureWrapMode::CLAMP_TO_EDGE,
 				.verticalWrap = baregl::types::ETextureWrapMode::CLAMP_TO_EDGE,
-				.internalFormat = baregl::types::EInternalFormat::RGBA32F,
+				.internalFormat = baregl::types::EInternalFormat::RGBA16F,
 				.useMipMaps = true
 			}
 		);

@@ -214,7 +214,9 @@ namespace OvCore::ECS::Components
 		bool m_isAnyCubemapComplete = false;
 
 		// Serialized properties
-		ERefreshMode m_refreshMode = ERefreshMode::REALTIME;
+		// Realtime capture re-renders the scene (one cubemap face per frame by default). Capturing once is enough
+		// for static environments, and a capture can still be requested at any time (RequestCapture).
+		ERefreshMode m_refreshMode = ERefreshMode::ONCE;
 		ECaptureSpeed m_captureSpeed = ECaptureSpeed::ONE_FACE; // Number of faces to capture per frame
 		uint32_t m_resolution = 512;
 		OvMaths::FVector3 m_capturePosition{ 0.0f, 0.0f, 0.0f };
