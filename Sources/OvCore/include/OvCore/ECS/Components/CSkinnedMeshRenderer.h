@@ -142,6 +142,22 @@ namespace OvCore::ECS::Components
 		float GetLayerWeight(uint32_t p_layer = 0) const;
 
 		/**
+		* Limits a layer to the subtree under a node: the other nodes ignore the layer, as if it held no
+		* track for them, and keep following the layers below it. An empty name lifts the limit; an unknown
+		* one is reported and leaves the layer unlimited. On the nodes it keeps, a masked layer still blends
+		* with the others by weight, so the layers below it should stay above zero to keep driving the rest
+		* @param p_nodeName
+		* @param p_layer
+		*/
+		void SetLayerMask(const std::string& p_nodeName, uint32_t p_layer = 0);
+
+		/**
+		* Returns the name of the node a layer is limited to, empty when it is not limited
+		* @param p_layer
+		*/
+		std::string GetLayerMask(uint32_t p_layer = 0) const;
+
+		/**
 		* Returns the scale applied to mesh bounds during frustum culling
 		* Returned value is always >= 1.0f
 		*/
@@ -359,6 +375,7 @@ namespace OvCore::ECS::Components
 			float weight = 1.0f;
 			bool playing = true;
 			bool looping = true;
+			std::string maskRootName;
 
 			// Runtime data, rebuilt whenever the model or the layer animation source changes.
 			// sourceNodeByTargetNode maps a rendered skeleton node to the source node driving it
@@ -386,6 +403,7 @@ namespace OvCore::ECS::Components
 		void SyncWithModel();
 		void RebuildRuntimeData();
 		void RebuildLayerRuntimeData(AnimationLayer& p_layer, std::vector<int32_t>& p_nodeMapScratch);
+		void ApplyLayerMask(AnimationLayer& p_layer) const;
 		void ResolveLayerAnimation(AnimationLayer& p_layer);
 		void EvaluatePose();
 		std::optional<uint32_t> GetNodeIndexFromBoneIndex(uint32_t p_boneIndex) const;

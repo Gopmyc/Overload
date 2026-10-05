@@ -477,6 +477,36 @@ float OvCore::ECS::Components::CSkinnedMeshRenderer::GetLayerWeight(uint32_t p_l
 	return layer ? layer->weight : 0.0f;
 }
 
+void OvCore::ECS::Components::CSkinnedMeshRenderer::SetLayerMask(const std::string& p_nodeName, uint32_t p_layer)
+{
+	const auto layer = FindLayer(p_layer);
+	if (!layer || layer->maskRootName == p_nodeName)
+	{
+		return;
+	}
+
+	layer->maskRootName = p_nodeName;
+
+	if (!HasCompatibleModel())
+	{
+		return;
+	}
+
+	std::vector<int32_t> nodeMapScratch;
+	layer->animationNames.clear();
+	layer->sourceNodeByTargetNode.clear();
+	RebuildLayerRuntimeData(*layer, nodeMapScratch);
+
+	m_poseEvaluationAccumulator = 0.0f;
+	EvaluatePose();
+}
+
+std::string OvCore::ECS::Components::CSkinnedMeshRenderer::GetLayerMask(uint32_t p_layer) const
+{
+	const auto layer = FindLayer(p_layer);
+	return layer ? layer->maskRootName : std::string{};
+}
+
 float OvCore::ECS::Components::CSkinnedMeshRenderer::GetMeshBoundsScale() const
 {
 	return m_meshBoundsScale;
@@ -916,6 +946,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnSerialize(tinyxml2::XMLDoc
 		OvCore::Helpers::Serializer::SerializeBoolean(p_doc, layerNode, "looping", layer.looping);
 		OvCore::Helpers::Serializer::SerializeFloat(p_doc, layerNode, "playback_speed", layer.speed);
 		OvCore::Helpers::Serializer::SerializeFloat(p_doc, layerNode, "time_ticks", layer.timeTicks);
+		OvCore::Helpers::Serializer::SerializeString(p_doc, layerNode, "mask_root", layer.maskRootName);
 	}
 }
 
@@ -942,6 +973,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnDeserialize(tinyxml2::XMLD
 			OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, currentLayer, "looping", layer.looping);
 			OvCore::Helpers::Serializer::DeserializeFloat(p_doc, currentLayer, "playback_speed", layer.speed);
 			OvCore::Helpers::Serializer::DeserializeFloat(p_doc, currentLayer, "time_ticks", layer.timeTicks);
+			OvCore::Helpers::Serializer::DeserializeString(p_doc, currentLayer, "mask_root", layer.maskRootName);
 
 			layer.weight = ClampLayerWeight(layer.weight);
 		}
@@ -1068,6 +1100,13 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::BuildLayerWidgets(OvUI::Inte
 			0.01f,
 			0.0f,
 			1.0f
+		);
+
+		GUIDrawer::DrawString(
+			columns,
+			"Mask Root",
+			[this, layerIndex]() { return GetLayerMask(layerIndex); },
+			[this, layerIndex](std::string p_value) { SetLayerMask(p_value, layerIndex); }
 		);
 
 		GUIDrawer::DrawBoolean(
@@ -1303,12 +1342,52 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildLayerRuntimeData(Anim
 		}
 	}
 
+	ApplyLayerMask(p_layer);
+
 	const auto& animations = animationModel->GetAnimations();
 
 	p_layer.animationNames.reserve(animations.size());
 	for (const auto& animation : animations)
 	{
 		p_layer.animationNames.push_back(animation.name);
+	}
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::ApplyLayerMask(AnimationLayer& p_layer) const
+{
+	if (p_layer.maskRootName.empty())
+	{
+		return;
+	}
+
+	const auto& skeleton = m_model->GetSkeleton().value();
+	const auto maskRoot = skeleton.FindNodeIndex(p_layer.maskRootName);
+
+	if (!maskRoot.has_value())
+	{
+		OVLOG_WARNING("SkinnedMeshRenderer: Layer mask node '" + p_layer.maskRootName + "' does not exist in model '" + m_model->path + "'.");
+		return;
+	}
+
+	// Walking up the parents rather than relying on the node order, which no format guarantees
+	for (size_t targetNodeIndex = 0; targetNodeIndex < p_layer.sourceNodeByTargetNode.size(); ++targetNodeIndex)
+	{
+		int32_t currentNodeIndex = static_cast<int32_t>(targetNodeIndex);
+
+		for (size_t depth = 0; currentNodeIndex >= 0 && depth <= skeleton.nodes.size(); ++depth)
+		{
+			if (static_cast<uint32_t>(currentNodeIndex) == *maskRoot)
+			{
+				break;
+			}
+
+			currentNodeIndex = skeleton.nodes[currentNodeIndex].parentIndex;
+		}
+
+		if (currentNodeIndex < 0 || static_cast<uint32_t>(currentNodeIndex) != *maskRoot)
+		{
+			p_layer.sourceNodeByTargetNode[targetNodeIndex] = -1;
+		}
 	}
 }
 
