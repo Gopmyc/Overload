@@ -75,6 +75,19 @@ function SkinnedMeshRenderer:SetLayerWeight(weight, layer) end
 ---@return number
 function SkinnedMeshRenderer:GetLayerWeight(layer) end
 
+--- Limits a layer to the subtree under a node: the other nodes ignore the layer and keep following
+--- the layers below it. An empty name lifts the limit; an unknown one is reported and ignored.
+--- On the nodes it keeps, the layer still blends with the others by weight, so the layers below it
+--- should stay above zero to keep driving the rest
+---@param nodeName string
+---@param layer? integer
+function SkinnedMeshRenderer:SetLayerMask(nodeName, layer) end
+
+--- Returns the name of the node a layer is limited to, empty when it is not limited
+---@param layer? integer
+---@return string
+function SkinnedMeshRenderer:GetLayerMask(layer) end
+
 --- Sets the bounds scale used during frustum culling for skinned meshes
 --- Values below 1.0 are clamped to 1.0
 ---@param scale number

@@ -129,6 +129,8 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetPlaybackSpeed", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetPlaybackSpeed(p_layer.value_or(0)); },
 		"SetLayerWeight", [](CSkinnedMeshRenderer& p_this, float p_value, std::optional<uint32_t> p_layer) { p_this.SetLayerWeight(p_value, p_layer.value_or(0)); },
 		"GetLayerWeight", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetLayerWeight(p_layer.value_or(0)); },
+		"SetLayerMask", [](CSkinnedMeshRenderer& p_this, const std::string& p_nodeName, std::optional<uint32_t> p_layer) { p_this.SetLayerMask(p_nodeName, p_layer.value_or(0)); },
+		"GetLayerMask", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetLayerMask(p_layer.value_or(0)); },
 		"SetMeshBoundsScale", &CSkinnedMeshRenderer::SetMeshBoundsScale,
 		"GetMeshBoundsScale", &CSkinnedMeshRenderer::GetMeshBoundsScale,
 		"SetTime", [](CSkinnedMeshRenderer& p_this, float p_timeSeconds, std::optional<uint32_t> p_layer) { p_this.SetTime(p_timeSeconds, p_layer.value_or(0)); },
