@@ -11,6 +11,7 @@
 #include <cstring>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <optional>
 #include <span>
 #include <string>
@@ -849,13 +850,21 @@ namespace
 			return nullptr;
 		}
 
+		// Directions take the node's rotation and scale, never its translation; normals the inverse transpose of them
+		const aiMatrix3x3 directionTransform(p_transform);
+		aiMatrix3x3 normalTransform(p_transform);
+		if (std::abs(normalTransform.Determinant()) > std::numeric_limits<float>::epsilon())
+		{
+			normalTransform.Inverse().Transpose();
+		}
+
 		auto fillGeometry = [&](OvRendering::Geometry::Vertex& v, uint32_t i)
 		{
 			const aiVector3D position = p_transform * p_mesh->mVertices[i];
 			const aiVector3D texCoords = p_mesh->mTextureCoords[0] ? p_mesh->mTextureCoords[0][i] : aiVector3D(0.0f, 0.0f, 0.0f);
-			const aiVector3D normal = p_transform * (p_mesh->mNormals ? p_mesh->mNormals[i] : aiVector3D(0.0f, 0.0f, 0.0f));
-			const aiVector3D tangent = p_transform * (p_mesh->mTangents ? p_mesh->mTangents[i] : aiVector3D(0.0f, 0.0f, 0.0f));
-			const aiVector3D bitangent = p_transform * (p_mesh->mBitangents ? p_mesh->mBitangents[i] : aiVector3D(0.0f, 0.0f, 0.0f));
+			const aiVector3D normal = (normalTransform * (p_mesh->mNormals ? p_mesh->mNormals[i] : aiVector3D(0.0f, 0.0f, 0.0f))).NormalizeSafe();
+			const aiVector3D tangent = (directionTransform * (p_mesh->mTangents ? p_mesh->mTangents[i] : aiVector3D(0.0f, 0.0f, 0.0f))).NormalizeSafe();
+			const aiVector3D bitangent = (directionTransform * (p_mesh->mBitangents ? p_mesh->mBitangents[i] : aiVector3D(0.0f, 0.0f, 0.0f))).NormalizeSafe();
 
 			v.position[0] = position.x;
 			v.position[1] = position.y;
