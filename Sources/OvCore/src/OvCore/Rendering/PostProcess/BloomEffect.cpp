@@ -111,6 +111,20 @@ void OvCore::Rendering::PostProcess::BloomEffect::Draw(
 	OVASSERT(refX > 0 && refY > 0, "Invalid source framebuffer size");
 
 	const auto& bloomSettings = static_cast<const BloomSettings&>(p_settings);
+
+	// Below 2x2 there is no mip to downsample to (a minimized window): the image goes through untouched
+	if (refX < 2 || refY < 2)
+	{
+		if (const auto srcTex = p_src.GetAttachment<baregl::Texture>(baregl::types::EFramebufferAttachment::COLOR))
+		{
+			m_bloomMaterial.SetProperty("_BloomTexture", &srcTex.value().get());
+		}
+
+		m_bloomMaterial.SetProperty("_BloomStrength", 0.0f);
+		m_renderer.Blit(p_pso, p_src, p_dst, m_bloomMaterial);
+		return;
+	}
+
 	const auto preferredPassCount = static_cast<uint32_t>(bloomSettings.passes);
 
 	// We want to make sure we don't downsample too much (shouldn't go past 1x1).
