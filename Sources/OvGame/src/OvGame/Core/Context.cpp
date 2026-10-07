@@ -191,8 +191,10 @@ OvGame::Core::Context::Context() :
 		true, false, false
 	);
 
+	// A minimized window reports 0x0: the framebuffer keeps its last size until it is restored
 	window->FramebufferResizeEvent.AddListener([this](unsigned short width, unsigned short height) {
-		framebuffer->Resize(width, height);
+		if (width > 0 && height > 0)
+			framebuffer->Resize(width, height);
 	});
 }
 

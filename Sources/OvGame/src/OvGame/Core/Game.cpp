@@ -94,6 +94,10 @@ void RenderCurrentScene(
 
 void OvGame::Core::Game::Update(float p_deltaTime)
 {
+	// A minimized window has nothing to draw into (0x0 on Windows): the game goes on, unseen
+	const auto [windowWidth, windowHeight] = m_context.window->GetSize();
+	const bool drawable = !m_context.window->IsMinimized() && windowWidth > 0 && windowHeight > 0;
+
 	if (auto currentScene = m_context.sceneManager.GetCurrentScene())
 	{
 		{
@@ -120,10 +124,11 @@ void OvGame::Core::Game::Update(float p_deltaTime)
 			m_context.audioEngine->Update();
 		}
 
-		RenderCurrentScene(m_sceneRenderer, m_context);
-
-		auto [windowWidth, windowHeight] = m_context.window->GetSize();
-		m_context.framebuffer->BlitToBackBuffer(windowWidth, windowHeight);
+		if (drawable)
+		{
+			RenderCurrentScene(m_sceneRenderer, m_context);
+			m_context.framebuffer->BlitToBackBuffer(windowWidth, windowHeight);
+		}
 	}
 
 	m_context.sceneManager.Update();
@@ -140,7 +145,9 @@ void OvGame::Core::Game::Update(float p_deltaTime)
 		m_frameInfo.Update(frameInfo);
         m_driverInfo.Update();
 		#endif
-		m_context.uiManager->Render();
+
+		if (drawable)
+			m_context.uiManager->Render();
 	}
 }
 
