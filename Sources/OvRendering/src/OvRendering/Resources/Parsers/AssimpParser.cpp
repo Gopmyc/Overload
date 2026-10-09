@@ -103,6 +103,18 @@ namespace
 		};
 	}
 
+	aiMatrix4x4 ToAiMatrix4x4(const OvMaths::FMatrix4& p_matrix)
+	{
+		const float* d = p_matrix.data;
+
+		return {
+			d[0], d[1], d[2], d[3],
+			d[4], d[5], d[6], d[7],
+			d[8], d[9], d[10], d[11],
+			d[12], d[13], d[14], d[15]
+		};
+	}
+
 	float ToPerceptualColor(const float p_linear)
 	{
 		constexpr float gamma = 2.2f;
@@ -817,7 +829,8 @@ namespace
 		const aiMatrix4x4& p_transform,
 		aiMesh* p_mesh,
 		OvRendering::Animation::Skeleton* p_skeleton,
-		const std::unordered_map<const aiNode*, uint32_t>* p_nodeIndexByPointer
+		const std::unordered_map<const aiNode*, uint32_t>* p_nodeIndexByPointer,
+		std::optional<uint32_t> p_rigidBone = std::nullopt
 	)
 	{
 		std::vector<uint32_t> indices;
@@ -885,6 +898,18 @@ namespace
 			v.bitangent[1] = -bitangent.y;
 			v.bitangent[2] = -bitangent.z;
 		};
+
+		if (p_rigidBone)
+		{
+			std::vector<OvRendering::Geometry::SkinnedVertex> vertices(p_mesh->mNumVertices);
+			for (uint32_t i = 0; i < p_mesh->mNumVertices; ++i)
+			{
+				fillGeometry(vertices[i], i);
+				AddBoneData(vertices[i], *p_rigidBone, 1.0f);
+			}
+
+			return new OvRendering::Resources::Mesh(std::span(vertices), std::span(indices), p_mesh->mMaterialIndex);
+		}
 
 		if (p_skeleton && p_mesh->HasBones())
 		{
@@ -988,22 +1013,92 @@ namespace
 		return new OvRendering::Resources::Mesh(std::span(vertices), std::span(indices), p_mesh->mMaterialIndex);
 	}
 
+	struct RigidMesh
+	{
+		size_t slot;
+		aiMesh* mesh;
+		const aiNode* node;
+		aiMatrix4x4 transform;
+	};
+
+	aiMatrix4x4 GetGlobalTransform(const aiNode* p_node)
+	{
+		aiMatrix4x4 transform = p_node->mTransformation;
+
+		for (const aiNode* parent = p_node->mParent; parent; parent = parent->mParent)
+		{
+			transform = parent->mTransformation * transform;
+		}
+
+		return transform;
+	}
+
+	/**
+	* A mesh without weights in a skinned model, such as a helmet parented to the head, is bound whole to the
+	* nearest bone above it. It joins no new bone, so the animation sources stay compatible, and it is baked so
+	* that this bone at rest puts it exactly where it stood. Without such a bone it stays static.
+	*/
+	OvRendering::Resources::Mesh* ProcessRigidMesh(
+		const RigidMesh& p_rigid,
+		const OvRendering::Animation::Skeleton& p_skeleton,
+		const std::unordered_map<const aiNode*, uint32_t>& p_nodeIndexByPointer
+	)
+	{
+		for (const aiNode* node = p_rigid.node; node; node = node->mParent)
+		{
+			const auto found = p_nodeIndexByPointer.find(node);
+			if (found == p_nodeIndexByPointer.end())
+			{
+				continue;
+			}
+
+			const int32_t boneIndex = p_skeleton.nodes[found->second].boneIndex;
+			if (boneIndex < 0 || static_cast<size_t>(boneIndex) >= p_skeleton.bones.size())
+			{
+				continue;
+			}
+
+			aiMatrix4x4 bake = GetGlobalTransform(node) * ToAiMatrix4x4(p_skeleton.bones[boneIndex].offsetMatrix);
+			if (std::abs(bake.Determinant()) <= std::numeric_limits<float>::epsilon())
+			{
+				break;
+			}
+
+			bake.Inverse();
+
+			return ProcessMesh(bake * p_rigid.transform, p_rigid.mesh, nullptr, nullptr, static_cast<uint32_t>(boneIndex));
+		}
+
+		return ProcessMesh(p_rigid.transform, p_rigid.mesh, nullptr, nullptr);
+	}
+
 	void ProcessNode(
 		const aiMatrix4x4& p_transform,
 		aiNode* p_node,
 		const aiScene* p_scene,
 		std::vector<OvRendering::Resources::Mesh*>& p_meshes,
 		OvRendering::Animation::Skeleton* p_skeleton,
-		const std::unordered_map<const aiNode*, uint32_t>* p_nodeIndexByPointer
+		const std::unordered_map<const aiNode*, uint32_t>* p_nodeIndexByPointer,
+		std::vector<RigidMesh>* p_rigidMeshes
 	)
 	{
 		const aiMatrix4x4 nodeTransform = p_transform * p_node->mTransformation;
 
 		for (uint32_t i = 0; i < p_node->mNumMeshes; ++i)
 		{
+			aiMesh* mesh = p_scene->mMeshes[p_node->mMeshes[i]];
+
+			// Bound once every bone of the skinned meshes exists; its slot keeps the order of the meshes
+			if (p_skeleton && p_rigidMeshes && !mesh->HasBones())
+			{
+				p_rigidMeshes->push_back({ p_meshes.size(), mesh, p_node, nodeTransform });
+				p_meshes.push_back(nullptr);
+				continue;
+			}
+
 			if (OvRendering::Resources::Mesh* result = ProcessMesh(
 				nodeTransform,
-				p_scene->mMeshes[p_node->mMeshes[i]],
+				mesh,
 				p_skeleton,
 				p_nodeIndexByPointer
 			))
@@ -1020,7 +1115,8 @@ namespace
 				p_scene,
 				p_meshes,
 				p_skeleton,
-				p_nodeIndexByPointer
+				p_nodeIndexByPointer,
+				p_rigidMeshes
 			);
 		}
 	}
@@ -1088,14 +1184,24 @@ bool OvRendering::Resources::Parsers::AssimpParser::LoadModel(
 		AddSkeletonNodeRecursive(p_skeleton.value(), scene->mRootNode, -1, &nodeIndexByPointer);
 	}
 
+	std::vector<RigidMesh> rigidMeshes;
+
 	ProcessNode(
 		aiMatrix4x4{},
 		scene->mRootNode,
 		scene,
 		p_meshes,
 		p_skeleton ? &p_skeleton.value() : nullptr,
-		p_skeleton ? &nodeIndexByPointer : nullptr
+		p_skeleton ? &nodeIndexByPointer : nullptr,
+		&rigidMeshes
 	);
+
+	for (const auto& rigid : rigidMeshes)
+	{
+		p_meshes[rigid.slot] = ProcessRigidMesh(rigid, p_skeleton.value(), nodeIndexByPointer);
+	}
+
+	std::erase(p_meshes, nullptr);
 
 	if (hasAnimations && p_skeleton.has_value())
 	{
