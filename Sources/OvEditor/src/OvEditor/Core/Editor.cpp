@@ -11,6 +11,7 @@
 
 #include <OvCore/Helpers/GUIDrawer.h>
 #include <OvCore/Helpers/GUIHelpers.h>
+#include <OvCore/Helpers/InputHelpers.h>
 
 #include <OvCore/ResourceManagement/MaterialManager.h>
 #include <OvCore/ResourceManagement/ModelManager.h>
@@ -54,6 +55,7 @@ OvEditor::Core::Editor::Editor(Context& p_context) :
 {
 	SetupUI();
 
+	OvCore::Helpers::InputHelpers::ResetGameInputGate();
 	m_context.sceneManager.LoadDefaultScene();
 }
 
@@ -234,6 +236,8 @@ void OvEditor::Core::Editor::PreUpdate()
 
 void OvEditor::Core::Editor::Update(float p_deltaTime)
 {
+	UpdateGameInputGate();
+
 	// Disable mouse input when the cursor is locked during gameplay or view interaction.
 	const bool mouseEnabled = m_context.window->GetCursorMode() != OvWindowing::Cursor::ECursorMode::DISABLED;
 	m_context.uiManager->EnableMouse(mouseEnabled);
@@ -244,6 +248,40 @@ void OvEditor::Core::Editor::Update(float p_deltaTime)
 	UpdateEditorPanels(p_deltaTime);
 	RenderEditorUI(p_deltaTime);
 	m_editorActions.ExecuteDelayedActions();
+}
+
+void OvEditor::Core::Editor::UpdateGameInputGate()
+{
+	auto& gameView = m_panelsManager.GetPanelAs<OvEditor::Panels::GameView>("Game View");
+
+	const auto mode = m_editorActions.GetCurrentEditorMode();
+	const bool playing = mode == EditorActions::EEditorMode::PLAY || mode == EditorActions::EEditorMode::FRAME_BY_FRAME;
+	const bool focused = gameView.IsOpened() && gameView.IsVisible() && gameView.IsFocused();
+
+	// Ctrl+Tab moves the focus between panels: its Tab is the editor's, not the game's (Ctrl may come and go within the frame)
+	const auto& input = *m_context.inputManager;
+	const auto isControl = [&input](OvWindowing::Inputs::EKey p_key) {
+		return input.IsKeyPressed(p_key) || input.GetKeyState(p_key) == OvWindowing::Inputs::EKeyState::KEY_DOWN;
+	};
+	const bool switchingPanels =
+		input.IsKeyPressed(OvWindowing::Inputs::EKey::KEY_TAB) &&
+		(isControl(OvWindowing::Inputs::EKey::KEY_LEFT_CONTROL) || isControl(OvWindowing::Inputs::EKey::KEY_RIGHT_CONTROL));
+
+	// A locked cursor only ever serves the game; a free one clicks for the game over its image only
+	bool mouseOverGame = true;
+
+	if (m_context.window->GetCursorMode() != OvWindowing::Cursor::ECursorMode::DISABLED)
+	{
+		const auto mouse = gameView.GetMousePosition();
+		const auto [width, height] = gameView.GetSafeSize();
+
+		mouseOverGame =
+			gameView.IsHovered() &&
+			mouse.x >= 0.0f && mouse.y >= 0.0f &&
+			mouse.x < static_cast<float>(width) && mouse.y < static_cast<float>(height);
+	}
+
+	OvCore::Helpers::InputHelpers::UpdateGameInputGate(playing && focused && !switchingPanels, mouseOverGame);
 }
 
 void OvEditor::Core::Editor::HandleGlobalShortcuts()
@@ -332,7 +370,8 @@ void OvEditor::Core::Editor::UpdatePlayMode(float p_deltaTime)
 	if (m_editorActions.GetCurrentEditorMode() == EditorActions::EEditorMode::FRAME_BY_FRAME)
 		m_editorActions.PauseGame();
 
-	if (m_context.inputManager->IsKeyPressed(OvWindowing::Inputs::EKey::KEY_ESCAPE))
+	// Escape belongs to the game (its own menus): F5 stops playing, as it starts
+	if (m_context.inputManager->IsKeyPressed(OvWindowing::Inputs::EKey::KEY_F5))
 		m_editorActions.StopPlaying();
 }
 

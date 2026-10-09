@@ -71,9 +71,9 @@ OvEditor::Panels::Toolbar::Toolbar
 	m_stopButton = &CreateWidget<ButtonImage>(editorResources->GetTexture("Stop")->GetTexture().GetID(), iconSize);
 	m_nextButton = &CreateWidget<ButtonImage>(editorResources->GetTexture("Next")->GetTexture().GetID(), iconSize);
 
-	m_playButton->tooltip = "Play (or resume) the game";
+	m_playButton->tooltip = "Play (or resume) the game [F5]";
 	m_pauseButton->tooltip = "Pause the game";
-	m_stopButton->tooltip = "Stop the game";
+	m_stopButton->tooltip = "Stop the game [F5]";
 	m_nextButton->tooltip = "Step to the next frame";
 
 	CreateWidget<Layout::Spacing>(0).lineBreak = false;

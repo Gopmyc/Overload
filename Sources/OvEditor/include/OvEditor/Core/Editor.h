@@ -58,6 +58,12 @@ namespace OvEditor::Core
 		void HandleGlobalShortcuts();
 
 		/**
+		* Give the game its input only while the Game View has the focus during play: elsewhere the editor keeps the
+		* keys and the mouse, and the game sees nothing
+		*/
+		void UpdateGameInputGate();
+
+		/**
 		* Update the current editor mode
 		* @param p_deltaTime
 		*/

@@ -34,6 +34,7 @@
 #include <OvCore/Global/QuitRequest.h>
 #include <OvCore/Helpers/GUIDrawer.h>
 #include <OvCore/Helpers/GUIHelpers.h>
+#include <OvCore/Helpers/InputHelpers.h>
 
 #include <OvEditor/Core/EditorActions.h>
 #include <OvEditor/Core/GizmoBehaviour.h>
@@ -984,6 +985,7 @@ void OvEditor::Core::EditorActions::StartPlaying()
 			tinyxml2::XMLNode* node = m_sceneBackup->NewElement("root");
 			m_sceneBackup->InsertFirstChild(node);
 			m_context.sceneManager.GetCurrentScene()->OnSerialize(*m_sceneBackup, node);
+			OvCore::Helpers::InputHelpers::ResetGameInputGate();
 			m_panelsManager.GetPanelAs<OvEditor::Panels::GameView>("Game View").Focus();
 			m_context.sceneManager.GetCurrentScene()->Play();
 			SetEditorMode(EEditorMode::PLAY);
@@ -992,6 +994,7 @@ void OvEditor::Core::EditorActions::StartPlaying()
 	else
 	{
 		m_context.audioEngine->Unsuspend();
+		m_panelsManager.GetPanelAs<OvEditor::Panels::GameView>("Game View").Focus();
 		SetEditorMode(EEditorMode::PLAY);
 	}
 }
@@ -1007,6 +1010,7 @@ void OvEditor::Core::EditorActions::StopPlaying()
 	if (m_editorMode != EEditorMode::EDIT)
 	{
 		m_context.window->SetCursorMode(OvWindowing::Cursor::ECursorMode::NORMAL);
+		OvCore::Helpers::InputHelpers::ResetGameInputGate();
 		m_context.clock.SetTimeScale(1.0f);
 		SetEditorMode(EEditorMode::EDIT);
 		bool loadedFromDisk = m_context.sceneManager.IsCurrentSceneLoadedFromDisk();

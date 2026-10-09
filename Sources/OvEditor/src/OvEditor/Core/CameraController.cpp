@@ -504,14 +504,17 @@ void OvEditor::Core::CameraController::HandleMousePressed()
 		m_leftMousePressed = true;
 	}
 
+	// ImGui only moves the focus on a left click: a view flown with the other buttons takes it too, away from a game
 	if (m_inputManager.IsMouseButtonPressed(OvWindowing::Inputs::EMouseButton::MOUSE_BUTTON_MIDDLE))
 	{
+		m_view.Focus();
 		m_window.SetCursorShape(OvWindowing::Cursor::ECursorShape::HAND);
 		m_middleMousePressed = true;
 	}
 
 	if (m_inputManager.IsMouseButtonPressed(OvWindowing::Inputs::EMouseButton::MOUSE_BUTTON_RIGHT))
 	{
+		m_view.Focus();
 		m_rightMousePressed = true;
 		m_window.SetCursorMode(OvWindowing::Cursor::ECursorMode::DISABLED);
 	}
