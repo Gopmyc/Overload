@@ -267,22 +267,19 @@ void BindLuaGlobal(sol::state& p_luaState)
 	);
 
 	p_luaState.create_named_table("Inputs",
-		"GetKeyDown", [](EKey p_key) { return OVSERVICE(InputManager).IsKeyPressed(p_key); },
-		"GetKeyUp", [](EKey p_key) { return OVSERVICE(InputManager).IsKeyReleased(p_key); },
-		"GetKey", [](EKey p_key) { return OVSERVICE(InputManager).GetKeyState(p_key) == EKeyState::KEY_DOWN; },
+		"GetKeyDown", [](EKey p_key) { return OvCore::Helpers::InputHelpers::GetKeyDown(p_key); },
+		"GetKeyUp", [](EKey p_key) { return OvCore::Helpers::InputHelpers::GetKeyUp(p_key); },
+		"GetKey", [](EKey p_key) { return OvCore::Helpers::InputHelpers::GetKey(p_key); },
 		"GetKeyName", [](EKey p_key) { return OVSERVICE(InputManager).GetKeyName(p_key); },
-		"GetMouseButtonDown", [](EMouseButton p_button) { return OVSERVICE(InputManager).IsMouseButtonPressed(p_button); },
-		"GetMouseButtonUp", [](EMouseButton p_button) { return OVSERVICE(InputManager).IsMouseButtonReleased(p_button); },
-		"GetMouseButton", [](EMouseButton p_button) { return OVSERVICE(InputManager).GetMouseButtonState(p_button) == EMouseButtonState::MOUSE_DOWN; },
+		"GetMouseButtonDown", [](EMouseButton p_button) { return OvCore::Helpers::InputHelpers::GetMouseButtonDown(p_button); },
+		"GetMouseButtonUp", [](EMouseButton p_button) { return OvCore::Helpers::InputHelpers::GetMouseButtonUp(p_button); },
+		"GetMouseButton", [](EMouseButton p_button) { return OvCore::Helpers::InputHelpers::GetMouseButton(p_button); },
 		"GetMousePos", []() { return OvCore::Helpers::InputHelpers::GetMousePosition(); },
 		"GetViewportSize", []() { return OvCore::Helpers::InputHelpers::GetViewportSize(); },
-		"GetMouseScroll", []() {
-			const auto scroll = OVSERVICE(InputManager).GetMouseScroll();
-			return FVector2(static_cast<float>(scroll.first), static_cast<float>(scroll.second));
-		},
-		"LockMouse", []() { return OVSERVICE(Window).SetCursorMode(Cursor::ECursorMode::DISABLED); },
-		"UnlockMouse", []() { return OVSERVICE(Window).SetCursorMode(Cursor::ECursorMode::NORMAL); },
-		"SetCursorShape", [](Cursor::ECursorShape p_shape) { OVSERVICE(Window).SetCursorShape(p_shape); }
+		"GetMouseScroll", []() { return OvCore::Helpers::InputHelpers::GetMouseScroll(); },
+		"LockMouse", []() { OvCore::Helpers::InputHelpers::SetMouseLocked(true); },
+		"UnlockMouse", []() { OvCore::Helpers::InputHelpers::SetMouseLocked(false); },
+		"SetCursorShape", [](Cursor::ECursorShape p_shape) { OvCore::Helpers::InputHelpers::SetCursorShape(p_shape); }
 	);
 
 	p_luaState.create_named_table("Scenes",

@@ -1,6 +1,6 @@
 ---@meta
 
---- Some global inputs functions
+--- Some global inputs functions. In the editor, the game only gets input while the Game View has the focus
 ---@class Inputs
 Inputs = {}
 
