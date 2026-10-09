@@ -125,7 +125,7 @@ void OvCore::Rendering::PostProcess::BloomEffect::Draw(
 		return;
 	}
 
-	const auto preferredPassCount = static_cast<uint32_t>(bloomSettings.passes);
+	const auto preferredPassCount = static_cast<uint32_t>(std::max(bloomSettings.passes, 1));
 
 	// We want to make sure we don't downsample too much (shouldn't go past 1x1).
 	const auto maxPassCountForCurrentResolution = std::max(
