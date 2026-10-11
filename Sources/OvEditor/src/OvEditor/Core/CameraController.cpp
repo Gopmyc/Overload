@@ -185,6 +185,12 @@ void OvEditor::Core::CameraController::HandleInputs(float p_deltaTime)
 	// is released outside the view.
 	HandleMouseReleased();
 
+	// Stored again every frame of a pan, so that no other shape set this frame (the game's being taken back) replaces it
+	if (m_middleMousePressed)
+	{
+		m_window.SetCursorShape(OvWindowing::Cursor::ECursorShape::HAND);
+	}
+
 	if (m_view.IsHovered())
 	{
 		HandleMousePressed();
