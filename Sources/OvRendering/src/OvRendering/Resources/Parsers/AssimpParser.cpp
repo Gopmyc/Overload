@@ -866,7 +866,14 @@ namespace
 		// Directions take the node's rotation and scale, never its translation; normals the inverse transpose of them
 		const aiMatrix3x3 directionTransform(p_transform);
 		aiMatrix3x3 normalTransform(p_transform);
-		if (std::abs(normalTransform.Determinant()) > std::numeric_limits<float>::epsilon())
+
+		// Singular only next to its own scale: a determinant is at most the product of the column lengths
+		const float columnScale =
+			aiVector3D(normalTransform.a1, normalTransform.b1, normalTransform.c1).Length() *
+			aiVector3D(normalTransform.a2, normalTransform.b2, normalTransform.c2).Length() *
+			aiVector3D(normalTransform.a3, normalTransform.b3, normalTransform.c3).Length();
+
+		if (std::abs(normalTransform.Determinant()) > columnScale * 1e-6f)
 		{
 			normalTransform.Inverse().Transpose();
 		}
