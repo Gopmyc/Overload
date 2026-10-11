@@ -73,7 +73,7 @@ OvEditor::Panels::Toolbar::Toolbar
 
 	m_playButton->tooltip = "Play (or resume) the game [F5]";
 	m_pauseButton->tooltip = "Pause the game";
-	m_stopButton->tooltip = "Stop the game [F5]";
+	m_stopButton->tooltip = "Stop the game [F5 while playing]";
 	m_nextButton->tooltip = "Step to the next frame";
 
 	CreateWidget<Layout::Spacing>(0).lineBreak = false;
