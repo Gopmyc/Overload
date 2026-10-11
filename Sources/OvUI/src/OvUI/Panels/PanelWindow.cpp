@@ -188,6 +188,12 @@ void OvUI::Panels::PanelWindow::_Draw_Impl()
 				ImGui::EndDisabled();
 			}
 		}
+		else
+		{
+			// Collapsed, or a hidden tab: nothing of it can have the focus or the mouse
+			m_hovered = false;
+			m_focused = false;
+		}
 
 		ImGui::End();
 	}
