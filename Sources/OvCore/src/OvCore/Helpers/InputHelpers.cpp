@@ -237,9 +237,14 @@ OvMaths::FVector2 OvCore::Helpers::InputHelpers::GetMouseScroll()
 
 void OvCore::Helpers::InputHelpers::SetMouseLocked(bool p_locked)
 {
+	// Asked again (some games lock every frame), the offset that hides a reopening stays
+	if (p_locked != __MOUSE_LOCK_REQUESTED)
+	{
+		__LOCKED_MOUSE_OFFSET = {};
+		__REBASE_MOUSE = false;
+	}
+
 	__MOUSE_LOCK_REQUESTED = p_locked;
-	__LOCKED_MOUSE_OFFSET = {};
-	__REBASE_MOUSE = false;
 
 	if (__GAME_INPUT_OPEN)
 	{
