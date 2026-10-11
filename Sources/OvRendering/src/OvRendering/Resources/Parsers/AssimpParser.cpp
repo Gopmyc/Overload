@@ -863,26 +863,29 @@ namespace
 			return nullptr;
 		}
 
-		// Directions take the node's rotation and scale, never its translation; normals the inverse transpose of them
+		// Directions take the node's rotation and scale, never its translation. Normals take its cofactors, the inverse
+		// transpose times the determinant: no division, so a node flattened or scaled down to nothing still gives them
 		const aiMatrix3x3 directionTransform(p_transform);
-		aiMatrix3x3 normalTransform(p_transform);
-
-		// Singular only next to its own scale: a determinant is at most the product of the column lengths
-		const float columnScale =
-			aiVector3D(normalTransform.a1, normalTransform.b1, normalTransform.c1).Length() *
-			aiVector3D(normalTransform.a2, normalTransform.b2, normalTransform.c2).Length() *
-			aiVector3D(normalTransform.a3, normalTransform.b3, normalTransform.c3).Length();
-
-		if (std::abs(normalTransform.Determinant()) > columnScale * 1e-6f)
-		{
-			normalTransform.Inverse().Transpose();
-		}
+		const aiMatrix3x3& m = directionTransform;
+		const float handedness = m.Determinant() < 0.0f ? -1.0f : 1.0f;
+		const aiMatrix3x3 normalTransform(
+			handedness * (m.b2 * m.c3 - m.b3 * m.c2), handedness * (m.b3 * m.c1 - m.b1 * m.c3), handedness * (m.b1 * m.c2 - m.b2 * m.c1),
+			handedness * (m.a3 * m.c2 - m.a2 * m.c3), handedness * (m.a1 * m.c3 - m.a3 * m.c1), handedness * (m.a2 * m.c1 - m.a1 * m.c2),
+			handedness * (m.a2 * m.b3 - m.a3 * m.b2), handedness * (m.a3 * m.b1 - m.a1 * m.b3), handedness * (m.a1 * m.b2 - m.a2 * m.b1)
+		);
 
 		auto fillGeometry = [&](OvRendering::Geometry::Vertex& v, uint32_t i)
 		{
 			const aiVector3D position = p_transform * p_mesh->mVertices[i];
 			const aiVector3D texCoords = p_mesh->mTextureCoords[0] ? p_mesh->mTextureCoords[0][i] : aiVector3D(0.0f, 0.0f, 0.0f);
-			const aiVector3D normal = (normalTransform * (p_mesh->mNormals ? p_mesh->mNormals[i] : aiVector3D(0.0f, 0.0f, 0.0f))).NormalizeSafe();
+			const aiVector3D sourceNormal = p_mesh->mNormals ? p_mesh->mNormals[i] : aiVector3D(0.0f, 0.0f, 0.0f);
+			aiVector3D normal = (normalTransform * sourceNormal).NormalizeSafe();
+
+			if (const float length = normal.SquareLength(); !std::isfinite(length) || length == 0.0f)
+			{
+				normal = aiVector3D(sourceNormal).NormalizeSafe();
+			}
+
 			const aiVector3D tangent = (directionTransform * (p_mesh->mTangents ? p_mesh->mTangents[i] : aiVector3D(0.0f, 0.0f, 0.0f))).NormalizeSafe();
 			const aiVector3D bitangent = (directionTransform * (p_mesh->mBitangents ? p_mesh->mBitangents[i] : aiVector3D(0.0f, 0.0f, 0.0f))).NormalizeSafe();
 
