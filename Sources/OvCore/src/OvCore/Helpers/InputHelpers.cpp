@@ -31,6 +31,7 @@ namespace
 	bool __GAME_INPUT_OPEN = true;
 	bool __MOUSE_OVER_GAME = true;
 	bool __MOUSE_LOCK_REQUESTED = false;
+	bool __CURSOR_SHAPE_SET = false;
 
 	// Held when the gate opened, or pressed for the host: hidden from the game until released
 	std::unordered_set<EKey> __IGNORED_KEYS;
@@ -112,7 +113,13 @@ namespace
 		if (__MOUSE_LOCK_REQUESTED)
 		{
 			ApplyMouseLock(false);
+		}
+
+		// The window keeps a shape until another is set: the game's goes with its input
+		if (__MOUSE_LOCK_REQUESTED || __CURSOR_SHAPE_SET)
+		{
 			OVSERVICE(OvWindowing::Window).SetCursorShape(OvWindowing::Cursor::ECursorShape::ARROW);
+			__CURSOR_SHAPE_SET = false;
 		}
 	}
 
@@ -245,6 +252,7 @@ void OvCore::Helpers::InputHelpers::SetCursorShape(OvWindowing::Cursor::ECursorS
 	if (__GAME_INPUT_OPEN)
 	{
 		OVSERVICE(OvWindowing::Window).SetCursorShape(p_shape);
+		__CURSOR_SHAPE_SET = p_shape != OvWindowing::Cursor::ECursorShape::ARROW;
 	}
 }
 
@@ -290,6 +298,7 @@ void OvCore::Helpers::InputHelpers::ResetGameInputGate()
 	__GAME_INPUT_OPEN = false;
 	__MOUSE_OVER_GAME = true;
 	__MOUSE_LOCK_REQUESTED = false;
+	__CURSOR_SHAPE_SET = false;
 	__IGNORED_KEYS.clear();
 	__IGNORED_BUTTONS.clear();
 	__RELEASED_KEYS.clear();
