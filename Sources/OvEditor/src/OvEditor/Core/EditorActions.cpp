@@ -1010,7 +1010,7 @@ void OvEditor::Core::EditorActions::StopPlaying()
 	if (m_editorMode != EEditorMode::EDIT)
 	{
 		m_context.window->SetCursorMode(OvWindowing::Cursor::ECursorMode::NORMAL);
-		m_context.window->SetCursorShape(OvWindowing::Cursor::ECursorShape::ARROW);
+		OvCore::Helpers::InputHelpers::UpdateGameInputGate(false, true); // The game's lock and cursor shape leave with it
 		OvCore::Helpers::InputHelpers::ResetGameInputGate();
 		m_context.clock.SetTimeScale(1.0f);
 		SetEditorMode(EEditorMode::EDIT);
