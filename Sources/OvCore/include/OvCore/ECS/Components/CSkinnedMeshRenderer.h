@@ -380,8 +380,11 @@ namespace OvCore::ECS::Components
 			// Runtime data, rebuilt whenever the model or the layer animation source changes.
 			// sourceNodeByTargetNode maps a rendered skeleton node to the source node driving it
 			// (-1 when unanimated), and is empty when the source is incompatible.
+			// restOffsetByTargetNode is the rendered node's rest position minus its source node's: added to the
+			// clip's positions, it plays the clip on a rig whose bones have other lengths (zero for the same rig).
 			std::vector<std::string> animationNames;
 			std::vector<int32_t> sourceNodeByTargetNode;
+			std::vector<OvMaths::FVector3> restOffsetByTargetNode;
 		};
 
 		// Per-layer data sampled once per pose evaluation, before blending the skeleton node by node
@@ -393,6 +396,7 @@ namespace OvCore::ECS::Components
 			float weight = 1.0f;
 			bool looping = true;
 			const std::vector<int32_t>* sourceNodeByTargetNode = nullptr;
+			const std::vector<OvMaths::FVector3>* restOffsetByTargetNode = nullptr;
 		};
 
 		bool HasCompatibleModel() const;

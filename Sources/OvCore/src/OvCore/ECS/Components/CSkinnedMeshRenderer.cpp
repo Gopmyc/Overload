@@ -174,12 +174,18 @@ namespace
 		p_rotation = OvMaths::FQuaternion(rotationMatrix);
 	}
 
-	bool AreMatricesClose(const OvMaths::FMatrix4& p_left, const OvMaths::FMatrix4& p_right)
+	// A node's rest rotation and scale, without its translation: rigs that only differ by their bone lengths match
+	bool AreRestShapesClose(const OvMaths::FMatrix4& p_left, const OvMaths::FMatrix4& p_right)
 	{
 		constexpr float kSkeletonTransformTolerance = 0.0001f;
 
 		for (uint8_t i = 0; i < 16; ++i)
 		{
+			if (i == 3 || i == 7 || i == 11)
+			{
+				continue;
+			}
+
 			if (std::abs(p_left.data[i] - p_right.data[i]) > kSkeletonTransformTolerance)
 			{
 				return false;
@@ -287,7 +293,7 @@ namespace
 				return false;
 			}
 
-			if (!AreMatricesClose(targetNode.localBindTransform, sourceNode.localBindTransform))
+			if (!AreRestShapesClose(targetNode.localBindTransform, sourceNode.localBindTransform))
 			{
 				return false;
 			}
@@ -495,6 +501,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::SetLayerMask(const std::stri
 	std::vector<int32_t> nodeMapScratch;
 	layer->animationNames.clear();
 	layer->sourceNodeByTargetNode.clear();
+	layer->restOffsetByTargetNode.clear();
 	RebuildLayerRuntimeData(*layer, nodeMapScratch);
 
 	m_poseEvaluationAccumulator = 0.0f;
@@ -1282,6 +1289,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 	{
 		layer.animationNames.clear();
 		layer.sourceNodeByTargetNode.clear();
+		layer.restOffsetByTargetNode.clear();
 	}
 
 	if (!HasCompatibleModel())
@@ -1332,13 +1340,18 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildLayerRuntimeData(Anim
 		return;
 	}
 
+	const auto& sourceSkeleton = animationModel->GetSkeleton().value();
+
 	p_layer.sourceNodeByTargetNode.assign(skeleton.nodes.size(), -1);
+	p_layer.restOffsetByTargetNode.assign(skeleton.nodes.size(), OvMaths::FVector3::Zero);
 	for (size_t sourceNodeIndex = 0; sourceNodeIndex < p_nodeMapScratch.size(); ++sourceNodeIndex)
 	{
 		const int32_t targetNodeIndex = p_nodeMapScratch[sourceNodeIndex];
 		if (targetNodeIndex >= 0 && static_cast<size_t>(targetNodeIndex) < p_layer.sourceNodeByTargetNode.size())
 		{
 			p_layer.sourceNodeByTargetNode[targetNodeIndex] = static_cast<int32_t>(sourceNodeIndex);
+			p_layer.restOffsetByTargetNode[targetNodeIndex] =
+				skeleton.nodes[targetNodeIndex].bindPosition - sourceSkeleton.nodes[sourceNodeIndex].bindPosition;
 		}
 	}
 
@@ -1468,7 +1481,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 			(layer.looping ? WrapTime(layer.timeTicks, duration) : std::clamp(layer.timeTicks, 0.0f, duration)) :
 			0.0f;
 
-		m_activeLayerSamples.push_back({ &animation, sampleTime, duration, layer.weight, layer.looping, &layer.sourceNodeByTargetNode });
+		m_activeLayerSamples.push_back({ &animation, sampleTime, duration, layer.weight, layer.looping, &layer.sourceNodeByTargetNode, &layer.restOffsetByTargetNode });
 	}
 
 	for (size_t targetNodeIndex = 0; targetNodeIndex < skeleton.nodes.size(); ++targetNodeIndex)
@@ -1494,14 +1507,16 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 				continue;
 			}
 
+			// The clip moves the bone from its own rig's rest; the same motion starts from this model's rest
+			const OvMaths::FVector3& restOffset = (*activeLayer.restOffsetByTargetNode)[targetNodeIndex];
 			const OvMaths::FVector3 sampledPosition = SampleKeys(
 				track->positionKeys,
 				activeLayer.sampleTime,
 				activeLayer.duration,
-				node.bindPosition,
+				node.bindPosition - restOffset,
 				activeLayer.looping,
 				[](const auto& p_a, const auto& p_b, float p_alpha) { return OvMaths::FVector3::Lerp(p_a, p_b, p_alpha); }
-			);
+			) + restOffset;
 
 			const OvMaths::FQuaternion sampledRotation = SampleKeys(
 				track->rotationKeys,
