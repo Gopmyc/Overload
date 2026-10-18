@@ -502,6 +502,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::SetLayerMask(const std::stri
 	layer->animationNames.clear();
 	layer->sourceNodeByTargetNode.clear();
 	layer->restOffsetByTargetNode.clear();
+	layer->restScaleByTargetNode.clear();
 	RebuildLayerRuntimeData(*layer, nodeMapScratch);
 
 	m_poseEvaluationAccumulator = 0.0f;
@@ -1290,6 +1291,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 		layer.animationNames.clear();
 		layer.sourceNodeByTargetNode.clear();
 		layer.restOffsetByTargetNode.clear();
+		layer.restScaleByTargetNode.clear();
 	}
 
 	if (!HasCompatibleModel())
@@ -1344,14 +1346,22 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildLayerRuntimeData(Anim
 
 	p_layer.sourceNodeByTargetNode.assign(skeleton.nodes.size(), -1);
 	p_layer.restOffsetByTargetNode.assign(skeleton.nodes.size(), OvMaths::FVector3::Zero);
+	p_layer.restScaleByTargetNode.assign(skeleton.nodes.size(), 1.0f);
 	for (size_t sourceNodeIndex = 0; sourceNodeIndex < p_nodeMapScratch.size(); ++sourceNodeIndex)
 	{
 		const int32_t targetNodeIndex = p_nodeMapScratch[sourceNodeIndex];
 		if (targetNodeIndex >= 0 && static_cast<size_t>(targetNodeIndex) < p_layer.sourceNodeByTargetNode.size())
 		{
 			p_layer.sourceNodeByTargetNode[targetNodeIndex] = static_cast<int32_t>(sourceNodeIndex);
-			p_layer.restOffsetByTargetNode[targetNodeIndex] =
-				skeleton.nodes[targetNodeIndex].bindPosition - sourceSkeleton.nodes[sourceNodeIndex].bindPosition;
+			const OvMaths::FVector3& targetRest = skeleton.nodes[targetNodeIndex].bindPosition;
+			const OvMaths::FVector3& sourceRest = sourceSkeleton.nodes[sourceNodeIndex].bindPosition;
+			p_layer.restOffsetByTargetNode[targetNodeIndex] = targetRest - sourceRest;
+
+			const float sourceLength = OvMaths::FVector3::Length(sourceRest);
+			if (sourceLength > 0.0001f)
+			{
+				p_layer.restScaleByTargetNode[targetNodeIndex] = OvMaths::FVector3::Length(targetRest) / sourceLength;
+			}
 		}
 	}
 
@@ -1481,7 +1491,7 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 			(layer.looping ? WrapTime(layer.timeTicks, duration) : std::clamp(layer.timeTicks, 0.0f, duration)) :
 			0.0f;
 
-		m_activeLayerSamples.push_back({ &animation, sampleTime, duration, layer.weight, layer.looping, &layer.sourceNodeByTargetNode, &layer.restOffsetByTargetNode });
+		m_activeLayerSamples.push_back({ &animation, sampleTime, duration, layer.weight, layer.looping, &layer.sourceNodeByTargetNode, &layer.restOffsetByTargetNode, &layer.restScaleByTargetNode });
 	}
 
 	for (size_t targetNodeIndex = 0; targetNodeIndex < skeleton.nodes.size(); ++targetNodeIndex)
@@ -1507,16 +1517,22 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 				continue;
 			}
 
-			// The clip moves the bone from its own rig's rest; the same motion starts from this model's rest
+			// The clip moves the bone from its own rig's rest; the same motion, scaled to this bone's rest length,
+			// starts from this model's rest (no change at all for the same rig: offset zero, scale one)
 			const OvMaths::FVector3& restOffset = (*activeLayer.restOffsetByTargetNode)[targetNodeIndex];
-			const OvMaths::FVector3 sampledPosition = SampleKeys(
+			const float restScale = (*activeLayer.restScaleByTargetNode)[targetNodeIndex];
+			const OvMaths::FVector3 sourceRest = node.bindPosition - restOffset;
+			const OvMaths::FVector3 clipPosition = SampleKeys(
 				track->positionKeys,
 				activeLayer.sampleTime,
 				activeLayer.duration,
-				node.bindPosition - restOffset,
+				sourceRest,
 				activeLayer.looping,
 				[](const auto& p_a, const auto& p_b, float p_alpha) { return OvMaths::FVector3::Lerp(p_a, p_b, p_alpha); }
-			) + restOffset;
+			);
+			const OvMaths::FVector3 sampledPosition = restScale == 1.0f ?
+				clipPosition + restOffset :
+				clipPosition + restOffset + (clipPosition - sourceRest) * (restScale - 1.0f);
 
 			const OvMaths::FQuaternion sampledRotation = SampleKeys(
 				track->rotationKeys,

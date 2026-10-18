@@ -382,9 +382,12 @@ namespace OvCore::ECS::Components
 			// (-1 when unanimated), and is empty when the source is incompatible.
 			// restOffsetByTargetNode is the rendered node's rest position minus its source node's: added to the
 			// clip's positions, it plays the clip on a rig whose bones have other lengths (zero for the same rig).
+			// restScaleByTargetNode is the ratio of their rest lengths: the clip's move away from its own rest is
+			// scaled by it, so a longer leg dips its hips further (one for the same rig).
 			std::vector<std::string> animationNames;
 			std::vector<int32_t> sourceNodeByTargetNode;
 			std::vector<OvMaths::FVector3> restOffsetByTargetNode;
+			std::vector<float> restScaleByTargetNode;
 		};
 
 		// Per-layer data sampled once per pose evaluation, before blending the skeleton node by node
@@ -397,6 +400,7 @@ namespace OvCore::ECS::Components
 			bool looping = true;
 			const std::vector<int32_t>* sourceNodeByTargetNode = nullptr;
 			const std::vector<OvMaths::FVector3>* restOffsetByTargetNode = nullptr;
+			const std::vector<float>* restScaleByTargetNode = nullptr;
 		};
 
 		bool HasCompatibleModel() const;
