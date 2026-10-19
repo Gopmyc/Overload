@@ -166,7 +166,35 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetBoneGlobalScale", &CSkinnedMeshRenderer::GetBoneGlobalScale,
 		"SetBoneLocalPosition", &CSkinnedMeshRenderer::SetBoneLocalPosition,
 		"SetBoneLocalRotation", &CSkinnedMeshRenderer::SetBoneLocalRotation,
-		"SetBoneLocalScale", &CSkinnedMeshRenderer::SetBoneLocalScale
+		"SetBoneLocalScale", &CSkinnedMeshRenderer::SetBoneLocalScale,
+		"StartRagdoll", [](CSkinnedMeshRenderer& p_this, sol::table p_parts, sol::optional<FVector3> p_linearVelocity)
+		{
+			std::vector<CSkinnedMeshRenderer::RagdollPart> parts;
+
+			for (size_t index = 1; index <= p_parts.size(); ++index)
+			{
+				const sol::optional<sol::table> entry = p_parts[index];
+				if (!entry.has_value())
+				{
+					continue;
+				}
+
+				CSkinnedMeshRenderer::RagdollPart part;
+				part.bone = entry->get_or<std::string>("Bone", "");
+				part.to = entry->get_or<std::string>("To", "");
+				part.length = entry->get_or("Length", part.length);
+				part.radius = entry->get_or("Radius", part.radius);
+				part.mass = entry->get_or("Mass", part.mass);
+				part.swing = entry->get_or("Swing", part.swing);
+				part.twist = entry->get_or("Twist", part.twist);
+				parts.push_back(std::move(part));
+			}
+
+			return p_this.StartRagdoll(parts, p_linearVelocity.value_or(FVector3::Zero));
+		},
+		"StopRagdoll", &CSkinnedMeshRenderer::StopRagdoll,
+		"IsRagdoll", &CSkinnedMeshRenderer::IsRagdoll,
+		"AddRagdollImpulse", &CSkinnedMeshRenderer::AddRagdollImpulse
 	);
 
 	p_luaState.new_enum<OvPhysics::Entities::PhysicalObject::ECollisionDetectionMode>("CollisionDetectionMode", {

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 
 #include <optional>
 #include <string>
@@ -22,6 +23,9 @@
 #include <OvDebug/Logger.h>
 #include <OvMaths/FMatrix3.h>
 #include <OvMaths/FTransform.h>
+#include <OvMaths/FVector4.h>
+#include <OvPhysics/Core/PhysicsEngine.h>
+#include <OvPhysics/Entities/Ragdoll.h>
 #include <OvUI/Plugins/DataDispatcher.h>
 #include <OvUI/Styling/Style.h>
 #include <OvUI/Widgets/Buttons/Button.h>
@@ -172,6 +176,23 @@ namespace
 		);
 
 		p_rotation = OvMaths::FQuaternion(rotationMatrix);
+	}
+
+	OvMaths::FVector3 GetTranslation(const OvMaths::FMatrix4& p_matrix)
+	{
+		return { p_matrix.data[3], p_matrix.data[7], p_matrix.data[11] };
+	}
+
+	OvMaths::FVector3 TransformPoint(const OvMaths::FMatrix4& p_matrix, const OvMaths::FVector3& p_point)
+	{
+		const OvMaths::FVector4 result = OvMaths::FMatrix4::Multiply(p_matrix, OvMaths::FVector4(p_point, 1.0f));
+		return { result.x, result.y, result.z };
+	}
+
+	OvMaths::FVector3 TransformDirection(const OvMaths::FMatrix4& p_matrix, const OvMaths::FVector3& p_direction)
+	{
+		const OvMaths::FVector4 result = OvMaths::FMatrix4::Multiply(p_matrix, OvMaths::FVector4(p_direction, 0.0f));
+		return { result.x, result.y, result.z };
 	}
 
 	// A node's rest rotation and scale, without its translation: rigs that only differ by their bone lengths match
@@ -339,6 +360,8 @@ OvCore::ECS::Components::CSkinnedMeshRenderer::CSkinnedMeshRenderer(ECS::Actor& 
 	NotifyModelChanged();
 }
 
+OvCore::ECS::Components::CSkinnedMeshRenderer::~CSkinnedMeshRenderer() = default;
+
 std::string OvCore::ECS::Components::CSkinnedMeshRenderer::GetName()
 {
 	return "Skinned Mesh Renderer";
@@ -364,7 +387,7 @@ bool OvCore::ECS::Components::CSkinnedMeshRenderer::HasSkinningData() const
 
 	return HasCompatibleModel() &&
 		!m_boneMatrices.empty() &&
-		(hasAnimatedLayer || m_manualPoseOverride);
+		(hasAnimatedLayer || m_manualPoseOverride || m_ragdoll != nullptr);
 }
 
 uint32_t OvCore::ECS::Components::CSkinnedMeshRenderer::GetLayerCount() const
@@ -890,6 +913,13 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnUpdate(float p_deltaTime)
 		return;
 	}
 
+	// The ragdoll moves on every simulation step, and the animation waits for it to stop
+	if (m_ragdoll)
+	{
+		RecomputeBoneMatricesFromLocalPose();
+		return;
+	}
+
 	bool timeChanged = false;
 	bool playbackStateChanged = false;
 
@@ -931,6 +961,206 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnUpdate(float p_deltaTime)
 
 		EvaluatePose();
 	}
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::OnDisable()
+{
+	StopRagdoll();
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::OnDestroy()
+{
+	m_ragdoll.reset();
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::StartRagdoll(const std::vector<RagdollPart>& p_parts, const OvMaths::FVector3& p_linearVelocity)
+{
+	StopRagdoll();
+
+	if (!HasCompatibleModel() || p_parts.empty())
+	{
+		return false;
+	}
+
+	const auto& skeleton = m_model->GetSkeleton().value();
+
+	if (m_globalPose.size() != skeleton.nodes.size())
+	{
+		return false;
+	}
+
+	// The capsules are measured on the rest pose, so the pose the body is in never bends them
+	std::vector<OvMaths::FMatrix4> restPose(skeleton.nodes.size());
+
+	for (size_t nodeIndex = 0; nodeIndex < skeleton.nodes.size(); ++nodeIndex)
+	{
+		const auto parentIndex = skeleton.nodes[nodeIndex].parentIndex;
+		restPose[nodeIndex] = parentIndex >= 0 ?
+			restPose[static_cast<size_t>(parentIndex)] * skeleton.nodes[nodeIndex].localBindTransform :
+			skeleton.nodes[nodeIndex].localBindTransform;
+	}
+
+	// The parts in the skeleton's order, which puts every parent before its children
+	std::vector<std::pair<uint32_t, const RagdollPart*>> parts;
+
+	for (const auto& part : p_parts)
+	{
+		const auto nodeIndex = skeleton.FindNodeIndex(part.bone);
+		if (!nodeIndex.has_value())
+		{
+			OVLOG_WARNING("Ragdoll: no bone named \"" + part.bone + "\"");
+			return false;
+		}
+
+		parts.emplace_back(*nodeIndex, &part);
+	}
+
+	std::sort(parts.begin(), parts.end(), [](const auto& p_left, const auto& p_right) { return p_left.first < p_right.first; });
+
+	std::vector<int32_t> partByNode(skeleton.nodes.size(), -1);
+
+	for (size_t partIndex = 0; partIndex < parts.size(); ++partIndex)
+	{
+		auto& part = partByNode[parts[partIndex].first];
+		if (part >= 0)
+		{
+			OVLOG_WARNING("Ragdoll: the bone \"" + parts[partIndex].second->bone + "\" is given twice");
+			return false;
+		}
+
+		part = static_cast<int32_t>(partIndex);
+	}
+
+	const OvMaths::FMatrix4& modelToWorld = owner.transform.GetWorldMatrix();
+
+	std::vector<OvPhysics::Settings::RagdollPartSettings> settings;
+	std::vector<OvMaths::FVector3> scales;
+	settings.reserve(parts.size());
+	scales.reserve(parts.size());
+
+	for (const auto& [nodeIndex, part] : parts)
+	{
+		const auto& node = skeleton.nodes[nodeIndex];
+
+		OvPhysics::Settings::RagdollPartSettings partSettings;
+
+		// It hangs from the nearest part above it
+		for (int32_t ancestor = node.parentIndex; ancestor >= 0; ancestor = skeleton.nodes[static_cast<size_t>(ancestor)].parentIndex)
+		{
+			if (partByNode[static_cast<size_t>(ancestor)] >= 0)
+			{
+				partSettings.parent = partByNode[static_cast<size_t>(ancestor)];
+				break;
+			}
+		}
+
+		const OvMaths::FMatrix4 joint = modelToWorld * m_globalPose[nodeIndex];
+
+		OvMaths::FVector3 scale;
+		DecomposeTransform(joint, partSettings.position, partSettings.rotation, scale);
+
+		// The capsule's far end, carried from the rest pose through the joint as it stands now
+		const OvMaths::FMatrix4 restToJoint = joint * OvMaths::FMatrix4::Inverse(restPose[nodeIndex]);
+		OvMaths::FVector3 end = partSettings.position;
+
+		if (!part->to.empty())
+		{
+			const auto endIndex = skeleton.FindNodeIndex(part->to);
+			if (!endIndex.has_value())
+			{
+				OVLOG_WARNING("Ragdoll: no bone named \"" + part->to + "\"");
+				return false;
+			}
+
+			end = TransformPoint(restToJoint, GetTranslation(restPose[*endIndex]));
+		}
+		else if (node.parentIndex >= 0)
+		{
+			const OvMaths::FVector3 restDirection = GetTranslation(restPose[nodeIndex]) - GetTranslation(restPose[static_cast<size_t>(node.parentIndex)]);
+			const OvMaths::FVector3 direction = TransformDirection(restToJoint, restDirection);
+			const float length = OvMaths::FVector3::Length(direction);
+
+			if (length > 0.0f)
+			{
+				end = partSettings.position + direction / length * part->length;
+			}
+		}
+
+		partSettings.capsuleEnd = OvMaths::FQuaternion::Inverse(partSettings.rotation) * (end - partSettings.position);
+		partSettings.radius = part->radius;
+		partSettings.mass = part->mass;
+		partSettings.swingLimit = part->swing * std::numbers::pi_v<float> / 180.0f;
+		partSettings.twistLimit = part->twist * std::numbers::pi_v<float> / 180.0f;
+
+		settings.push_back(partSettings);
+		scales.push_back(scale);
+	}
+
+	auto ragdoll = OVSERVICE(OvPhysics::Core::PhysicsEngine).CreateRagdoll(settings, p_linearVelocity);
+	if (!ragdoll)
+	{
+		return false;
+	}
+
+	m_ragdoll = std::move(ragdoll);
+	m_ragdollPartByNode = std::move(partByNode);
+	m_ragdollPartScales = std::move(scales);
+
+	RecomputeBoneMatricesFromLocalPose();
+	return true;
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::StopRagdoll()
+{
+	if (!m_ragdoll)
+	{
+		return;
+	}
+
+	m_ragdoll.reset();
+	m_ragdollPartByNode.clear();
+	m_ragdollPartScales.clear();
+
+	EvaluatePose();
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::IsRagdoll() const
+{
+	return m_ragdoll != nullptr;
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::AddRagdollImpulse(const std::string& p_boneName, const OvMaths::FVector3& p_impulse)
+{
+	if (!m_ragdoll || !HasCompatibleModel())
+	{
+		return false;
+	}
+
+	const auto nodeIndex = m_model->GetSkeleton()->FindNodeIndex(p_boneName);
+	const int32_t part = nodeIndex.has_value() ? FindRagdollPart(*nodeIndex) : -1;
+
+	if (part < 0)
+	{
+		return false;
+	}
+
+	m_ragdoll->AddImpulse(static_cast<size_t>(part), p_impulse);
+	return true;
+}
+
+int32_t OvCore::ECS::Components::CSkinnedMeshRenderer::FindRagdollPart(uint32_t p_nodeIndex) const
+{
+	const auto& skeleton = m_model->GetSkeleton().value();
+
+	for (int32_t node = static_cast<int32_t>(p_nodeIndex); node >= 0; node = skeleton.nodes[static_cast<size_t>(node)].parentIndex)
+	{
+		if (static_cast<size_t>(node) < m_ragdollPartByNode.size() && m_ragdollPartByNode[static_cast<size_t>(node)] >= 0)
+		{
+			return m_ragdollPartByNode[static_cast<size_t>(node)];
+		}
+	}
+
+	return -1;
 }
 
 void OvCore::ECS::Components::CSkinnedMeshRenderer::OnSerialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
@@ -1279,6 +1509,11 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::SyncWithModel()
 
 void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 {
+	// A ragdoll is made of the previous model's nodes
+	m_ragdoll.reset();
+	m_ragdollPartByNode.clear();
+	m_ragdollPartScales.clear();
+
 	m_localPose.clear();
 	m_globalPose.clear();
 	m_boneMatrices.clear();
@@ -1462,6 +1697,13 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 		return;
 	}
 
+	// The nodes the ragdoll does not move keep the pose they had when it started
+	if (m_ragdoll)
+	{
+		RecomputeBoneMatricesFromLocalPose();
+		return;
+	}
+
 	const auto& skeleton = m_model->GetSkeleton().value();
 
 	m_activeLayerSamples.clear();
@@ -1624,8 +1866,27 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RecomputeBoneMatricesFromLoc
 		return;
 	}
 
+	const bool hasRagdoll = m_ragdoll && m_ragdollPartByNode.size() == skeleton.nodes.size();
+
+	// The ragdoll's bodies stand in the world: they are brought back into the model's space
+	const OvMaths::FMatrix4 worldToModel = hasRagdoll ?
+		OvMaths::FMatrix4::Inverse(owner.transform.GetWorldMatrix()) :
+		OvMaths::FMatrix4::Identity;
+
 	for (size_t nodeIndex = 0; nodeIndex < skeleton.nodes.size(); ++nodeIndex)
 	{
+		if (hasRagdoll && m_ragdollPartByNode[nodeIndex] >= 0)
+		{
+			const auto part = static_cast<size_t>(m_ragdollPartByNode[nodeIndex]);
+
+			m_globalPose[nodeIndex] = worldToModel *
+				OvMaths::FMatrix4::Translation(m_ragdoll->GetPartPosition(part)) *
+				OvMaths::FQuaternion::ToMatrix4(OvMaths::FQuaternion::Normalize(m_ragdoll->GetPartRotation(part))) *
+				OvMaths::FMatrix4::Scaling(m_ragdollPartScales[part]);
+
+			continue;
+		}
+
 		const auto parentIndex = skeleton.nodes[nodeIndex].parentIndex;
 		m_globalPose[nodeIndex] =
 			parentIndex >= 0 ?

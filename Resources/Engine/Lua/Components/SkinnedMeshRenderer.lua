@@ -213,3 +213,35 @@ function SkinnedMeshRenderer:SetBoneLocalRotation(boneIndex, rotation) end
 ---@param scale Vector3
 ---@return boolean
 function SkinnedMeshRenderer:SetBoneLocalScale(boneIndex, scale) end
+
+--- One part of a ragdoll: the bone it moves, and a capsule from it to the bone To, or, without To, running Length
+--- metres on from the bone's parent. Swing and Twist are degrees
+---@class RagdollPart
+---@field Bone string
+---@field To string|nil
+---@field Length number|nil
+---@field Radius number|nil
+---@field Mass number|nil
+---@field Swing number|nil
+---@field Twist number|nil
+
+--- Hands the skeleton over to physics from the current pose: every part becomes a capsule joined to the nearest part
+--- above it, and the animation stops driving the skeleton until StopRagdoll. The ragdoll falls on everything but the
+--- dynamic bodies, which it goes through, and raycasts never see it. Returns false when a bone is unknown
+---@param parts RagdollPart[]
+---@param linearVelocity Vector3|nil Of every part at the start, world space
+---@return boolean
+function SkinnedMeshRenderer:StartRagdoll(parts, linearVelocity) end
+
+--- Removes the ragdoll from the simulation and gives the skeleton back to the animation
+function SkinnedMeshRenderer:StopRagdoll() end
+
+--- Returns true while a ragdoll drives the skeleton
+---@return boolean
+function SkinnedMeshRenderer:IsRagdoll() end
+
+--- Pushes the ragdoll's part that moves the given bone, or the nearest part above it
+---@param boneName string
+---@param impulse Vector3 World space
+---@return boolean
+function SkinnedMeshRenderer:AddRagdollImpulse(boneName, impulse) end
