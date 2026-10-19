@@ -244,9 +244,9 @@ void OvCore::Scripting::LuaScriptEngineBase::RemoveBehaviour(OvCore::ECS::Compon
 		)
 	);
 
-	// Unconsidering a script is impossible with Lua, we have to reparse every behaviours
-	// @note this might be costly, we should look into it more seriously.
-	Reload(); 
+	// Every behaviour holds a table of its own, released by RemoveScript, so there is nothing left to reparse.
+	// Rebuilding the state here would reset the other behaviours and the shared scripts, and a scene change,
+	// which removes every behaviour of the old scene, would lose what the game keeps for the whole session.
 }
 
 template<>
