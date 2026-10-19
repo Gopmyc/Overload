@@ -6,13 +6,17 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
+#include <memory>
 #include <optional>
 #include <vector>
 
 #include <OvPhysics/Entities/PhysicalObject.h>
+#include <OvPhysics/Entities/Ragdoll.h>
 #include <OvPhysics/Entities/RaycastHit.h>
 #include <OvPhysics/Settings/PhysicsSettings.h>
+#include <OvPhysics/Settings/RagdollPartSettings.h>
 
 namespace JPH
 {
@@ -72,6 +76,14 @@ namespace OvPhysics::Core
 		*/
 		OvMaths::FVector3 GetGravity() const;
 
+		/**
+		* Creates a ragdoll in the simulation, or returns nullptr when it cannot be made. Its parts fall on everything
+		* but the dynamic bodies, which they go through, and raycasts never see them
+		* @param p_parts (a parent always comes before its children)
+		* @param p_linearVelocity
+		*/
+		std::unique_ptr<Entities::Ragdoll> CreateRagdoll(const std::vector<Settings::RagdollPartSettings>& p_parts, const OvMaths::FVector3& p_linearVelocity);
+
 	private:
 		void PreUpdate();
 		void PostUpdate();
@@ -99,6 +111,7 @@ namespace OvPhysics::Core
 		std::unique_ptr<ContactListener> m_contactListener;
 		std::unique_ptr<JPH::PhysicsSystem> m_physicsSystem;
 		float m_accumulatedTime = 0.0f;
+		uint32_t m_ragdollCount = 0;
 
 		static std::map<std::pair<Entities::PhysicalObject*, Entities::PhysicalObject*>, bool> m_collisionEvents;
 		std::vector<std::reference_wrapper<Entities::PhysicalObject>> m_physicalObjects;

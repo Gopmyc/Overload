@@ -22,6 +22,7 @@
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/ContactListener.h>
 #include <Jolt/Physics/Collision/NarrowPhaseQuery.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/Collision/ObjectLayerPairFilterTable.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/PhysicsSettings.h>
@@ -32,6 +33,7 @@
 
 #include <OvPhysics/Core/PhysicsEngine.h>
 #include <OvPhysics/Entities/PhysicalObject.h>
+#include <OvPhysics/Entities/Ragdoll.h>
 #include <OvPhysics/Tools/Conversion.h>
 
 using namespace OvPhysics::Tools;
@@ -47,7 +49,8 @@ namespace
 	constexpr uint32_t kBodyMutexCount = 0; // 0 lets Jolt pick a default value
 	constexpr uint32_t kMaxBodyPairs = 65536;
 	constexpr uint32_t kMaxContactConstraints = 20480;
-	constexpr uint32_t kObjectLayerCount = 1;
+	constexpr uint32_t kObjectLayerCount = 2;
+	constexpr uint16_t kRagdollLayer = 1;
 	constexpr uint32_t kBroadPhaseLayerCount = 1;
 	constexpr size_t kTempAllocatorSize = 10 * 1024 * 1024;
 
@@ -75,6 +78,22 @@ namespace
 class OvPhysics::Core::PhysicsEngine::ContactListener final : public JPH::ContactListener
 {
 public:
+	/**
+	* A ragdoll falls on the world but goes through the dynamic bodies: it never pushes nor trips the living
+	*/
+	JPH::ValidateResult OnContactValidate(const JPH::Body& p_body1, const JPH::Body& p_body2, JPH::RVec3Arg, const JPH::CollideShapeResult&) override
+	{
+		const bool isRagdoll1 = p_body1.GetObjectLayer() == kRagdollLayer;
+		const bool isRagdoll2 = p_body2.GetObjectLayer() == kRagdollLayer;
+
+		if (isRagdoll1 != isRagdoll2 && (isRagdoll1 ? p_body2 : p_body1).IsDynamic())
+		{
+			return JPH::ValidateResult::RejectAllContactsForThisBodyPair;
+		}
+
+		return JPH::ValidateResult::AcceptAllContactsForThisBodyPair;
+	}
+
 	void OnContactAdded(const JPH::Body& p_body1, const JPH::Body& p_body2, const JPH::ContactManifold&, JPH::ContactSettings&) override
 	{
 		AddContact(p_body1, p_body2);
@@ -97,6 +116,12 @@ public:
 private:
 	void AddContact(const JPH::Body& p_body1, const JPH::Body& p_body2)
 	{
+		// Only physical objects raise collision events, and a ragdoll's bodies are none
+		if (p_body1.GetUserData() == 0 || p_body2.GetUserData() == 0)
+		{
+			return;
+		}
+
 		std::scoped_lock lock(m_mutex);
 		m_contacts.emplace_back(p_body1.GetID(), p_body2.GetID());
 	}
@@ -119,9 +144,12 @@ OvPhysics::Core::PhysicsEngine::PhysicsEngine(const Settings::PhysicsSettings & 
 
 	m_broadPhaseLayerInterface = std::make_unique<JPH::BroadPhaseLayerInterfaceTable>(kObjectLayerCount, kBroadPhaseLayerCount);
 	m_broadPhaseLayerInterface->MapObjectToBroadPhaseLayer(PhysicalObject::kObjectLayer, JPH::BroadPhaseLayer(0));
+	m_broadPhaseLayerInterface->MapObjectToBroadPhaseLayer(kRagdollLayer, JPH::BroadPhaseLayer(0));
 
 	m_objectLayerPairFilter = std::make_unique<JPH::ObjectLayerPairFilterTable>(kObjectLayerCount);
 	m_objectLayerPairFilter->EnableCollision(PhysicalObject::kObjectLayer, PhysicalObject::kObjectLayer);
+	m_objectLayerPairFilter->EnableCollision(PhysicalObject::kObjectLayer, kRagdollLayer);
+	m_objectLayerPairFilter->EnableCollision(kRagdollLayer, kRagdollLayer);
 
 	m_objectVsBroadPhaseLayerFilter = std::make_unique<JPH::ObjectVsBroadPhaseLayerFilterTable>(*m_broadPhaseLayerInterface, kBroadPhaseLayerCount, *m_objectLayerPairFilter, kObjectLayerCount);
 
@@ -204,19 +232,22 @@ std::optional<RaycastHit> OvPhysics::Core::PhysicsEngine::Raycast(OvMaths::FVect
 	const JPH::NarrowPhaseQuery& narrowPhaseQuery = m_physicsSystem->GetNarrowPhaseQuery();
 	const JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
 
+	// Only physical objects are reported: a ragdoll's bodies are none
+	const JPH::SpecifiedObjectLayerFilter objectLayerFilter(PhysicalObject::kObjectLayer);
+
 	RaycastHit resultHit;
 
 	// Try to get First Hit
 	JPH::RayCastResult closestHit;
 
-	if (narrowPhaseQuery.CastRay(ray, closestHit))
+	if (narrowPhaseQuery.CastRay(ray, closestHit, {}, objectLayerFilter))
 	{
 		// Get First Hit
 		resultHit.FirstResultObject = reinterpret_cast<OvPhysics::Entities::PhysicalObject*>(bodyInterface.GetUserData(closestHit.mBodyID));
 
 		// Try to get all Hit
 		JPH::AllHitCollisionCollector<JPH::CastRayCollector> allHitsCollector;
-		narrowPhaseQuery.CastRay(ray, JPH::RayCastSettings(), allHitsCollector);
+		narrowPhaseQuery.CastRay(ray, JPH::RayCastSettings(), allHitsCollector, {}, objectLayerFilter);
 
 		// Get all Hit
 		for (const JPH::RayCastResult& hit : allHitsCollector.mHits)
@@ -236,6 +267,13 @@ void OvPhysics::Core::PhysicsEngine::SetGravity(const OvMaths::FVector3 & p_grav
 OvMaths::FVector3 OvPhysics::Core::PhysicsEngine::GetGravity() const
 {
 	return Conversion::ToOvVector3(m_physicsSystem->GetGravity());
+}
+
+std::unique_ptr<Ragdoll> OvPhysics::Core::PhysicsEngine::CreateRagdoll(const std::vector<Settings::RagdollPartSettings>& p_parts, const OvMaths::FVector3& p_linearVelocity)
+{
+	// Each ragdoll has a collision group of its own, within which its parts only collide where they do not touch
+	auto ragdoll = std::make_unique<Ragdoll>(*m_physicsSystem, p_parts, p_linearVelocity, kRagdollLayer, ++m_ragdollCount);
+	return ragdoll->IsValid() ? std::move(ragdoll) : nullptr;
 }
 
 void OvPhysics::Core::PhysicsEngine::ListenToPhysicalObjects()
