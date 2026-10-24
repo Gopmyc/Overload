@@ -82,6 +82,17 @@ local function HitTest(panel, x, y)
 	return nil
 end
 
+-- The callbacks may add, move or remove children: a pass walks a copy of the list, when there is one
+local function GetChildren(panel)
+	local children = panel.m_Children
+
+	if children[1] == nil then
+		return children
+	end
+
+	return Array.Copy(children)
+end
+
 local function Think(panel, deltaTime)
 	if panel.m_Removed or not panel.m_Visible then
 		return
@@ -89,7 +100,7 @@ local function Think(panel, deltaTime)
 
 	panel:Think(deltaTime)
 
-	local children = Array.Copy(panel.m_Children)
+	local children = GetChildren(panel)
 
 	for i = 1, #children do
 		Think(children[i], deltaTime)
@@ -109,7 +120,7 @@ local function Layout(panel)
 		laidOut = true
 	end
 
-	local children = Array.Copy(panel.m_Children)
+	local children = GetChildren(panel)
 
 	for i = 1, #children do
 		laidOut = Layout(children[i]) or laidOut
@@ -128,7 +139,7 @@ local function Paint(panel)
 		panel.m_PaintDirty = false
 	end
 
-	local children = Array.Copy(panel.m_Children)
+	local children = GetChildren(panel)
 
 	for i = 1, #children do
 		Paint(children[i])
@@ -197,24 +208,34 @@ local function UpdateWorld(self, panel, view, deltaTime)
 		end
 	end
 
-	local children = Array.Copy(panel.m_Children)
+	local children = GetChildren(panel)
 
 	for i = 1, #children do
 		UpdateWorld(self, children[i], view, deltaTime)
 	end
 end
 
--- Places what panels carry in the world (see DModelPanel), once the layout is final
+-- Places what panels carry in the world (see DModelPanel), once the layout is final. A hidden subtree
+-- is walked once, which puts its models away, then skipped until it changes (Panel:InvalidatePlacement).
 local function PlaceInWorld(self, panel, deltaTime)
 	if panel.m_Removed then
 		return
+	end
+
+	-- Marked before the walk, so a change made by a callback during it is walked again next update
+	if not panel.m_Visible or panel.m_Culled or panel.m_WorldHidden then
+		if panel.m_PlacedHidden then
+			return
+		end
+
+		panel.m_PlacedHidden = true
 	end
 
 	if panel.PlaceInWorld then
 		panel:PlaceInWorld(deltaTime)
 	end
 
-	local children = Array.Copy(panel.m_Children)
+	local children = GetChildren(panel)
 
 	for i = 1, #children do
 		PlaceInWorld(self, children[i], deltaTime)

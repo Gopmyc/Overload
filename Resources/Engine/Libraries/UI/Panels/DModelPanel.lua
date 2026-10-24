@@ -67,6 +67,9 @@ function DModelPanel:SetModel(actor)
 
 	self.m_Model = actor
 	self.m_ModelActive = nil
+
+	-- Shown by the scene until placed, even under a hidden panel
+	self:InvalidatePlacement()
 end
 
 --- Instantiates the prefab at the given path and carries it, or carries nothing when the path is nil
@@ -142,40 +145,50 @@ function DModelPanel:GetFillRect()
 	return self.m_FillRect
 end
 
---- Places the model on the panel, called by the controller once the layout is final
+--- Places the model on the panel, called by the controller once the layout is final. Returns the world
+--- rect of the panel (see GetWorldRect) when it carries a model it shows, so a derived class doesn't
+--- compute it again.
 ---@package
+---@return table|nil
 function DModelPanel:PlaceInWorld()
 	local model = self.m_Model
 
 	if not model then
-		return
+		return nil
 	end
 
 	if not model:IsAlive() then
 		self.m_Model = nil
-		return
+		return nil
 	end
 
 	local rect = IsShown(self) and self:GetWorldRect() or nil
 
 	if not rect then
 		SetModelActive(self, false)
-		return
+		return nil
 	end
 
 	local frame = self.m_Controller:GetCanvasFrame()
 	local transform = model:GetTransform()
 	local scale = self.m_ModelScale
-	local spin = Quaternion.new(Vector3.new(0, 0, GetCanvasRotation(self)))
+	local angle = GetCanvasRotation(self)
+	local rotation = frame.rotation
+
+	if angle ~= 0 then
+		rotation = rotation * Quaternion.new(Vector3.new(0, 0, angle))
+	end
 
 	if self.m_FillRect then
 		scale = Vector3.new(scale.x * rect.width, scale.y * rect.height, scale.z)
 	end
 
 	transform:SetWorldPosition(rect.position + rect.normal * self.m_Depth)
-	transform:SetWorldRotation(frame.rotation * spin * self.m_ModelRotation)
+	transform:SetWorldRotation(rotation * self.m_ModelRotation)
 	transform:SetLocalScale(scale)
 	SetModelActive(self, true)
+
+	return rect
 end
 
 function DModelPanel:OnRemove()

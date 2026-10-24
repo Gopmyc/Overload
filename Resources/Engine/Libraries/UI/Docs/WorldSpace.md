@@ -73,6 +73,11 @@ canvas and the panel on it, then by its own rotation, and pushed along the norma
 shown only while the panel is, and hidden on a screen space canvas. The panel takes no cursor and owns
 its model: the model is destroyed when replaced or when the panel is removed.
 
+A hidden subtree is walked once by the placement pass, which puts its models away, then skipped until
+it is shown again or changes: a panel attached to it, or a model given to a panel in it. A class
+deriving from `DModelPanel` can override `PlaceInWorld`: the base method returns the world rect it
+placed the model on, or nil when the model is hidden, so the class doesn't compute it again.
+
 | Method | Description |
 |---|---|
 | `SetModel(actor)` | Carries the actor, destroying the previous model |

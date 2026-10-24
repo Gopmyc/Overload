@@ -50,8 +50,10 @@ local function ApplySize(panel)
 	))
 end
 
+-- A panel hidden again is walked once more by the placement pass, to put its models away
 local function ApplyActive(panel)
 	panel.m_Actor:SetActive(panel.m_Visible and not panel.m_Culled and not panel.m_WorldHidden)
+	panel.m_PlacedHidden = false
 end
 
 local function HasTransform(panel)
@@ -93,6 +95,7 @@ local function AttachTo(panel, parent)
 	end
 
 	parent:InvalidateLayout()
+	panel:InvalidatePlacement()
 end
 
 -- Marking the whole subtree first makes Remove calls made from the callbacks return immediately
@@ -147,6 +150,7 @@ function Panel:Setup(controller, parent)
 	self.m_KeyboardInputEnabled = false
 	self.m_LayoutDirty = true
 	self.m_PaintDirty = true
+	self.m_PlacedHidden = false
 	self.m_Removing = false
 	self.m_Removed = false
 
@@ -532,6 +536,18 @@ function Panel:InvalidatePaint()
 	self.m_PaintDirty = true
 end
 
+--- Has the controller walk the panel and its parents again in the placement pass, even hidden: it skips
+--- a hidden subtree once its models are put away. Needed when a model is given to a panel in it.
+---@package
+function Panel:InvalidatePlacement()
+	local panel = self
+
+	while panel do
+		panel.m_PlacedHidden = false
+		panel = panel.m_Parent
+	end
+end
+
 --- Converts a position local to the panel into canvas space
 ---@param x number
 ---@param y number
@@ -632,16 +648,38 @@ function Panel:GetWorldRect()
 		return nil
 	end
 
+	-- The panel maps affinely onto the canvas: a corner and the two edges leaving it place all of it.
+	-- Canvas vectors (x, y) become world vectors along the frame's right and up, Y going down.
 	local width, height = self.m_Width, self.m_Height
-	local centre = self:LocalToWorld(width * 0.5, height * 0.5)
-	local horizontal = self:LocalToWorld(width, height * 0.5) - self:LocalToWorld(0, height * 0.5)
-	local vertical = self:LocalToWorld(width * 0.5, 0) - self:LocalToWorld(width * 0.5, height)
-	local worldWidth, worldHeight = horizontal:Length(), vertical:Length()
+	local cornerX, cornerY = self:LocalToScreen(0, 0)
+	local rightX, rightY = self:LocalToScreen(width, 0)
+	local bottomX, bottomY = self:LocalToScreen(0, height)
+	local acrossX, acrossY = rightX - cornerX, rightY - cornerY
+	local upX, upY = cornerX - bottomX, cornerY - bottomY
+	local scale = frame.scale
+	local alongRight = (cornerX + (acrossX - upX) * 0.5 - frame.width * 0.5) * scale
+	local alongUp = (frame.height * 0.5 - cornerY - (acrossY - upY) * 0.5) * scale
+	local horizontalX = (frame.rightX * acrossX - frame.upX * acrossY) * scale
+	local horizontalY = (frame.rightY * acrossX - frame.upY * acrossY) * scale
+	local horizontalZ = (frame.rightZ * acrossX - frame.upZ * acrossY) * scale
+	local verticalX = (frame.rightX * upX - frame.upX * upY) * scale
+	local verticalY = (frame.rightY * upX - frame.upY * upY) * scale
+	local verticalZ = (frame.rightZ * upX - frame.upZ * upY) * scale
+	local worldWidth = math.sqrt(horizontalX * horizontalX + horizontalY * horizontalY + horizontalZ * horizontalZ)
+	local worldHeight = math.sqrt(verticalX * verticalX + verticalY * verticalY + verticalZ * verticalZ)
 
 	return {
-		position = centre,
-		right = worldWidth > 0 and horizontal / worldWidth or Vector3.new(frame.rightX, frame.rightY, frame.rightZ),
-		up = worldHeight > 0 and vertical / worldHeight or Vector3.new(frame.upX, frame.upY, frame.upZ),
+		position = Vector3.new(
+			frame.x + frame.rightX * alongRight + frame.upX * alongUp,
+			frame.y + frame.rightY * alongRight + frame.upY * alongUp,
+			frame.z + frame.rightZ * alongRight + frame.upZ * alongUp
+		),
+		right = worldWidth > 0
+			and Vector3.new(horizontalX / worldWidth, horizontalY / worldWidth, horizontalZ / worldWidth)
+			or Vector3.new(frame.rightX, frame.rightY, frame.rightZ),
+		up = worldHeight > 0
+			and Vector3.new(verticalX / worldHeight, verticalY / worldHeight, verticalZ / worldHeight)
+			or Vector3.new(frame.upX, frame.upY, frame.upZ),
 		normal = Vector3.new(frame.normalX, frame.normalY, frame.normalZ),
 		width = worldWidth,
 		height = worldHeight
