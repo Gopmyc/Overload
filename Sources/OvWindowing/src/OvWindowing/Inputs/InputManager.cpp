@@ -78,9 +78,17 @@ bool OvWindowing::Inputs::InputManager::IsMouseButtonReleased(EMouseButton p_but
 
 std::pair<double, double> OvWindowing::Inputs::InputManager::GetMousePosition() const
 {
-	std::pair<double, double> result;
-	glfwGetCursorPos(m_window.GetGlfwWindow(), &result.first, &result.second);
-	return result;
+	// A free cursor is read from the window system, a round trip on some platforms (X11): once a frame is enough.
+	// Changing the cursor mode may move it, so it is read again then.
+	if (!m_mousePosition || m_mousePositionMode != m_window.GetCursorMode())
+	{
+		std::pair<double, double> position;
+		glfwGetCursorPos(m_window.GetGlfwWindow(), &position.first, &position.second);
+		m_mousePosition = position;
+		m_mousePositionMode = m_window.GetCursorMode();
+	}
+
+	return *m_mousePosition;
 }
 
 std::pair<double, double> OvWindowing::Inputs::InputManager::GetMouseScroll() const
@@ -97,6 +105,7 @@ void OvWindowing::Inputs::InputManager::ClearEvents()
 	m_mouseButtonReleased.clear();
 
 	m_scrollData = { 0.0, 0.0 };
+	m_mousePosition.reset();
 }
 
 void OvWindowing::Inputs::InputManager::OnKeyPressed(int p_key)

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <unordered_set>
 
@@ -78,7 +79,8 @@ namespace OvWindowing::Inputs
 		std::string GetKeyName(EKey p_key) const;
 
 		/**
-		* Return the current mouse position relative to the window
+		* Return the mouse position relative to the window, read once per frame (until ClearEvents) and again when the
+		* cursor mode changes
 		*/
 		std::pair<double, double> GetMousePosition() const;
 
@@ -116,5 +118,8 @@ namespace OvWindowing::Inputs
 		std::unordered_set<EMouseButton> m_mouseButtonReleased;
 
 		std::pair<double, double> m_scrollData;
+
+		mutable std::optional<std::pair<double, double>> m_mousePosition;
+		mutable Cursor::ECursorMode m_mousePositionMode = Cursor::ECursorMode::NORMAL;
 	};
 }
