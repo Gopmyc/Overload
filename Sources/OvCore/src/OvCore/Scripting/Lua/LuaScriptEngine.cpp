@@ -362,6 +362,10 @@ void OvCore::Scripting::LuaScriptEngine::CreateContext()
 	m_context.luaState = std::make_unique<sol::state>();
 	m_context.luaState->open_libraries(sol::lib::base, sol::lib::math);
 
+	// Scripts allocate mostly short-lived values every frame (vectors, temporary tables): the
+	// generational collector reclaims them for less than the incremental one
+	lua_gc(m_context.luaState->lua_state(), LUA_GCGEN, 0, 0);
+
 	(*m_context.luaState)["dofile"] = sol::nil;
 	(*m_context.luaState)["loadfile"] = sol::nil;
 	(*m_context.luaState)["load"] = sol::nil;
