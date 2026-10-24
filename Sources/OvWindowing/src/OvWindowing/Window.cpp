@@ -300,9 +300,7 @@ std::string OvWindowing::Window::GetTitle() const
 
 std::pair<uint16_t, uint16_t> OvWindowing::Window::GetSize() const
 {
-	int width, height;
-	glfwGetWindowSize(m_glfwWindow, &width, &height);
-	return std::make_pair(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
+	return m_size;
 }
 
 std::pair<int16_t, int16_t> OvWindowing::Window::GetMinimumSize() const
@@ -379,6 +377,12 @@ void OvWindowing::Window::CreateGlfwWindow(const Settings::WindowSettings& p_win
 		UpdateSizeLimit();
 		SetPosition(m_position.first, m_position.second);
 		__WINDOWS_MAP[m_glfwWindow] = this;
+
+		// Kept up to date by the resize callback from then on: querying it is a round trip to the
+		// window system on some platforms (X11)
+		int width, height;
+		glfwGetWindowSize(m_glfwWindow, &width, &height);
+		m_size = { static_cast<uint16_t>(width), static_cast<uint16_t>(height) };
 	}
 }
 

@@ -249,7 +249,7 @@ namespace OvWindowing
 		std::string GetTitle() const;
 
 		/**
-		* Return the current size of the window
+		* Return the current size of the window, as of the last processed events
 		*/
 		std::pair<uint16_t, uint16_t> GetSize() const;
 
