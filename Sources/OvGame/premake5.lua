@@ -115,6 +115,7 @@ project "OvGame"
 
 		postbuildcommands {
 			"mkdir -p %{outputdir}%{cfg.buildcfg}/%{prj.name}/Data",
+			"rm -rf %{outputdir}%{cfg.buildcfg}/%{prj.name}/Data/Engine",
 			"cp -r %{resdir}Engine %{outputdir}%{cfg.buildcfg}/%{prj.name}/Data/Engine",
 			"true"
 		}
