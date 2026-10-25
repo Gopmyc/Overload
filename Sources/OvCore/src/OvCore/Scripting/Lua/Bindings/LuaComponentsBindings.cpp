@@ -107,11 +107,21 @@ void BindLuaComponents(sol::state& p_luaState)
 		"SetFrustumBehaviour", &CModelRenderer::SetFrustumBehaviour
 	);
 
+	p_luaState.new_enum<OvCore::Rendering::EVisibilityFlags>("VisibilityFlags", {
+		{ "NONE", OvCore::Rendering::EVisibilityFlags::NONE },
+		{ "GEOMETRY", OvCore::Rendering::EVisibilityFlags::GEOMETRY },
+		{ "SHADOW", OvCore::Rendering::EVisibilityFlags::SHADOW },
+		{ "REFLECTION", OvCore::Rendering::EVisibilityFlags::REFLECTION },
+		{ "ALL", OvCore::Rendering::EVisibilityFlags::ALL }
+	});
+
 	p_luaState.new_usertype<CMaterialRenderer>("MaterialRenderer",
 		sol::base_classes, sol::bases<AComponent>(),
 		"SetMaterial", &CMaterialRenderer::SetMaterialAtIndex,
 		"SetUserMatrixElement", &CMaterialRenderer::SetUserMatrixElement,
-		"GetUserMatrixElement", &CMaterialRenderer::GetUserMatrixElement
+		"GetUserMatrixElement", &CMaterialRenderer::GetUserMatrixElement,
+		"SetVisibilityFlags", &CMaterialRenderer::SetVisibilityFlags,
+		"GetVisibilityFlags", &CMaterialRenderer::GetVisibilityFlags
 	);
 
 	p_luaState.new_usertype<CSkinnedMeshRenderer>("SkinnedMeshRenderer",

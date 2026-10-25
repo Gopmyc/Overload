@@ -24,3 +24,12 @@ function MaterialRenderer:SetUserMatrixElement(row, column, value) end
 ---@param column integer
 ---@return number
 function MaterialRenderer:GetUserMatrixElement(row, column) end
+
+--- Defines the passes the renderer is drawn in: the scene (GEOMETRY), the shadow maps (SHADOW) and the reflection
+--- probes (REFLECTION), all of them by default
+---@param flags VisibilityFlags|integer
+function MaterialRenderer:SetVisibilityFlags(flags) end
+
+--- Returns the passes the renderer is drawn in
+---@return VisibilityFlags|integer
+function MaterialRenderer:GetVisibilityFlags() end
