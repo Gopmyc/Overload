@@ -34,6 +34,19 @@ local function GetCanvasRotation(panel)
 	return angle
 end
 
+-- On every renderer of the model, its children's included
+local function ApplyVisibilityFlags(actor, flags)
+	local renderer = actor:GetMaterialRenderer()
+
+	if renderer then
+		renderer:SetVisibilityFlags(flags)
+	end
+
+	for _, child in ipairs(actor:GetChildren()) do
+		ApplyVisibilityFlags(child, flags)
+	end
+end
+
 local function SetModelActive(self, active)
 	if self.m_ModelActive ~= active then
 		self.m_ModelActive = active
@@ -48,6 +61,7 @@ function DModelPanel:Init()
 	self.m_ModelRotation = Quaternion.new()
 	self.m_ModelScale = Vector3.new(1, 1, 1)
 	self.m_FillRect = false
+	self.m_VisibilityFlags = nil
 	self:SetMouseInputEnabled(false)
 end
 
@@ -67,6 +81,10 @@ function DModelPanel:SetModel(actor)
 
 	self.m_Model = actor
 	self.m_ModelActive = nil
+
+	if actor and self.m_VisibilityFlags then
+		ApplyVisibilityFlags(actor, self.m_VisibilityFlags)
+	end
 
 	-- Shown by the scene until placed, even under a hidden panel
 	self:InvalidatePlacement()
@@ -143,6 +161,23 @@ end
 ---@return boolean
 function DModelPanel:GetFillRect()
 	return self.m_FillRect
+end
+
+--- Defines the passes the model is drawn in, on every renderer under it, for this model and the next ones: a model
+--- standing over the screen, as a HUD's, is drawn with VisibilityFlags.GEOMETRY alone, so that it casts no shadow into
+--- the scene and stays out of the reflection probes. Nil leaves each model its own flags.
+---@param flags VisibilityFlags|integer|nil
+function DModelPanel:SetVisibilityFlags(flags)
+	self.m_VisibilityFlags = flags
+
+	if self.m_Model and self.m_Model:IsAlive() and flags then
+		ApplyVisibilityFlags(self.m_Model, flags)
+	end
+end
+
+---@return VisibilityFlags|integer|nil
+function DModelPanel:GetVisibilityFlags()
+	return self.m_VisibilityFlags
 end
 
 --- Places the model on the panel, called by the controller once the layout is final. Returns the world

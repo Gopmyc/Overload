@@ -86,6 +86,7 @@ placed the model on, or nil when the model is hidden, so the class doesn't compu
 | `SetModelRotation(rotation)` | Rotation in the frame of the panel: X right, Y up, Z towards the viewer |
 | `SetModelScale(scale)` | A number or a `Vector3` |
 | `SetFillRect(fill)` | Also scales X and Y by the world width and height of the panel, for a model one unit wide and tall |
+| `SetVisibilityFlags(flags)` | The passes every renderer of the model is drawn in, for this model and the next ones: `VisibilityFlags.GEOMETRY` alone for a model over the screen (a HUD), which then casts no shadow and stays out of the reflection probes. Nil leaves each model its own |
 
 ```lua
 -- A slab one unit wide and tall standing behind the whole menu, 1 cm thick
