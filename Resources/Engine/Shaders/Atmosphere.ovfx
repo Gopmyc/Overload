@@ -70,7 +70,10 @@ void main()
     // Push the atmosphere to the far plane (just in front of the cleared depth, so it passes the LESS depth test).
     // The atmosphere is drawn after opaque geometry with depth testing enabled, so pixels already covered by
     // geometry are rejected by the early depth test instead of running the (expensive) scattering raymarch.
-    gl_Position.z = gl_Position.w * 0.99999976; // 1 - 2^-22
+    // 1 - 2^-22 sat two steps of a 24-bit depth buffer from the clear value: rounding pushed whole triangles of the
+    // sphere behind it, leaving holes in the sky. 1 - 1e-5 keeps a safe margin: with a 0.1 to 200 m camera, the sky
+    // only covers what lies past ~198 m.
+    gl_Position.z = gl_Position.w * 0.99999;
 }
 
 #shader fragment
