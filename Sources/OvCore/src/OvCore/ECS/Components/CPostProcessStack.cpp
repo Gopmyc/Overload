@@ -49,6 +49,13 @@ void OvCore::ECS::Components::CPostProcessStack::OnSerialize(tinyxml2::XMLDocume
 	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "tonemapping_gamma_correction", tonemappingSettings.gammaCorrection);
 
 	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "fxaa_enabled", fxaaSettings.enabled);
+
+	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "fog_enabled", m_fog.enabled);
+	Helpers::Serializer::SerializeVec3(p_doc, p_node, "fog_color", m_fog.color);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "fog_intensity", m_fog.intensity);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "fog_start", m_fog.start);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "fog_density", m_fog.density);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "fog_max_opacity", m_fog.maxOpacity);
 }
 
 void OvCore::ECS::Components::CPostProcessStack::OnDeserialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
@@ -77,6 +84,13 @@ void OvCore::ECS::Components::CPostProcessStack::OnDeserialize(tinyxml2::XMLDocu
 	Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "tonemapping_gamma_correction", tonemappingSettings.gammaCorrection);
 
 	Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "fxaa_enabled", fxaaSettings.enabled);
+
+	Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "fog_enabled", m_fog.enabled);
+	Helpers::Serializer::DeserializeVec3(p_doc, p_node, "fog_color", m_fog.color);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "fog_intensity", m_fog.intensity);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "fog_start", m_fog.start);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "fog_density", m_fog.density);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "fog_max_opacity", m_fog.maxOpacity);
 }
 
 void OvCore::ECS::Components::CPostProcessStack::OnInspector(OvUI::Internal::WidgetContainer& p_root)
@@ -128,6 +142,18 @@ void OvCore::ECS::Components::CPostProcessStack::OnInspector(OvUI::Internal::Wid
 	p_root.CreateWidget<OvUI::Widgets::Visual::Separator>();
 
 	OvCore::Helpers::GUIDrawer::DrawBoolean(p_root, "FXAA Enabled", fxaaSettings.enabled);
+
+	p_root.CreateWidget<OvUI::Widgets::Visual::Separator>();
+
+	OvCore::Helpers::GUIDrawer::DrawBoolean(p_root, "Fog Enabled", m_fog.enabled);
+	OvCore::Helpers::GUIDrawer::DrawColor(p_root, "Fog Color",
+		[this] { return OvUI::Types::Color(m_fog.color); },
+		[this](OvUI::Types::Color p_color) { m_fog.color = { p_color.r, p_color.g, p_color.b }; }
+	);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Fog Intensity", m_fog.intensity, 0.05f, 0.0f, OvCore::Helpers::GUIDrawer::_MAX_FLOAT);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Fog Start", m_fog.start, 0.5f, 0.0f, OvCore::Helpers::GUIDrawer::_MAX_FLOAT);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Fog Density", m_fog.density, 0.001f, 0.0f, OvCore::Helpers::GUIDrawer::_MAX_FLOAT);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Fog Max Opacity", m_fog.maxOpacity, 0.01f, 0.0f, 1.0f);
 }
 
 const OvCore::Rendering::PostProcess::PostProcessStack& OvCore::ECS::Components::CPostProcessStack::GetStack()
@@ -173,4 +199,14 @@ void OvCore::ECS::Components::CPostProcessStack::SetTonemappingSettings(const Ov
 void OvCore::ECS::Components::CPostProcessStack::SetFXAASettings(const OvCore::Rendering::PostProcess::FXAASettings& p_settings)
 {
 	m_settings.Set<Rendering::PostProcess::FXAAEffect>(p_settings);
+}
+
+const OvCore::Rendering::FogSettings& OvCore::ECS::Components::CPostProcessStack::GetFogSettings() const
+{
+	return m_fog;
+}
+
+void OvCore::ECS::Components::CPostProcessStack::SetFogSettings(const OvCore::Rendering::FogSettings& p_settings)
+{
+	m_fog = p_settings;
 }

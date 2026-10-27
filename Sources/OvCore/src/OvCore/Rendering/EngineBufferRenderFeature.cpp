@@ -57,7 +57,7 @@ OvCore::Rendering::EngineBufferRenderFeature::EngineBufferRenderFeature(
 ) : 
 	ARenderFeature(p_renderer, p_executionPolicy)
 {
-	static_assert(sizeof(EngineUBO) == 416, "EngineUBO must match the std140 layout of EngineUBO.ovfxh");
+	static_assert(sizeof(EngineUBO) == 432, "EngineUBO must match the std140 layout of EngineUBO.ovfxh");
 	m_startTime = std::chrono::high_resolution_clock::now();
 }
 
@@ -71,6 +71,7 @@ void OvCore::Rendering::EngineBufferRenderFeature::SetCamera(const OvRendering::
 
 	ApplyCamera(m_frameCamera);
 	m_cameraOverrideActive = false;
+	ApplyFogState();
 }
 
 void OvCore::Rendering::EngineBufferRenderFeature::ApplyCamera(const CameraData& p_camera)
@@ -85,6 +86,27 @@ void OvCore::Rendering::EngineBufferRenderFeature::ApplyCamera(const CameraData&
 void OvCore::Rendering::EngineBufferRenderFeature::SetDepthOnly(bool p_depthOnly)
 {
 	m_data.depthOnly = p_depthOnly ? 1 : 0;
+	m_dirty = true;
+}
+
+void OvCore::Rendering::EngineBufferRenderFeature::SetFog(const FogSettings& p_settings)
+{
+	m_fogEnabled = p_settings.enabled;
+	m_data.fogStart = p_settings.start;
+	m_data.fogDensity = p_settings.density;
+	m_data.fogMax = p_settings.maxOpacity;
+	m_data.fogColor = {
+		p_settings.color.x * p_settings.intensity,
+		p_settings.color.y * p_settings.intensity,
+		p_settings.color.z * p_settings.intensity,
+		0.0f
+	};
+	ApplyFogState();
+}
+
+void OvCore::Rendering::EngineBufferRenderFeature::ApplyFogState()
+{
+	m_data.fogColor.w = m_fogEnabled && !m_cameraOverrideActive ? 1.0f : 0.0f;
 	m_dirty = true;
 }
 
@@ -124,11 +146,13 @@ void OvCore::Rendering::EngineBufferRenderFeature::OnBeforeDraw(OvRendering::Dat
 			.position = descriptor->viewMatrixOverride ? OvMaths::FVector3::Zero : m_frameCamera.position
 		});
 		m_cameraOverrideActive = true;
+		ApplyFogState();
 	}
 	else if (m_cameraOverrideActive)
 	{
 		ApplyCamera(m_frameCamera);
 		m_cameraOverrideActive = false;
+		ApplyFogState();
 	}
 
 	if (hasDescriptor)

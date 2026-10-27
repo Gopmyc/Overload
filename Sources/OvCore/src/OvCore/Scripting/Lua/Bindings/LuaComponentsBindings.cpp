@@ -589,6 +589,15 @@ void BindLuaComponents(sol::state& p_luaState)
 		sol::base_classes, sol::bases<OvCore::Rendering::PostProcess::EffectSettings>()
 	);
 
+	p_luaState.new_usertype<OvCore::Rendering::FogSettings>("FogSettings",
+		"Enabled", &OvCore::Rendering::FogSettings::enabled,
+		"Color", &OvCore::Rendering::FogSettings::color,
+		"Intensity", &OvCore::Rendering::FogSettings::intensity,
+		"Start", &OvCore::Rendering::FogSettings::start,
+		"Density", &OvCore::Rendering::FogSettings::density,
+		"MaxOpacity", &OvCore::Rendering::FogSettings::maxOpacity
+	);
+
 	p_luaState.new_usertype<CPostProcessStack>("PostProcessStack",
 		sol::base_classes, sol::bases<AComponent>(),
 		"GetTonemappingSettings", &CPostProcessStack::GetTonemappingSettings,
@@ -598,7 +607,9 @@ void BindLuaComponents(sol::state& p_luaState)
 		"SetTonemappingSettings", &CPostProcessStack::SetTonemappingSettings,
 		"SetBloomSettings", &CPostProcessStack::SetBloomSettings,
 		"SetAutoExposureSettings", &CPostProcessStack::SetAutoExposureSettings,
-		"SetFXAASettings", &CPostProcessStack::SetFXAASettings
+		"SetFXAASettings", &CPostProcessStack::SetFXAASettings,
+		"GetFogSettings", &CPostProcessStack::GetFogSettings,
+		"SetFogSettings", &CPostProcessStack::SetFogSettings
 	);
 
 	p_luaState.new_enum<CReflectionProbe::ERefreshMode>("ReflectionProbeRefreshMode", {

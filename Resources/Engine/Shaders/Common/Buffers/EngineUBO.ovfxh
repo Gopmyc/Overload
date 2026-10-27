@@ -9,4 +9,8 @@ layout (std140, binding = 0) uniform EngineUBO
     mat4    ubo_ViewProjection; // ubo_Projection * ubo_View
     mat4    ubo_NormalMatrix;   // transpose(inverse(ubo_Model)), use mat3(ubo_NormalMatrix)
     int     ubo_DepthOnly;      // 1 during the depth pre-pass: shaders can skip their shading once alpha testing is done
+    float   ubo_FogStart;       // Distance fog of the scene's post process stack, see Common/Fog.ovfxh
+    float   ubo_FogDensity;
+    float   ubo_FogMax;
+    vec4    ubo_FogColor;       // rgb: colour times intensity, w: 1 while the fog is on
 };

@@ -24,6 +24,10 @@ function PostProcessStack:GetAutoExposureSettings() end
 ---@return FXAASettings
 function PostProcessStack:GetFXAASettings() end
 
+--- Returns the distance fog settings
+---@return FogSettings
+function PostProcessStack:GetFogSettings() end
+
 --- Defines the tonemapping settings
 ---@param settings TonemappingSettings
 function PostProcessStack:SetTonemappingSettings(settings) end
@@ -39,3 +43,7 @@ function PostProcessStack:SetAutoExposureSettings(settings) end
 --- Defines the FXAA settings
 ---@param settings FXAASettings
 function PostProcessStack:SetFXAASettings(settings) end
+
+--- Defines the distance fog settings
+---@param settings FogSettings
+function PostProcessStack:SetFogSettings(settings) end

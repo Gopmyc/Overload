@@ -7,6 +7,7 @@
 #include <ranges>
 #include <tracy/Tracy.hpp>
 
+#include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
@@ -226,6 +227,21 @@ namespace
 		}
 		return probes;
 	}
+
+	OvCore::Rendering::FogSettings FindFogSettings(const OvCore::SceneSystem::Scene& p_scene)
+	{
+		// The fog belongs to the scene's first active post process stack, as the post process effects do
+		const auto& facs = p_scene.GetFastAccessComponents();
+		for (auto postProcessStack : facs.postProcessStacks)
+		{
+			if (postProcessStack && postProcessStack->owner.IsActive())
+			{
+				return postProcessStack->GetFogSettings();
+			}
+		}
+
+		return {};
+	}
 }
 
 OvCore::Rendering::SceneRenderer::SceneRenderer(OvRendering::Context::Driver& p_driver, bool p_stencilWrite)
@@ -286,6 +302,8 @@ void OvCore::Rendering::SceneRenderer::BeginFrame(const OvRendering::Data::Frame
 	});
 
 	OvRendering::Core::CompositeRenderer::BeginFrame(p_frameDescriptor);
+
+	GetFeature<EngineBufferRenderFeature>().SetFog(FindFogSettings(sceneDescriptor.scene));
 
 	AddDescriptor<FrameBuilder::ParsingResult>({
 		FrameBuilder::Parse(FrameBuilder::ParsingInput{

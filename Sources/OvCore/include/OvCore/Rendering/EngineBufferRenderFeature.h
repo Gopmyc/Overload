@@ -10,6 +10,8 @@
 
 #include <OvMaths/FMatrix4.h>
 #include <OvMaths/FVector3.h>
+#include <OvMaths/FVector4.h>
+#include <OvCore/Rendering/FogSettings.h>
 #include <OvRendering/Features/ARenderFeature.h>
 #include <OvRendering/Entities/Camera.h>
 #include <OvRendering/Utils/StreamingBuffer.h>
@@ -44,6 +46,13 @@ namespace OvCore::Rendering
 		*/
 		void SetDepthOnly(bool p_depthOnly);
 
+		/**
+		* Defines the distance fog of the next draws, exposed to shaders as ubo_Fog*. Draws with their own camera
+		* (e.g. screen space UI) are never fogged
+		* @param p_settings
+		*/
+		void SetFog(const FogSettings& p_settings);
+
 	protected:
 		virtual void OnBeginFrame(const OvRendering::Data::FrameDescriptor& p_frameDescriptor) override;
 		virtual void OnEndFrame() override;
@@ -67,6 +76,11 @@ namespace OvCore::Rendering
 		void ApplyCamera(const CameraData& p_camera);
 
 		/**
+		* Turns the fog on in the engine UBO while it is enabled and no camera override is active
+		*/
+		void ApplyFogState();
+
+		/**
 		* CPU copy of the engine UBO (std140 layout, see EngineUBO.ovfxh)
 		*/
 		struct EngineUBO
@@ -80,7 +94,10 @@ namespace OvCore::Rendering
 			OvMaths::FMatrix4 viewProjection;
 			OvMaths::FMatrix4 normalMatrix;
 			int32_t depthOnly;
-			int32_t padding[3]; // std140 blocks are padded to 16 bytes
+			float fogStart;
+			float fogDensity;
+			float fogMax;
+			OvMaths::FVector4 fogColor; // w: 1 while the fog is on
 		};
 
 		std::chrono::high_resolution_clock::time_point m_startTime;
@@ -95,5 +112,7 @@ namespace OvCore::Rendering
 		// (see EngineDrawableDescriptor::viewMatrixOverride and projectionMatrixOverride)
 		CameraData m_frameCamera{};
 		bool m_cameraOverrideActive = false;
+
+		bool m_fogEnabled = false;
 	};
 }

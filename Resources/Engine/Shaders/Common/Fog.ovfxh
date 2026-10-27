@@ -1,0 +1,24 @@
+// Distance fog of the scene's post process stack (ubo_Fog*, see Buffers/EngineUBO.ovfxh, included before this file).
+// Opaque surfaces fade towards the fog colour (ApplyFog); glows and other blended effects fade out instead (FogFade),
+// so they do not turn into patches of fog.
+
+float FogAmount(vec3 fragPos)
+{
+    if (ubo_FogColor.w <= 0.0)
+    {
+        return 0.0;
+    }
+
+    const float distanceInFog = max(distance(fragPos, ubo_ViewPos) - ubo_FogStart, 0.0) * ubo_FogDensity;
+    return min(1.0 - exp(-distanceInFog * distanceInFog), ubo_FogMax);
+}
+
+vec3 ApplyFog(vec3 color, vec3 fragPos)
+{
+    return mix(color, ubo_FogColor.rgb, FogAmount(fragPos));
+}
+
+float FogFade(float alpha, vec3 fragPos)
+{
+    return alpha * (1.0 - FogAmount(fragPos));
+}

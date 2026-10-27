@@ -13,6 +13,7 @@
 #include <OvCore/Rendering/PostProcess/FXAAEffect.h>
 #include <OvCore/Rendering/PostProcess/TonemappingEffect.h>
 #include <OvCore/Rendering/PostProcess/AutoExposureEffect.h>
+#include <OvCore/Rendering/FogSettings.h>
 
 namespace OvCore::ECS { class Actor; }
 
@@ -109,8 +110,20 @@ namespace OvCore::ECS::Components
 		*/
 		void SetFXAASettings(const OvCore::Rendering::PostProcess::FXAASettings& p_settings);
 
+		/**
+		* Returns the distance fog settings (the fog is drawn by the shaders, not by a post process effect)
+		*/
+		const OvCore::Rendering::FogSettings& GetFogSettings() const;
+
+		/**
+		* Sets the distance fog settings
+		* @param p_settings
+		*/
+		void SetFogSettings(const OvCore::Rendering::FogSettings& p_settings);
+
 	private:
 		OvCore::Rendering::PostProcess::PostProcessStack m_settings;
+		OvCore::Rendering::FogSettings m_fog;
 	};
 
 	template<>

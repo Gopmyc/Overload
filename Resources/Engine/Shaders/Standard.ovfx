@@ -71,6 +71,7 @@ void main()
 #endif
 
 #include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+#include ":Shaders/Common/Fog.ovfxh"
 #include ":Shaders/Lighting/PBR.ovfxh"
 
 in VS_OUT
@@ -247,6 +248,6 @@ void main()
     const vec3 emissive = texture(u_EmissiveMap, texCoords).rgb * u_EmissiveColor * u_EmissiveIntensity;
     pbr += emissive;
 
-    FRAGMENT_COLOR = vec4(pbr, albedo.a);
+    FRAGMENT_COLOR = vec4(ApplyFog(pbr, fs_in.FragPos), albedo.a);
 #endif
 }
