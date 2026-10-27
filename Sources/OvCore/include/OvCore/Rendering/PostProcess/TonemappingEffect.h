@@ -27,13 +27,21 @@ namespace OvCore::Rendering::PostProcess
 	};
 
 	/**
-	* Tonemapping effect settings
+	* Tonemapping effect settings, with the colour grading and the vignette applied in the same pass.
+	* The defaults leave the image as the tonemapping curve makes it
 	*/
 	struct TonemappingSettings : public EffectSettings
 	{
 		float exposure = 1.0f;
 		ETonemappingMode mode = ETonemappingMode::NEUTRAL;
 		bool gammaCorrection = true;
+
+		float temperature = 0.0f; // White balance, -1 (cool, blue) to 1 (warm, orange), before the curve
+		float tint = 0.0f; // White balance, -1 (green) to 1 (magenta), before the curve
+		float saturation = 1.0f; // 0 is greyscale, after the curve
+		float contrast = 1.0f; // Around middle grey, after the curve
+		float vignetteIntensity = 0.0f; // How much the corners darken, 0 to 1
+		float vignetteSmoothness = 0.5f; // How far towards the centre the darkening reaches, 0 to 1
 	};
 
 	/**

@@ -582,7 +582,13 @@ void BindLuaComponents(sol::state& p_luaState)
 		sol::base_classes, sol::bases<OvCore::Rendering::PostProcess::EffectSettings>(),
 		"Exposure", &OvCore::Rendering::PostProcess::TonemappingSettings::exposure,
 		"Mode", &OvCore::Rendering::PostProcess::TonemappingSettings::mode,
-		"GammaCorrection", &OvCore::Rendering::PostProcess::TonemappingSettings::gammaCorrection
+		"GammaCorrection", &OvCore::Rendering::PostProcess::TonemappingSettings::gammaCorrection,
+		"Temperature", &OvCore::Rendering::PostProcess::TonemappingSettings::temperature,
+		"Tint", &OvCore::Rendering::PostProcess::TonemappingSettings::tint,
+		"Saturation", &OvCore::Rendering::PostProcess::TonemappingSettings::saturation,
+		"Contrast", &OvCore::Rendering::PostProcess::TonemappingSettings::contrast,
+		"VignetteIntensity", &OvCore::Rendering::PostProcess::TonemappingSettings::vignetteIntensity,
+		"VignetteSmoothness", &OvCore::Rendering::PostProcess::TonemappingSettings::vignetteSmoothness
 	);
 
 	p_luaState.new_usertype<OvCore::Rendering::PostProcess::FXAASettings>("FXAASettings",

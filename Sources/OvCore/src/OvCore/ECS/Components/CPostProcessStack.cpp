@@ -47,6 +47,12 @@ void OvCore::ECS::Components::CPostProcessStack::OnSerialize(tinyxml2::XMLDocume
 	Helpers::Serializer::SerializeFloat(p_doc, p_node, "tonemapping_exposure", tonemappingSettings.exposure);
 	Helpers::Serializer::SerializeInt(p_doc, p_node, "tonemapping_mode", static_cast<int>(tonemappingSettings.mode));
 	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "tonemapping_gamma_correction", tonemappingSettings.gammaCorrection);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "grading_temperature", tonemappingSettings.temperature);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "grading_tint", tonemappingSettings.tint);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "grading_saturation", tonemappingSettings.saturation);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "grading_contrast", tonemappingSettings.contrast);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "vignette_intensity", tonemappingSettings.vignetteIntensity);
+	Helpers::Serializer::SerializeFloat(p_doc, p_node, "vignette_smoothness", tonemappingSettings.vignetteSmoothness);
 
 	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "fxaa_enabled", fxaaSettings.enabled);
 
@@ -82,6 +88,12 @@ void OvCore::ECS::Components::CPostProcessStack::OnDeserialize(tinyxml2::XMLDocu
 	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "tonemapping_exposure", tonemappingSettings.exposure);
 	Helpers::Serializer::DeserializeInt(p_doc, p_node, "tonemapping_mode", reinterpret_cast<int&>(tonemappingSettings.mode));
 	Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "tonemapping_gamma_correction", tonemappingSettings.gammaCorrection);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "grading_temperature", tonemappingSettings.temperature);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "grading_tint", tonemappingSettings.tint);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "grading_saturation", tonemappingSettings.saturation);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "grading_contrast", tonemappingSettings.contrast);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "vignette_intensity", tonemappingSettings.vignetteIntensity);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "vignette_smoothness", tonemappingSettings.vignetteSmoothness);
 
 	Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "fxaa_enabled", fxaaSettings.enabled);
 
@@ -138,6 +150,12 @@ void OvCore::ECS::Components::CPostProcessStack::OnInspector(OvUI::Internal::Wid
 		tonemappingSettings.mode = static_cast<OvCore::Rendering::PostProcess::ETonemappingMode>(p_choice);
 	});
 	OvCore::Helpers::GUIDrawer::DrawBoolean(p_root, "Tonemapping Gamma Correction", tonemappingSettings.gammaCorrection);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Grading Temperature", tonemappingSettings.temperature, 0.01f, -1.0f, 1.0f);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Grading Tint", tonemappingSettings.tint, 0.01f, -1.0f, 1.0f);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Grading Saturation", tonemappingSettings.saturation, 0.01f, 0.0f, 2.0f);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Grading Contrast", tonemappingSettings.contrast, 0.01f, 0.5f, 2.0f);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Vignette Intensity", tonemappingSettings.vignetteIntensity, 0.01f, 0.0f, 1.0f);
+	OvCore::Helpers::GUIDrawer::DrawScalar<float>(p_root, "Vignette Smoothness", tonemappingSettings.vignetteSmoothness, 0.01f, 0.0f, 1.0f);
 
 	p_root.CreateWidget<OvUI::Widgets::Visual::Separator>();
 

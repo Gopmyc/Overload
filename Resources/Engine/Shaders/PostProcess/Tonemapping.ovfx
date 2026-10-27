@@ -22,6 +22,12 @@ uniform sampler2D _InputTexture;
 uniform float _Exposure;
 uniform int _Mode;
 uniform int _GammaCorrection;
+uniform float _Temperature;
+uniform float _Tint;
+uniform float _Saturation;
+uniform float _Contrast;
+uniform float _VignetteIntensity;
+uniform float _VignetteSmoothness;
 
 const float EPSILON = 0.0001;
 
@@ -99,9 +105,31 @@ vec3 ACESFilm(vec3 x)
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
+// Warms or cools (temperature) and shifts towards green or magenta (tint), keeping the luminance
+vec3 whiteBalance(vec3 color)
+{
+    const vec3 balance = vec3(1.0 + 0.1 * _Temperature, 1.0 - 0.1 * _Tint, 1.0 - 0.1 * _Temperature);
+    return color * balance / luminance(balance);
+}
+
+// Contrast around middle grey, then saturation around the luminance, on the tonemapped (linear) colour
+vec3 grade(vec3 color)
+{
+    const float middleGrey = 0.18;
+    color = middleGrey * pow(max(color, vec3(0.0)) / middleGrey, vec3(_Contrast));
+    return max(mix(vec3(luminance(color)), color, _Saturation), vec3(0.0));
+}
+
+// Darkens towards the corners: 0 at the centre, 1 in the corners
+float vignette(vec2 uv)
+{
+    const float radius = length(uv - 0.5) * 1.41421356;
+    return 1.0 - _VignetteIntensity * smoothstep(1.0 - _VignetteSmoothness, 1.0, radius);
+}
+
 void main()
 {
-    vec3 color = texture(_InputTexture, TexCoords).rgb * _Exposure;
+    vec3 color = whiteBalance(texture(_InputTexture, TexCoords).rgb * _Exposure);
 
     switch(_Mode)
     {
@@ -113,10 +141,12 @@ void main()
         case 5: color = ACESFilm(color); break;
     }
 
+    color = grade(color);
+
     if (_GammaCorrection != 0)
     {
         color = applyGammaCorrection(color);
     }
 
-    FRAGMENT_COLOR = vec4(color, 1.0);
+    FRAGMENT_COLOR = vec4(color * vignette(TexCoords), 1.0);
 }
