@@ -64,8 +64,8 @@ void OvCore::ECS::Components::CPostProcessStack::OnDeserialize(tinyxml2::XMLDocu
 
 	Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "auto_exposure_enabled", autoExposureSettings.enabled);
 	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "auto_exposure_center_weight_bias", autoExposureSettings.centerWeightBias);
-	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "auto_exposure_min_luminance", autoExposureSettings.minLuminanceEV);
-	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "auto_exposure_max_luminance", autoExposureSettings.maxLuminanceEV);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "auto_exposure_luminance_min", autoExposureSettings.minLuminanceEV);
+	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "auto_exposure_luminance_max", autoExposureSettings.maxLuminanceEV);
 	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "auto_exposure_exposure_compensation", autoExposureSettings.exposureCompensationEV);
 	Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "auto_exposure_progressive", autoExposureSettings.progressive);
 	Helpers::Serializer::DeserializeFloat(p_doc, p_node, "auto_exposure_speed_up", autoExposureSettings.speedUp);
@@ -115,10 +115,14 @@ void OvCore::ECS::Components::CPostProcessStack::OnInspector(OvUI::Internal::Wid
 		{ 4, "Uncharted 2 (Filmic)" },
 		{ 5, "ACES" }
 	};
-	tonemappingMode.ValueChangedEvent += [this](int p_choice) {
+	auto& tonemappingModeDispatcher = tonemappingMode.AddPlugin<OvUI::Plugins::DataDispatcher<int>>();
+	tonemappingModeDispatcher.RegisterGatherer([this] {
+		return static_cast<int>(m_settings.Get<Rendering::PostProcess::TonemappingEffect, Rendering::PostProcess::TonemappingSettings>().mode);
+	});
+	tonemappingModeDispatcher.RegisterProvider([this](int p_choice) {
 		auto& tonemappingSettings = m_settings.Get<Rendering::PostProcess::TonemappingEffect, Rendering::PostProcess::TonemappingSettings>();
 		tonemappingSettings.mode = static_cast<OvCore::Rendering::PostProcess::ETonemappingMode>(p_choice);
-	};
+	});
 	OvCore::Helpers::GUIDrawer::DrawBoolean(p_root, "Tonemapping Gamma Correction", tonemappingSettings.gammaCorrection);
 
 	p_root.CreateWidget<OvUI::Widgets::Visual::Separator>();
@@ -158,7 +162,7 @@ void OvCore::ECS::Components::CPostProcessStack::SetBloomSettings(const OvCore::
 
 void OvCore::ECS::Components::CPostProcessStack::SetAutoExposureSettings(const OvCore::Rendering::PostProcess::AutoExposureSettings& p_settings)
 {
-	m_settings.Set<Rendering::PostProcess::AutoExposureSettings>(p_settings);
+	m_settings.Set<Rendering::PostProcess::AutoExposureEffect>(p_settings);
 }
 
 void OvCore::ECS::Components::CPostProcessStack::SetTonemappingSettings(const OvCore::Rendering::PostProcess::TonemappingSettings& p_settings)
