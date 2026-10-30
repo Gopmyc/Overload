@@ -98,6 +98,8 @@ namespace OvCore::Rendering
 			float fogDensity;
 			float fogMax;
 			OvMaths::FVector4 fogColor; // w: 1 while the fog is on
+			float gameTime;
+			float padding[3]; // std140 rounds the block up to a multiple of 16 bytes
 		};
 
 		std::chrono::high_resolution_clock::time_point m_startTime;

@@ -8,9 +8,11 @@
 
 #include <tracy/Tracy.hpp>
 
+#include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
 #include <OvRendering/Core/CompositeRenderer.h>
+#include <OvTools/Time/Clock.h>
 
 namespace
 {
@@ -57,7 +59,7 @@ OvCore::Rendering::EngineBufferRenderFeature::EngineBufferRenderFeature(
 ) : 
 	ARenderFeature(p_renderer, p_executionPolicy)
 {
-	static_assert(sizeof(EngineUBO) == 432, "EngineUBO must match the std140 layout of EngineUBO.ovfxh");
+	static_assert(sizeof(EngineUBO) == 448, "EngineUBO must match the std140 layout of EngineUBO.ovfxh");
 	m_startTime = std::chrono::high_resolution_clock::now();
 }
 
@@ -121,6 +123,10 @@ void OvCore::Rendering::EngineBufferRenderFeature::OnBeginFrame(const OvRenderin
 
 	SetCamera(p_frameDescriptor.camera.value());
 	m_data.time = elapsedTime.count();
+
+	// The same clock as the scripts (Time.GetGameTime): a script can stamp a start time once and leave the rest to
+	// a shader, which then slows down and stops with the game
+	m_data.gameTime = OVSERVICE(OvTools::Time::Clock).GetTimeSinceStart();
 }
 
 void OvCore::Rendering::EngineBufferRenderFeature::OnEndFrame()

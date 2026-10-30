@@ -315,7 +315,8 @@ void BindLuaGlobal(sol::state& p_luaState)
 	p_luaState.create_named_table("Time",
 		"GetScale", []() { return OVSERVICE(OvTools::Time::Clock).GetTimeScale(); },
 		"SetScale", [](float p_scale) { OVSERVICE(OvTools::Time::Clock).SetTimeScale(std::max(p_scale, 0.0f)); },
-		"GetUnscaledDeltaTime", []() { return OVSERVICE(OvTools::Time::Clock).GetDeltaTimeUnscaled(); }
+		"GetUnscaledDeltaTime", []() { return OVSERVICE(OvTools::Time::Clock).GetDeltaTimeUnscaled(); },
+		"GetGameTime", []() { return OVSERVICE(OvTools::Time::Clock).GetTimeSinceStart(); }
 	);
 
 	p_luaState.create_named_table("Application",

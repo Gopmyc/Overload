@@ -13,4 +13,5 @@ layout (std140, binding = 0) uniform EngineUBO
     float   ubo_FogDensity;
     float   ubo_FogMax;
     vec4    ubo_FogColor;       // rgb: colour times intensity, w: 1 while the fog is on
+    float   ubo_GameTime;       // Seconds of game time: scaled by the time scale, stopped while it is 0 (ubo_Time is real time)
 };
