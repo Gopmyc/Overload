@@ -26,6 +26,12 @@ namespace OvCore::Rendering::FrameBuilder
 				p_renderer.DrawEntity(p_pso, p_drawable);
 			});
 		}
+		else if constexpr (OrderingMode == EOrderingMode::BACK_TO_FRONT && !BatchMaterial)
+		{
+			ForEachTransparentDraw(p_renderer, p_filteredDrawables, p_input, [&](OvRendering::Entities::Drawable& p_drawable) {
+				p_renderer.DrawEntity(p_pso, p_drawable);
+			});
+		}
 		else
 		{
 			for (const auto& filteredDrawable : p_filteredDrawables | std::views::values)

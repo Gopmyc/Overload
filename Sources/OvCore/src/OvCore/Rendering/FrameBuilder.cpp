@@ -46,13 +46,13 @@ namespace
 	}
 
 	// Materials whose drawables can be drawn several at once: their shader reads the instance matrices
-	bool CanMaterialInstance(const OvRendering::Data::Material& p_material)
+	bool CanMaterialInstance(const OvRendering::Data::Material& p_material, bool p_blended = false)
 	{
 		return
 			p_material.HasEngineCapability(kInstancingCapabilityName) &&
 			p_material.GetGPUInstances() == 1 &&
 			!p_material.IsUserInterface() &&
-			!p_material.IsBlendable();
+			p_material.IsBlendable() == p_blended;
 	}
 
 	EngineDrawableDescriptor CreateUIDrawableDescriptor(
@@ -717,6 +717,80 @@ void OvCore::Rendering::FrameBuilder::ForEachOpaqueDraw(
 			}
 		}
 
+		runStart = runEnd;
+	}
+}
+
+void OvCore::Rendering::FrameBuilder::ForEachTransparentDraw(
+	OvRendering::Core::CompositeRenderer& p_renderer,
+	const FilteredDrawableMap<EOrderingMode::BACK_TO_FRONT>& p_filteredDrawables,
+	const PreparationInput& p_input,
+	const std::function<void(OvRendering::Entities::Drawable&)>& p_submit
+)
+{
+	ZoneScoped;
+
+	const auto reflectionFeature = p_renderer.HasFeature<ReflectionRenderFeature>() ?
+		&p_renderer.GetFeature<ReflectionRenderFeature>() :
+		nullptr;
+
+	const auto findProbe = [&](const FilteredDrawable& p_filteredDrawable) -> const OvCore::ECS::Components::CReflectionProbe* {
+		if (!reflectionFeature) return nullptr;
+
+		const auto probe = reflectionFeature->FindProbe(p_filteredDrawable.drawable.get(), p_filteredDrawable.material.get());
+		return probe ? &probe.value() : nullptr;
+	};
+
+	std::vector<const EngineDrawableDescriptor*> instances;
+
+	for (size_t runStart = 0; runStart < p_filteredDrawables.size();)
+	{
+		const auto& [firstKey, firstFiltered] = p_filteredDrawables[runStart];
+		const auto& firstDrawable = firstFiltered.drawable.get();
+
+		// The material actually bound (a pass may fall back to another material) decides
+		auto first = Prepare(firstFiltered, p_input);
+
+		if (!first.material || !CanMaterialInstance(first.material.value(), true) || !CanBeInstanced(firstDrawable))
+		{
+			p_submit(first);
+			++runStart;
+			continue;
+		}
+
+		const auto mesh = &firstDrawable.mesh.value();
+		const auto probe = findProbe(firstFiltered);
+		size_t runEnd = runStart + 1;
+
+		while (
+			runEnd < p_filteredDrawables.size() &&
+			runEnd - runStart < kMaxInstancesPerDraw &&
+			p_filteredDrawables[runEnd].first.order == firstKey.order &&
+			p_filteredDrawables[runEnd].first.materialKey == firstKey.materialKey &&
+			CanBeInstanced(p_filteredDrawables[runEnd].second.drawable.get()) &&
+			&p_filteredDrawables[runEnd].second.drawable.get().mesh.value() == mesh &&
+			findProbe(p_filteredDrawables[runEnd].second) == probe)
+		{
+			++runEnd;
+		}
+
+		if (runEnd - runStart > 1)
+		{
+			instances.clear();
+
+			for (size_t index = runStart; index < runEnd; ++index)
+			{
+				instances.push_back(&p_filteredDrawables[index].second.drawable.get().GetDescriptor<EngineDrawableDescriptor>());
+			}
+
+			first.AddDescriptor<InstancingDrawableDescriptor>({
+				.instances = instances.data(),
+				.count = static_cast<uint32_t>(instances.size())
+			});
+			first.gpuInstancesOverride = static_cast<uint32_t>(instances.size());
+		}
+
+		p_submit(first);
 		runStart = runEnd;
 	}
 }

@@ -210,7 +210,26 @@ namespace OvCore::Rendering::FrameBuilder
 	);
 
 	/**
-	* Prepare and draw the given filtered drawables, in order (opaque drawables may be instanced, see ForEachOpaqueDraw).
+	* Prepare the given blended drawables and hand every draw to p_submit, in their back to front order. Consecutive
+	* drawables of a material whose shader declares the instancing capability (and draws a single GPU instance), sharing
+	* its mesh and reflection probe, are drawn as one instanced draw of up to kMaxInstancesPerDraw instances: only
+	* neighbours are gathered, so the order the blending relies on is kept exactly. Skinned drawables and drawables with
+	* their own camera are always drawn alone
+	* @param p_renderer
+	* @param p_filteredDrawables
+	* @param p_input
+	* @param p_submit
+	*/
+	void ForEachTransparentDraw(
+		OvRendering::Core::CompositeRenderer& p_renderer,
+		const FilteredDrawableMap<EOrderingMode::BACK_TO_FRONT>& p_filteredDrawables,
+		const PreparationInput& p_input,
+		const std::function<void(OvRendering::Entities::Drawable&)>& p_submit
+	);
+
+	/**
+	* Prepare and draw the given filtered drawables, in order (drawables may be instanced, see ForEachOpaqueDraw and
+	* ForEachTransparentDraw).
 	* @param p_renderer
 	* @param p_pso
 	* @param p_filteredDrawables
