@@ -127,12 +127,14 @@ namespace
 			"  \"runtime.builtin\": {{\n"
 			"    \"basic\": \"enable\",\n"
 			"    \"math\": \"enable\",\n"
-			"    \"string\": \"disable\",\n"
-			"    \"table\": \"disable\",\n"
+			"    \"string\": \"enable\",\n"
+			"    \"table\": \"enable\",\n"
+			"    \"coroutine\": \"enable\",\n"
+			"    \"utf8\": \"enable\",\n"
 			"    \"io\": \"disable\",\n"
 			"    \"os\": \"disable\",\n"
 			"    \"package\": \"disable\",\n"
-			"    \"coroutine\": \"disable\"\n"
+			"    \"debug\": \"disable\"\n"
 			"  }}\n"
 			"}}\n",
 			absolutePath.string(),
@@ -360,7 +362,9 @@ void OvCore::Scripting::LuaScriptEngine::CreateContext()
 	OVASSERT(m_context.luaState == nullptr, "A Lua context already exists!");
 
 	m_context.luaState = std::make_unique<sol::state>();
-	m_context.luaState->open_libraries(sol::lib::base, sol::lib::math);
+	// The pure libraries only: nothing reaching the files, the system or the interpreter's internals. A coroutine runs
+	// within one callback: it cannot be suspended across a call back into the engine.
+	m_context.luaState->open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table, sol::lib::coroutine, sol::lib::utf8);
 
 	// Scripts allocate mostly short-lived values every frame (vectors, temporary tables): the
 	// generational collector reclaims them for less than the incremental one

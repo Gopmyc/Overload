@@ -4,16 +4,12 @@ Features that already exist in the engine but aren't reachable from Lua, and wha
 would bring to the UI library. Missing engine primitives are listed in
 [EngineLimitations.md](EngineLimitations.md).
 
-## 1. `string`, `table` and `utf8` standard libraries
+## 1. `string`, `table` and `utf8` standard libraries (opened)
 
-- **Exists:** the embedded Lua 5.4 ships them (`Dependencies/lua/src/lstrlib.c`, `ltablib.c`,
-  `lutf8lib.c`), but `LuaScriptEngine::CreateContext` only opens `sol::lib::base` and `sol::lib::math`,
-  and the generated `.luarc.json` disables them.
-- **Proposal:** open `sol::lib::string`, `sol::lib::table` and `sol::lib::utf8`, and enable them in
-  `.luarc.json` (#246). None of them gives access to files or to the operating system.
-- **Why:** without `string`, a text can't be split into characters: `DTextEntry` edits a value given to
-  `SetText` as a single unit, and editing isn't UTF-8 aware. `Core/Array.lua` reimplements insertion,
-  removal and sorting, and would be removed.
+- **Done:** `LuaScriptEngine::CreateContext` opens them, with `coroutine`, and the generated
+  `.luarc.json` enables them (#246). None of them gives access to files or to the operating system.
+- **Left for the library:** `DTextEntry` could now split a text into UTF-8 characters, and
+  `Core/Array.lua`, which reimplements insertion, removal and sorting, could be removed.
 
 ## 2. Resolved canvas scale and size
 
