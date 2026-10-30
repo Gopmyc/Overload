@@ -20,15 +20,15 @@ function Behaviour:OnDisable() end
 --- Called when the behaviour is about to be destroyed
 function Behaviour:OnDestroy() end
 
---- Called every frame while the behaviour is active
+--- Called every frame while the behaviour is active and updating (see Actor:SetBehaviourUpdating)
 ---@param deltaTime number
 function Behaviour:OnUpdate(deltaTime) end
 
---- Called at a fixed timestep, used for physics-related updates
+--- Called at a fixed timestep, used for physics-related updates, while the behaviour is updating
 ---@param fixedDeltaTime number
 function Behaviour:OnFixedUpdate(fixedDeltaTime) end
 
---- Called every frame after OnUpdate
+--- Called every frame after OnUpdate, while the behaviour is updating
 ---@param deltaTime number
 function Behaviour:OnLateUpdate(deltaTime) end
 

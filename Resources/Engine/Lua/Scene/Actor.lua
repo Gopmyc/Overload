@@ -179,6 +179,20 @@ function Actor:GetText() end
 ---@return table|nil
 function Actor:GetBehaviour(name) end
 
+--- Stops or resumes the per frame callbacks (OnUpdate, OnFixedUpdate, OnLateUpdate) of one of its Behaviours, given
+--- by its table (self) or by its name as GetBehaviour takes it. A Behaviour with nothing to do every frame stops them
+--- and costs nothing until it resumes them; its other callbacks and the events it listens to still reach it. Returns
+--- false when the actor has no such Behaviour.
+---@param behaviour table|string
+---@param updating boolean
+---@return boolean
+function Actor:SetBehaviourUpdating(behaviour, updating) end
+
+--- Returns true while that Behaviour's per frame callbacks are called (false when the actor has no such Behaviour)
+---@param behaviour table|string
+---@return boolean
+function Actor:IsBehaviourUpdating(behaviour) end
+
 --- Adds a Transform component to the actor and returns it
 ---@return Transform
 function Actor:AddTransform() end

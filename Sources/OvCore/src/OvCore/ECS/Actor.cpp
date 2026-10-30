@@ -344,7 +344,7 @@ void OvCore::ECS::Actor::OnUpdate(float p_deltaTime)
 	if (IsActive())
 	{
 		std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnUpdate(p_deltaTime); });
-		ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnUpdate(p_deltaTime); });
+		ForEachBehaviour([&](auto& p_behaviour) { if (p_behaviour.IsUpdating()) p_behaviour.OnUpdate(p_deltaTime); });
 	}
 }
 
@@ -353,7 +353,7 @@ void OvCore::ECS::Actor::OnFixedUpdate(float p_deltaTime)
 	if (IsActive())
 	{
 		std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnFixedUpdate(p_deltaTime); });
-		ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnFixedUpdate(p_deltaTime); });
+		ForEachBehaviour([&](auto& p_behaviour) { if (p_behaviour.IsUpdating()) p_behaviour.OnFixedUpdate(p_deltaTime); });
 	}
 }
 
@@ -362,7 +362,7 @@ void OvCore::ECS::Actor::OnLateUpdate(float p_deltaTime)
 	if (IsActive())
 	{
 		std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnLateUpdate(p_deltaTime); });
-		ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnLateUpdate(p_deltaTime); });
+		ForEachBehaviour([&](auto& p_behaviour) { if (p_behaviour.IsUpdating()) p_behaviour.OnLateUpdate(p_deltaTime); });
 	}
 }
 

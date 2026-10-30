@@ -130,6 +130,16 @@ void OvCore::ECS::Components::Behaviour::OnDestroy()
 	OVSERVICE(Scripting::ScriptEngine).OnDestroy(*this);
 }
 
+void OvCore::ECS::Components::Behaviour::SetUpdating(bool p_updating)
+{
+	m_updating = p_updating;
+}
+
+bool OvCore::ECS::Components::Behaviour::IsUpdating() const
+{
+	return m_updating;
+}
+
 void OvCore::ECS::Components::Behaviour::OnUpdate(float p_deltaTime)
 {
 	OVSERVICE(Scripting::ScriptEngine).OnUpdate(*this, p_deltaTime);

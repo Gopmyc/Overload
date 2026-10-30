@@ -64,6 +64,18 @@ namespace OvCore::ECS::Components
 		void RemoveScript();
 
 		/**
+		* Whether its per frame callbacks (OnUpdate, OnFixedUpdate, OnLateUpdate) are called. A behaviour with nothing to
+		* do every frame stops them, and costs nothing until it resumes them; its other callbacks still reach it.
+		* @param p_updating
+		*/
+		void SetUpdating(bool p_updating);
+
+		/**
+		* Returns true while its per frame callbacks are called
+		*/
+		bool IsUpdating() const;
+
+		/**
 		* Called when the scene start right before OnStart
 		* It allows you to apply prioritized game logic on scene start
 		*/
@@ -172,6 +184,7 @@ namespace OvCore::ECS::Components
 		std::map<std::string, Scripting::ScriptPropertyValue> m_scriptDefaults;
 		std::map<std::string, Scripting::ScriptPropertyValue> m_scriptProperties;
 		std::set<std::string> m_unlockedProperties;
+		bool m_updating = true;
 	};
 
 	template<>

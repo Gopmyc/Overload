@@ -45,6 +45,50 @@
 // still examine a dead handle without erroring.
 // 
 // 
+namespace
+{
+	// A behaviour named by its script name (stem without path or extension), its path, or its path without .lua
+	OvCore::ECS::Components::Behaviour* FindBehaviour(OvCore::ECS::Actor& p_actor, const std::string& p_name)
+	{
+		for (auto& [key, behaviour] : p_actor.GetBehaviours())
+		{
+			if (std::filesystem::path(behaviour.name).stem().string() == p_name)
+			{
+				return &behaviour;
+			}
+		}
+
+		if (auto behaviour = p_actor.GetBehaviour(p_name))
+		{
+			return behaviour;
+		}
+
+		if (std::filesystem::path(p_name).extension().empty())
+		{
+			return p_actor.GetBehaviour(p_name + ".lua");
+		}
+
+		return nullptr;
+	}
+
+	// The behaviour whose script table is the one given (a script names itself with self)
+	OvCore::ECS::Components::Behaviour* FindBehaviour(OvCore::ECS::Actor& p_actor, const sol::table& p_table)
+	{
+		for (auto& [key, behaviour] : p_actor.GetBehaviours())
+		{
+			if (auto script = behaviour.GetScript(); script.has_value() && script->IsValid())
+			{
+				if (static_cast<OvCore::Scripting::LuaScript&>(script.value()).GetContext().table->pointer() == p_table.pointer())
+				{
+					return &behaviour;
+				}
+			}
+		}
+
+		return nullptr;
+	}
+}
+
 void BindLuaActor(sol::state& p_luaState)
 {
 	using namespace OvCore::ECS;
@@ -117,30 +161,7 @@ void BindLuaActor(sol::state& p_luaState)
 
 		/* Behaviours relatives */
 		"GetBehaviour", [](ActorRef& r, const std::string& p_name) -> sol::table {
-			auto& p_this = r.Resolve();
-			// First try matching by script name (stem without path or extension)
-			OvCore::ECS::Components::Behaviour* behaviour = nullptr;
-			for (auto& [key, b] : p_this.GetBehaviours())
-			{
-				if (std::filesystem::path(b.name).stem().string() == p_name)
-				{
-					behaviour = &b;
-					break;
-				}
-			}
-
-			// Fall back to path-based match: try as-is, then with .lua appended if no extension given
-			if (!behaviour)
-			{
-				behaviour = p_this.GetBehaviour(p_name);
-			}
-
-			if (!behaviour && std::filesystem::path(p_name).extension().empty())
-			{
-				behaviour = p_this.GetBehaviour(p_name + ".lua");
-			}
-
-			if (behaviour)
+			if (auto behaviour = FindBehaviour(r.Resolve(), p_name))
 			{
 				if (auto script = behaviour->GetScript())
 				{
@@ -149,6 +170,28 @@ void BindLuaActor(sol::state& p_luaState)
 			}
 			return sol::nil;
 		},
+		"SetBehaviourUpdating", sol::overload(
+			[](ActorRef& r, const sol::table& p_behaviour, bool p_updating) {
+				auto behaviour = FindBehaviour(r.Resolve(), p_behaviour);
+				if (behaviour) behaviour->SetUpdating(p_updating);
+				return behaviour != nullptr;
+			},
+			[](ActorRef& r, const std::string& p_name, bool p_updating) {
+				auto behaviour = FindBehaviour(r.Resolve(), p_name);
+				if (behaviour) behaviour->SetUpdating(p_updating);
+				return behaviour != nullptr;
+			}
+		),
+		"IsBehaviourUpdating", sol::overload(
+			[](ActorRef& r, const sol::table& p_behaviour) {
+				auto behaviour = FindBehaviour(r.Resolve(), p_behaviour);
+				return behaviour != nullptr && behaviour->IsUpdating();
+			},
+			[](ActorRef& r, const std::string& p_name) {
+				auto behaviour = FindBehaviour(r.Resolve(), p_name);
+				return behaviour != nullptr && behaviour->IsUpdating();
+			}
+		),
 
 		/* Components Creators */
 		"AddTransform", [](ActorRef& r) -> CTransform& { return r.Resolve().AddComponent<CTransform>(); },
