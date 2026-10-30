@@ -266,7 +266,7 @@ void OvRendering::Core::ABaseRenderer::DrawEntity(
 		p_pso,
 		p_drawable.mesh.value(),
 		p_drawable.primitiveMode,
-		p_drawable.material->GetGPUInstances()
+		p_drawable.gpuInstancesOverride.value_or(p_drawable.material->GetGPUInstances())
 	);
 
 	p_drawable.material->Unbind();

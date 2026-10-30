@@ -1,0 +1,21 @@
+#include ":Shaders/Common/Buffers/InstancesSSBO.ovfxh"
+
+// A shader declaring "#engine_capability INSTANCING" can be drawn once for several drawables sharing its mesh and
+// material: it then reads the matrices of the drawn instance (gl_InstanceID) through these functions, which fall back
+// to the engine UBO for any other draw. Needs Buffers/EngineUBO.ovfxh, included before. A fragment shader wanting the
+// user matrix receives it from the vertex shader.
+
+mat4 InstanceModelMatrix(int p_instance)
+{
+    return ubo_InstanceCount > 0 ? ssbo_Instances[p_instance].model : ubo_Model;
+}
+
+mat4 InstanceNormalMatrix(int p_instance)
+{
+    return ubo_InstanceCount > 0 ? ssbo_Instances[p_instance].normalMatrix : ubo_NormalMatrix;
+}
+
+mat4 InstanceUserMatrix(int p_instance)
+{
+    return ubo_InstanceCount > 0 ? ssbo_Instances[p_instance].userMatrix : ubo_UserMatrix;
+}

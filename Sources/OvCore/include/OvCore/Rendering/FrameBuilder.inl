@@ -20,9 +20,18 @@ namespace OvCore::Rendering::FrameBuilder
 		const PreparationInput& p_input
 	)
 	{
-		for (const auto& filteredDrawable : p_filteredDrawables | std::views::values)
+		if constexpr (OrderingMode == EOrderingMode::FRONT_TO_BACK && BatchMaterial)
 		{
-			p_renderer.DrawEntity(p_pso, Prepare(filteredDrawable, p_input));
+			ForEachOpaqueDraw(p_renderer, p_filteredDrawables, p_input, [&](OvRendering::Entities::Drawable& p_drawable) {
+				p_renderer.DrawEntity(p_pso, p_drawable);
+			});
+		}
+		else
+		{
+			for (const auto& filteredDrawable : p_filteredDrawables | std::views::values)
+			{
+				p_renderer.DrawEntity(p_pso, Prepare(filteredDrawable, p_input));
+			}
 		}
 	}
 }

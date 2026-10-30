@@ -69,6 +69,17 @@ namespace OvCore::Rendering
 			const OvCore::ECS::Components::CReflectionProbe& p_reflectionProbe
 		);
 
+		/**
+		* Returns the reflection probe a drawable drawn with the given material receives (none if the material doesn't
+		* receive reflections, or no probe affects the drawable)
+		* @param p_drawable
+		* @param p_material
+		*/
+		OvTools::Utils::OptRef<const OvCore::ECS::Components::CReflectionProbe> FindProbe(
+			const OvRendering::Entities::Drawable& p_drawable,
+			const OvRendering::Data::Material& p_material
+		) const;
+
 	protected:
 		virtual void OnBeginFrame(const OvRendering::Data::FrameDescriptor& p_frameDescriptor) override;
 		virtual void OnBeforeDraw(OvRendering::Data::PipelineState& p_pso, const OvRendering::Entities::Drawable& p_drawable) override;

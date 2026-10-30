@@ -7,6 +7,7 @@
 #pragma once
 
 #include <chrono>
+#include <vector>
 
 #include <OvMaths/FMatrix4.h>
 #include <OvMaths/FVector3.h>
@@ -24,6 +25,9 @@ namespace OvCore::Rendering
 	class EngineBufferRenderFeature : public OvRendering::Features::ARenderFeature
 	{
 	public:
+		// Shader storage binding point of the instances buffer (see Common/Buffers/InstancesSSBO.ovfxh)
+		static constexpr uint32_t kInstancesBufferBindingPoint = 2;
+
 		/**
 		* Constructor
 		* @param p_renderer
@@ -99,7 +103,18 @@ namespace OvCore::Rendering
 			float fogMax;
 			OvMaths::FVector4 fogColor; // w: 1 while the fog is on
 			float gameTime;
-			float padding[3]; // std140 rounds the block up to a multiple of 16 bytes
+			int32_t instanceCount; // Instances of the current instanced draw, 0 for any other draw
+			float padding[2]; // std140 rounds the block up to a multiple of 16 bytes
+		};
+
+		/**
+		* Matrices of one instance of an instanced draw (std430 layout, see InstancesSSBO.ovfxh)
+		*/
+		struct InstanceData
+		{
+			OvMaths::FMatrix4 model;
+			OvMaths::FMatrix4 normalMatrix;
+			OvMaths::FMatrix4 userMatrix;
 		};
 
 		std::chrono::high_resolution_clock::time_point m_startTime;
@@ -109,6 +124,10 @@ namespace OvCore::Rendering
 		OvRendering::Utils::StreamingBuffer m_engineBuffer;
 		EngineUBO m_data{};
 		bool m_dirty = true;
+
+		// Instances of the instanced draws (see InstancingDrawableDescriptor), streamed like the UBO
+		OvRendering::Utils::StreamingBuffer m_instancesBuffer;
+		std::vector<InstanceData> m_instances;
 
 		// Camera set for the frame (or with SetCamera), restored after draws overriding the camera
 		// (see EngineDrawableDescriptor::viewMatrixOverride and projectionMatrixOverride)

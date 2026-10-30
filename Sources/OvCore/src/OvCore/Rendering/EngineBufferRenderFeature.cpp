@@ -11,6 +11,7 @@
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
+#include <OvCore/Rendering/InstancingDrawableDescriptor.h>
 #include <OvRendering/Core/CompositeRenderer.h>
 #include <OvTools/Time/Clock.h>
 
@@ -57,9 +58,11 @@ OvCore::Rendering::EngineBufferRenderFeature::EngineBufferRenderFeature(
 	OvRendering::Core::CompositeRenderer& p_renderer,
 	OvRendering::Features::EFeatureExecutionPolicy p_executionPolicy
 ) : 
-	ARenderFeature(p_renderer, p_executionPolicy)
+	ARenderFeature(p_renderer, p_executionPolicy),
+	m_instancesBuffer(64 * 1024) // Grows on demand
 {
 	static_assert(sizeof(EngineUBO) == 448, "EngineUBO must match the std140 layout of EngineUBO.ovfxh");
+	static_assert(sizeof(InstanceData) == 192, "InstanceData must match the std430 layout of InstancesSSBO.ovfxh");
 	m_startTime = std::chrono::high_resolution_clock::now();
 }
 
@@ -117,6 +120,7 @@ void OvCore::Rendering::EngineBufferRenderFeature::OnBeginFrame(const OvRenderin
 	OVASSERT(p_frameDescriptor.camera.has_value(), "Camera is not set in the frame descriptor");
 
 	m_engineBuffer.BeginFrame();
+	m_instancesBuffer.BeginFrame();
 
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	auto elapsedTime = std::chrono::duration_cast<std::chrono::duration<float>>(currentTime - m_startTime);
@@ -133,6 +137,7 @@ void OvCore::Rendering::EngineBufferRenderFeature::OnEndFrame()
 {
 	m_cameraOverrideActive = false;
 	m_engineBuffer.EndFrame();
+	m_instancesBuffer.EndFrame();
 }
 
 void OvCore::Rendering::EngineBufferRenderFeature::OnBeforeDraw(OvRendering::Data::PipelineState& p_pso, const OvRendering::Entities::Drawable& p_drawable)
@@ -176,6 +181,40 @@ void OvCore::Rendering::EngineBufferRenderFeature::OnBeforeDraw(OvRendering::Dat
 			m_data.userMatrix = descriptor->userMatrix;
 			m_dirty = true;
 		}
+	}
+
+	// An instanced draw reads the matrices of its instances from the instances buffer, which ubo_InstanceCount tells
+	OvTools::Utils::OptRef<const InstancingDrawableDescriptor> instancing;
+	const int32_t instanceCount =
+		p_drawable.TryGetDescriptor<InstancingDrawableDescriptor>(instancing) && instancing->instances ?
+		static_cast<int32_t>(instancing->count) :
+		0;
+
+	if (instanceCount > 0)
+	{
+		ZoneScopedN("Instances Upload");
+
+		m_instances.resize(instancing->count);
+
+		for (uint32_t index = 0; index < instancing->count; ++index)
+		{
+			const auto& instance = *instancing->instances[index];
+
+			m_instances[index] = {
+				.model = OvMaths::FMatrix4::Transpose(instance.modelMatrix),
+				.normalMatrix = CalculateNormalMatrix(instance.modelMatrix),
+				.userMatrix = instance.userMatrix
+			};
+		}
+
+		const auto range = m_instancesBuffer.Push(m_instances.data(), m_instances.size() * sizeof(InstanceData));
+		m_instancesBuffer.GetBuffer().Bind(baregl::types::EBufferType::SHADER_STORAGE, kInstancesBufferBindingPoint, range);
+	}
+
+	if (m_data.instanceCount != instanceCount)
+	{
+		m_data.instanceCount = instanceCount;
+		m_dirty = true;
 	}
 
 	// Drawables without descriptor keep the previous model/user matrices (only the camera data may have changed)

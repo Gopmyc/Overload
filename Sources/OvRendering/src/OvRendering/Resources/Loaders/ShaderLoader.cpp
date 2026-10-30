@@ -33,6 +33,7 @@ namespace
 		constexpr std::string_view kPassToken = "#pass";
 		constexpr std::string_view kFeatureToken = "#feature";
 		constexpr std::string_view kEngineFeatureToken = "#engine_feature";
+		constexpr std::string_view kEngineCapabilityToken = "#engine_capability";
 		constexpr std::string_view kVertexShaderToken = "#shader vertex";
 		constexpr std::string_view kFragmentShaderToken = "#shader fragment";
 		constexpr std::string_view kIncludeToken = "#include";
@@ -68,6 +69,7 @@ namespace
 		const std::unordered_set<std::string> passes;
 		const OvRendering::Data::FeatureSet userFeatures;
 		const OvRendering::Data::FeatureSet engineFeatures;
+		const OvRendering::Data::FeatureSet engineCapabilities;
 	};
 
 	struct ShaderAssembleResult
@@ -76,6 +78,7 @@ namespace
 		const uint32_t failures; // How many variants failed to compile
 		OvRendering::Resources::Shader::Variants variants;
 		OvRendering::Data::FeatureSet engineFeatures;
+		OvRendering::Data::FeatureSet engineCapabilities;
 	};
 
 	struct ShaderStageDesc
@@ -386,6 +389,7 @@ void main()
 		std::unordered_map<baregl::types::EShaderType, std::stringstream> shaderSources;
 		OvRendering::Data::FeatureSet userFeatures;
 		OvRendering::Data::FeatureSet engineFeatures;
+		OvRendering::Data::FeatureSet engineCapabilities;
 		std::unordered_set<std::string> passes;
 		passes.emplace(); // Default pass if none is specified (empty string)
 
@@ -425,6 +429,21 @@ void main()
 
 				engineFeatures.insert(featureName);
 			}
+			else if (trimmedLine.starts_with(Grammar::kEngineCapabilityToken))
+			{
+				std::string capabilityName;
+				capabilityName.reserve(16);
+
+				for (auto& c : trimmedLine |
+					std::views::drop(Grammar::kEngineCapabilityToken.size()) |
+					std::views::drop_while(isspace) |
+					std::views::take_while([](char c) { return !isspace(c); }))
+				{
+					capabilityName += c;
+				}
+
+				engineCapabilities.insert(capabilityName);
+			}
 			else if (trimmedLine.starts_with(Grammar::kFeatureToken))
 			{
 				std::string featureName;
@@ -460,7 +479,8 @@ void main()
 			.fragmentShader = shaderSources[baregl::types::EShaderType::FRAGMENT].str(),
 			.passes = passes,
 			.userFeatures = userFeatures,
-			.engineFeatures = engineFeatures
+			.engineFeatures = engineFeatures,
+			.engineCapabilities = engineCapabilities
 		};
 	}
 
@@ -567,7 +587,8 @@ void main()
 			p_parseResult.inputInfo,
 			failures,
 			std::move(variants),
-			p_parseResult.engineFeatures
+			p_parseResult.engineFeatures,
+			p_parseResult.engineCapabilities
 		};
 	}
 
@@ -600,7 +621,8 @@ void main()
 			.fragmentShader = p_fragmentShader,
 			.passes = {{}}, // Default pass (empty string)
 			.userFeatures = {}, // No support for features in embedded shaders
-			.engineFeatures = {}
+			.engineFeatures = {},
+			.engineCapabilities = {}
 		};
 
 		return AssembleShader(shaderParseResult);
@@ -622,7 +644,7 @@ namespace OvRendering::Resources::Loaders
 	Shader* ShaderLoader::Create(const std::string& p_filePath, FilePathParserCallback p_pathParser)
 	{
 		auto result = CompileShaderFromFile(p_filePath, p_pathParser);
-		return new Shader(p_filePath, std::move(result.variants), std::move(result.engineFeatures));
+		return new Shader(p_filePath, std::move(result.variants), std::move(result.engineFeatures), std::move(result.engineCapabilities));
 	}
 
 	Shader* ShaderLoader::CreateFromSource(const std::string& p_vertexShader, const std::string& p_fragmentShader)
@@ -637,7 +659,7 @@ namespace OvRendering::Resources::Loaders
 
 		if (result.failures == 0)
 		{
-			p_shader.SetVariants(std::move(result.variants), std::move(result.engineFeatures));
+			p_shader.SetVariants(std::move(result.variants), std::move(result.engineFeatures), std::move(result.engineCapabilities));
 		}
 		else
 		{

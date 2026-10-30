@@ -1,5 +1,6 @@
 #pass SHADOW_PASS
 #engine_feature SKINNING
+#engine_capability INSTANCING
 
 #shader vertex
 #version 450 core
@@ -11,6 +12,7 @@ layout (location = 6) in vec4 geo_BoneWeights;
 #endif
 
 #include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+#include ":Shaders/Common/Instancing.ovfxh"
 #include ":Shaders/Common/Skinning.ovfxh"
 
 void main()
@@ -20,7 +22,7 @@ void main()
     position = ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights) * position;
 #endif
 
-    gl_Position = ubo_ViewProjection * (ubo_Model * position);
+    gl_Position = ubo_ViewProjection * (InstanceModelMatrix(gl_InstanceID) * position);
 }
 
 #shader fragment

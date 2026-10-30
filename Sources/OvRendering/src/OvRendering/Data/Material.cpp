@@ -619,6 +619,11 @@ bool OvRendering::Data::Material::SupportsFeature(const std::string& p_feature) 
 		 m_shader->GetEngineFeatures().contains(p_feature));
 }
 
+bool OvRendering::Data::Material::HasEngineCapability(const std::string& p_capability) const
+{
+	return m_shader && m_shader->GetEngineCapabilities().contains(p_capability);
+}
+
 bool OvRendering::Data::Material::HasPass(const std::string& p_pass) const
 {
 	return m_shader->GetPasses().contains(p_pass);

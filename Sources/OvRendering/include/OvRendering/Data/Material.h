@@ -383,6 +383,12 @@ namespace OvRendering::Data
 		bool SupportsFeature(const std::string& p_feature) const;
 
 		/**
+		* Returns true if the material's shader declares an engine capability (#engine_capability)
+		* @param p_capability
+		*/
+		bool HasEngineCapability(const std::string& p_capability) const;
+
+		/**
 		* Returns true if the material has a pass
 		* @param p_pass
 		*/

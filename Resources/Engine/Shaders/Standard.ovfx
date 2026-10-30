@@ -6,11 +6,13 @@
 #feature DISTANCE_FADE
 #feature SPECULAR_WORKFLOW
 #engine_feature SKINNING
+#engine_capability INSTANCING
 
 #shader vertex
 #version 450 core
 
 #include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+#include ":Shaders/Common/Instancing.ovfxh"
 #include ":Shaders/Common/Skinning.ovfxh"
 #include ":Shaders/Common/Utils.ovfxh"
 
@@ -39,11 +41,11 @@ out VS_OUT
 void main()
 {
 #if defined(SKINNING)
-    const mat4 modelMatrix = ubo_Model * ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights);
+    const mat4 modelMatrix = InstanceModelMatrix(gl_InstanceID) * ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights);
     const mat3 normalMatrix = mat3(transpose(inverse(modelMatrix)));
 #else
-    const mat4 modelMatrix = ubo_Model;
-    const mat3 normalMatrix = mat3(ubo_NormalMatrix); // Precomputed on the CPU
+    const mat4 modelMatrix = InstanceModelMatrix(gl_InstanceID);
+    const mat3 normalMatrix = mat3(InstanceNormalMatrix(gl_InstanceID)); // Precomputed on the CPU
 #endif
 
     vs_out.FragPos = vec3(modelMatrix * vec4(geo_Pos, 1.0));

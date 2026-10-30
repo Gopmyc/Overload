@@ -63,6 +63,12 @@ namespace OvRendering::Resources
 		const Data::FeatureSet& GetEngineFeatures() const;
 
 		/**
+		* Returns engine capabilities (declared with #engine_capability): what the shader can be used for by the engine,
+		* in every variant (unlike features, a capability compiles no variant of its own)
+		*/
+		const Data::FeatureSet& GetEngineCapabilities() const;
+
+		/**
 		* Returns supported passes
 		*/
 		const std::unordered_set<std::string>& GetPasses() const;
@@ -82,11 +88,12 @@ namespace OvRendering::Resources
 		Shader(
 			const std::string p_path,
 			Variants&& p_variants,
-			Data::FeatureSet p_engineFeatures = {}
+			Data::FeatureSet p_engineFeatures = {},
+			Data::FeatureSet p_engineCapabilities = {}
 		);
 
 		~Shader() = default;
-		void SetVariants(Variants&& p_variants, Data::FeatureSet p_engineFeatures = {});
+		void SetVariants(Variants&& p_variants, Data::FeatureSet p_engineFeatures = {}, Data::FeatureSet p_engineCapabilities = {});
 
 	public:
 		const std::string path;
@@ -95,6 +102,7 @@ namespace OvRendering::Resources
 		std::unordered_set<std::string> m_passes;
 		Data::FeatureSet m_features;
 		Data::FeatureSet m_engineFeatures;
+		Data::FeatureSet m_engineCapabilities;
 		Variants m_variants;
 		uint64_t m_variantsVersion = 0;
 	};

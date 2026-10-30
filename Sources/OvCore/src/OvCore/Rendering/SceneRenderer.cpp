@@ -4,7 +4,6 @@
 * @licence: MIT
 */
 
-#include <ranges>
 #include <tracy/Tracy.hpp>
 
 #include <OvCore/ECS/Components/CPostProcessStack.h>
@@ -94,16 +93,13 @@ namespace
 			// Lets shaders skip their shading once alpha testing is done (see ubo_DepthOnly)
 			engineBufferRenderFeature.SetDepthOnly(true);
 
-			for (const auto& filteredDrawable : filteringResult.opaques | std::views::values)
-			{
-				auto drawable = FrameBuilder::Prepare(filteredDrawable, {});
-
-				if (IsDepthPrePassCandidate(drawable))
+			FrameBuilder::ForEachOpaqueDraw(m_renderer, filteringResult.opaques, {}, [&](OvRendering::Entities::Drawable& p_drawable) {
+				if (IsDepthPrePassCandidate(p_drawable))
 				{
-					drawable.stateMask.colorWriting = false;
-					m_renderer.DrawEntity(p_pso, drawable);
+					p_drawable.stateMask.colorWriting = false;
+					m_renderer.DrawEntity(p_pso, p_drawable);
 				}
-			}
+			});
 
 			engineBufferRenderFeature.SetDepthOnly(false);
 		}
@@ -138,20 +134,17 @@ namespace
 			auto prePassedPso = p_pso;
 			prePassedPso.depthFunc = baregl::types::EComparaisonAlgorithm::LESS_EQUAL;
 
-			for (const auto& filteredDrawable : filteringResult.opaques | std::views::values)
-			{
-				auto drawable = FrameBuilder::Prepare(filteredDrawable, {});
-
-				if (IsDepthPrePassCandidate(drawable))
+			FrameBuilder::ForEachOpaqueDraw(m_renderer, filteringResult.opaques, {}, [&](OvRendering::Entities::Drawable& p_drawable) {
+				if (IsDepthPrePassCandidate(p_drawable))
 				{
-					drawable.stateMask.depthWriting = false;
-					m_renderer.DrawEntity(prePassedPso, drawable);
+					p_drawable.stateMask.depthWriting = false;
+					m_renderer.DrawEntity(prePassedPso, p_drawable);
 				}
 				else
 				{
-					m_renderer.DrawEntity(p_pso, drawable);
+					m_renderer.DrawEntity(p_pso, p_drawable);
 				}
-			}
+			});
 		}
 	};
 

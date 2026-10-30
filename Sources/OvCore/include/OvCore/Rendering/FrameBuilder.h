@@ -10,6 +10,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -36,6 +37,13 @@ namespace OvCore::Rendering::UIRenderingUtils { class UIFrameResolver; }
 */
 namespace OvCore::Rendering::FrameBuilder
 {
+	// Declared by a shader (#engine_capability INSTANCING) reading its matrices through Common/Instancing.ovfxh: its
+	// drawables can then be drawn several at once, in one instanced draw
+	constexpr std::string_view kInstancingCapabilityName = "INSTANCING";
+
+	// Most drawables one instanced draw stands for
+	constexpr uint32_t kMaxInstancesPerDraw = 256;
+
 	enum class EOrderingMode
 	{
 		BACK_TO_FRONT,
@@ -184,7 +192,25 @@ namespace OvCore::Rendering::FrameBuilder
 	OvRendering::Entities::Drawable Prepare(const FilteredDrawable& p_filteredDrawable, const PreparationInput& p_input);
 
 	/**
-	* Prepare and draw the given filtered drawables, in order.
+	* Prepare the given opaque drawables and hand every draw to p_submit, in their draw order. Within each run of
+	* drawables sharing a draw order and a material whose shader declares the instancing capability (and draws a single
+	* GPU instance), the drawables sharing a mesh and a reflection probe are drawn as one instanced draw of up to
+	* kMaxInstancesPerDraw instances, in place of the first of them. Skinned drawables and drawables with their own
+	* camera are always drawn alone
+	* @param p_renderer
+	* @param p_filteredDrawables
+	* @param p_input
+	* @param p_submit
+	*/
+	void ForEachOpaqueDraw(
+		OvRendering::Core::CompositeRenderer& p_renderer,
+		const FilteredDrawableMap<EOrderingMode::FRONT_TO_BACK, true>& p_filteredDrawables,
+		const PreparationInput& p_input,
+		const std::function<void(OvRendering::Entities::Drawable&)>& p_submit
+	);
+
+	/**
+	* Prepare and draw the given filtered drawables, in order (opaque drawables may be instanced, see ForEachOpaqueDraw).
 	* @param p_renderer
 	* @param p_pso
 	* @param p_filteredDrawables

@@ -17,6 +17,8 @@
 #include <OvCore/ECS/Components/UI/CText.h>
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
 #include <OvCore/Rendering/FrameBuilder.h>
+#include <OvCore/Rendering/InstancingDrawableDescriptor.h>
+#include <OvCore/Rendering/ReflectionRenderFeature.h>
 #include <OvCore/Rendering/SceneDrawableDescriptor.h>
 #include <OvCore/Rendering/SkinningDrawableDescriptor.h>
 #include <OvCore/Rendering/SkinningUtils.h>
@@ -27,6 +29,31 @@ namespace
 	using namespace OvCore::Rendering;
 
 	const std::string kSkinningFeatureName{ OvCore::Rendering::SkinningUtils::kFeatureName };
+	const std::string kInstancingCapabilityName{ OvCore::Rendering::FrameBuilder::kInstancingCapabilityName };
+
+	// Drawables an instanced draw can stand for: placed by their engine matrices alone (no skinning, no camera of
+	// their own)
+	bool CanBeInstanced(const OvRendering::Entities::Drawable& p_drawable)
+	{
+		OvTools::Utils::OptRef<const EngineDrawableDescriptor> engineDescriptor;
+
+		return
+			p_drawable.mesh.has_value() &&
+			!p_drawable.HasDescriptor<SkinningDrawableDescriptor>() &&
+			p_drawable.TryGetDescriptor<EngineDrawableDescriptor>(engineDescriptor) &&
+			!engineDescriptor->viewMatrixOverride &&
+			!engineDescriptor->projectionMatrixOverride;
+	}
+
+	// Materials whose drawables can be drawn several at once: their shader reads the instance matrices
+	bool CanMaterialInstance(const OvRendering::Data::Material& p_material)
+	{
+		return
+			p_material.HasEngineCapability(kInstancingCapabilityName) &&
+			p_material.GetGPUInstances() == 1 &&
+			!p_material.IsUserInterface() &&
+			!p_material.IsBlendable();
+	}
 
 	EngineDrawableDescriptor CreateUIDrawableDescriptor(
 		OvCore::ECS::Actor& p_owner,
@@ -566,6 +593,132 @@ OvRendering::Entities::Drawable OvCore::Rendering::FrameBuilder::Prepare(
 	}
 
 	return drawable;
+}
+
+void OvCore::Rendering::FrameBuilder::ForEachOpaqueDraw(
+	OvRendering::Core::CompositeRenderer& p_renderer,
+	const FilteredDrawableMap<EOrderingMode::FRONT_TO_BACK, true>& p_filteredDrawables,
+	const PreparationInput& p_input,
+	const std::function<void(OvRendering::Entities::Drawable&)>& p_submit
+)
+{
+	ZoneScoped;
+
+	const auto reflectionFeature = p_renderer.HasFeature<ReflectionRenderFeature>() ?
+		&p_renderer.GetFeature<ReflectionRenderFeature>() :
+		nullptr;
+
+	struct Group
+	{
+		const OvRendering::Resources::IMesh* mesh = nullptr; // nullptr: drawn alone
+		const OvCore::ECS::Components::CReflectionProbe* probe = nullptr;
+		std::vector<size_t> members;
+	};
+
+	std::vector<Group> groups;
+	std::vector<const EngineDrawableDescriptor*> instances;
+
+	const auto drawAlone = [&](size_t p_index) {
+		auto drawable = Prepare(p_filteredDrawables[p_index].second, p_input);
+		p_submit(drawable);
+	};
+
+	// Opaque drawables are sorted by draw order then material: each run sharing both is gathered by mesh
+	for (size_t runStart = 0; runStart < p_filteredDrawables.size();)
+	{
+		const auto& runKey = p_filteredDrawables[runStart].first;
+		size_t runEnd = runStart + 1;
+
+		while (runEnd < p_filteredDrawables.size() &&
+			p_filteredDrawables[runEnd].first.order == runKey.order &&
+			p_filteredDrawables[runEnd].first.materialKey == runKey.materialKey)
+		{
+			++runEnd;
+		}
+
+		// The material actually bound (a pass may fall back to another material) decides
+		auto first = Prepare(p_filteredDrawables[runStart].second, p_input);
+
+		if (runEnd - runStart == 1 || !first.material || !CanMaterialInstance(first.material.value()))
+		{
+			p_submit(first);
+
+			for (size_t index = runStart + 1; index < runEnd; ++index)
+			{
+				drawAlone(index);
+			}
+
+			runStart = runEnd;
+			continue;
+		}
+
+		groups.clear();
+
+		for (size_t index = runStart; index < runEnd; ++index)
+		{
+			const auto& filteredDrawable = p_filteredDrawables[index].second;
+			const auto& drawable = filteredDrawable.drawable.get();
+
+			if (!CanBeInstanced(drawable))
+			{
+				groups.push_back({ .members = { index } });
+				continue;
+			}
+
+			const auto mesh = &drawable.mesh.value();
+			const auto probe = reflectionFeature ? reflectionFeature->FindProbe(drawable, filteredDrawable.material.get()) : std::nullopt;
+			const auto probePtr = probe ? &probe.value() : nullptr;
+
+			auto group = std::find_if(groups.begin(), groups.end(), [&](const Group& p_group) {
+				return p_group.mesh == mesh && p_group.probe == probePtr;
+			});
+
+			if (group == groups.end())
+			{
+				groups.push_back({ .mesh = mesh, .probe = probePtr });
+				group = std::prev(groups.end());
+			}
+
+			group->members.push_back(index);
+		}
+
+		for (const auto& group : groups)
+		{
+			if (group.members.size() == 1)
+			{
+				drawAlone(group.members.front());
+				continue;
+			}
+
+			for (size_t chunkStart = 0; chunkStart < group.members.size(); chunkStart += kMaxInstancesPerDraw)
+			{
+				const size_t chunkEnd = std::min<size_t>(chunkStart + kMaxInstancesPerDraw, group.members.size());
+
+				instances.clear();
+
+				for (size_t member = chunkStart; member < chunkEnd; ++member)
+				{
+					const auto& drawable = p_filteredDrawables[group.members[member]].second.drawable.get();
+					instances.push_back(&drawable.GetDescriptor<EngineDrawableDescriptor>());
+				}
+
+				auto drawable = Prepare(p_filteredDrawables[group.members[chunkStart]].second, p_input);
+
+				if (instances.size() > 1)
+				{
+					drawable.AddDescriptor<InstancingDrawableDescriptor>({
+						.instances = instances.data(),
+						.count = static_cast<uint32_t>(instances.size())
+					});
+					drawable.gpuInstancesOverride = static_cast<uint32_t>(instances.size());
+				}
+
+				p_submit(drawable);
+			}
+		}
+
+		runStart = runEnd;
+	}
 }
 
 void OvCore::Rendering::FrameBuilder::Draw(
