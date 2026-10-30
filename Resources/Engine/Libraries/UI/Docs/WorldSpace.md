@@ -59,24 +59,32 @@ The cursor is a ray cast from the camera given to `SetCamera`, through the mouse
 | Method | Description |
 |---|---|
 | `controller:IsWorldSpace()` | Whether the canvas is a world space canvas |
-| `controller:GetCanvasFrame()` | The plane, read once per update: centre, right, up and normal axes, rotation, `scale` (world units per canvas unit), size in canvas units. nil on a screen space canvas |
+| `controller:GetCanvasFrame()` | The plane, read once per update: centre, right, up and normal axes, rotation, `scale` (world units per canvas unit), world scale of the canvas actor (`actorScaleX`...), size in canvas units. nil on a screen space canvas |
+| `controller:GetCameraOnCanvas()` | Where the camera stands relative to the canvas, in world units: right of its centre, above it, in front of it. nil without a camera |
 | `controller:CanvasToWorld(x, y)` | World position of a canvas position |
 | `controller:ViewportToCanvas(x, y)` | Canvas position under a pixel: a ray on a world space canvas, nil when it misses |
 | `panel:LocalToWorld(x, y)` | World position of a position local to the panel |
 | `panel:GetWorldRect()` | Centre, `right` and `up` axes as laid out on the canvas, `normal`, `width` and `height` in world units |
+| `panel:GetCanvasRect()` | Centre (`x`, `y`) in the plane of the canvas, `width` and `height`, in world units: unchanged when the canvas actor moves |
 
 ### 3D content: `DModelPanel`
 
 A panel carrying a 3D model: a plate behind a menu, a key under a label, an item standing in its
-slot. Every update, once the layout is final, the model is centred on the panel, turned like the
-canvas and the panel on it, then by its own rotation, and pushed along the normal by its depth. It is
-shown only while the panel is, and hidden on a screen space canvas. The panel takes no cursor and owns
-its model: the model is destroyed when replaced or when the panel is removed.
+slot. The model is a child of the canvas actor, so it follows the canvas without being placed again.
+Once the layout is final, it is centred on the panel, turned like the panel on the canvas, then by its
+own rotation, and pushed along the normal by its depth, or along the line of sight from the camera
+(`SetSightAligned`). It is shown only while the panel is, and hidden on a screen space canvas. The
+panel takes no cursor and owns its model: the model is destroyed when replaced or when the panel is
+removed.
 
-A hidden subtree is walked once by the placement pass, which puts its models away, then skipped until
-it is shown again or changes: a panel attached to it, or a model given to a panel in it. A class
-deriving from `DModelPanel` can override `PlaceInWorld`: the base method returns the world rect it
-placed the model on, or nil when the model is hidden, so the class doesn't compute it again.
+A model is placed again only when something it depends on changed: the geometry of its panel or of
+one of its parents, the canvas size or scale, its own depth, rotation, scale or fill, the camera for a model on the
+line of sight (beyond a rounding), or the panel announcing an animation (`Panel:IsAnimating`, false by
+default: a hover or a turn overrides it). A hidden subtree is walked once by the placement pass, which
+puts its models away, then skipped until it is shown again or changes: a panel attached to it, or a
+model given to a panel in it. A class deriving from `DModelPanel` can override `PlaceInWorld`: it can
+check `IsPlacementStale()` before preparing its placement, and the base method returns the canvas rect
+it placed the model on, or nil when it had nothing to do, so the class doesn't compute it again.
 
 | Method | Description |
 |---|---|
@@ -86,6 +94,8 @@ placed the model on, or nil when the model is hidden, so the class doesn't compu
 | `SetModelRotation(rotation)` | Rotation in the frame of the panel: X right, Y up, Z towards the viewer |
 | `SetModelScale(scale)` | A number or a `Vector3` |
 | `SetFillRect(fill)` | Also scales X and Y by the world width and height of the panel, for a model one unit wide and tall |
+| `SetSightAligned(aligned)` | Stands the model on the line of sight from the camera through the panel's centre, as far as its depth out of the canvas: seen from the camera, it stays centred on the panel however the canvas is turned |
+| `IsPlacementStale()` | Whether the next placement pass places the model again |
 | `SetVisibilityFlags(flags)` | The passes every renderer of the model is drawn in, for this model and the next ones: `VisibilityFlags.GEOMETRY` alone for a model over the screen (a HUD), which then casts no shadow and stays out of the reflection probes. Nil leaves each model its own |
 
 ```lua

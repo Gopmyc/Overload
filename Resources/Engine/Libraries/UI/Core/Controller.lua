@@ -248,6 +248,7 @@ local function CreateCanvasFrame(self)
 	local transform = self.m_CanvasActor:GetTransform()
 	local position, rotation = transform:GetWorldPosition(), transform:GetWorldRotation()
 	local right, up, normal = transform:GetWorldRight(), transform:GetWorldUp(), transform:GetWorldForward()
+	local actorScale = transform:GetWorldScale()
 	local width, height = self.m_Root:GetSize()
 
 	return {
@@ -257,6 +258,7 @@ local function CreateCanvasFrame(self)
 		normalX = normal.x, normalY = normal.y, normalZ = normal.z,
 		rotation = rotation,
 		scale = self.m_Canvas:GetWorldScale(),
+		actorScaleX = actorScale.x, actorScaleY = actorScale.y, actorScaleZ = actorScale.z,
 		width = width,
 		height = height
 	}
@@ -543,6 +545,7 @@ function Controller.New(canvasActor)
 	self.m_CursorX, self.m_CursorY = 0, 0
 	self.m_Pressed = {}
 	self.m_HeldKeys = {}
+	self.m_GeometryVersion = 0 -- Stamps the changes of a panel's geometry (see DModelPanel:IsPlacementStale)
 	self.m_Root = Registry.Create(self, "Panel", nil)
 	self.m_Root:SetMouseInputEnabled(false)
 	UpdateViewportSize(self)
@@ -628,8 +631,9 @@ end
 
 --- Returns the plane of a world space canvas, or nil on a screen space canvas: its centre (x, y, z),
 --- its right, up and normal axes (rightX..., upX..., normalX..., the normal facing the viewer), its
---- world rotation, the world size of one canvas unit (scale), and its size in canvas units. Read once
---- per update: a canvas actor moved since is seen from the next update on.
+--- world rotation, the world size of one canvas unit (scale), the world scale of the canvas actor
+--- (actorScaleX...), and its size in canvas units. Read once per update: a canvas actor moved since is
+--- seen from the next update on.
 ---@return table|nil
 function Controller:GetCanvasFrame()
 	if not self:IsWorldSpace() then
@@ -641,6 +645,29 @@ function Controller:GetCanvasFrame()
 	end
 
 	return self.m_CanvasFrame
+end
+
+--- Returns where the camera stands relative to a world space canvas, in world units: to the right of
+--- its centre, above it, and in front of it along its normal. Nil on a screen space canvas or without a
+--- camera. Read once per update, like the canvas frame.
+---@return number|nil, number|nil, number|nil
+function Controller:GetCameraOnCanvas()
+	local frame = self:GetCanvasFrame()
+
+	if not frame or not self.m_Camera or not self.m_Camera:IsAlive() then
+		return nil
+	end
+
+	if not frame.cameraX then
+		local position = self.m_Camera:GetTransform():GetWorldPosition()
+		local dx, dy, dz = position.x - frame.x, position.y - frame.y, position.z - frame.z
+
+		frame.cameraX = dx * frame.rightX + dy * frame.rightY + dz * frame.rightZ
+		frame.cameraY = dx * frame.upX + dy * frame.upY + dz * frame.upZ
+		frame.cameraZ = dx * frame.normalX + dy * frame.normalY + dz * frame.normalZ
+	end
+
+	return frame.cameraX, frame.cameraY, frame.cameraZ
 end
 
 --- Converts a canvas position into a world position on a world space canvas, or returns nil on a

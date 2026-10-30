@@ -34,9 +34,19 @@ local function AssertAlive(panel)
 	end
 end
 
+-- The geometry of the panel changed: the models carried on it and under it are placed again (see
+-- DModelPanel:IsPlacementStale). Stamped from a counter of the controller, so a model compares the latest
+-- stamp of its panel and of its parents with when it was placed.
+local function MarkMoved(panel)
+	local controller = panel.m_Controller
+	controller.m_GeometryVersion = controller.m_GeometryVersion + 1
+	panel.m_MovedAt = controller.m_GeometryVersion
+end
+
 -- The engine places the pivot of the element: it is the transform origin of the panel, around which
 -- it rotates and scales. The engine Y axis goes up.
 local function ApplyPosition(panel)
+	MarkMoved(panel)
 	panel.m_Transform:SetUIPosition(Vector2.new(
 		panel.m_X + panel.m_OriginX * panel.m_Width,
 		-(panel.m_Y + panel.m_OriginY * panel.m_Height)
@@ -44,6 +54,7 @@ local function ApplyPosition(panel)
 end
 
 local function ApplySize(panel)
+	MarkMoved(panel)
 	panel.m_Transform:SetUISize(Vector2.new(
 		math.max(panel.m_Width, kMinimumAxisSize),
 		math.max(panel.m_Height, kMinimumAxisSize)
@@ -96,6 +107,7 @@ local function AttachTo(panel, parent)
 
 	parent:InvalidateLayout()
 	panel:InvalidatePlacement()
+	MarkMoved(panel)
 end
 
 -- Marking the whole subtree first makes Remove calls made from the callbacks return immediately
@@ -370,6 +382,7 @@ function Panel:SetRotation(degrees)
 	if self.m_Rotation ~= degrees then
 		self.m_Rotation = degrees
 		self.m_Transform:SetUIRotation(degrees)
+		MarkMoved(self)
 	end
 end
 
@@ -389,6 +402,7 @@ function Panel:SetScale(x, y)
 	if self.m_ScaleX ~= x or self.m_ScaleY ~= y then
 		self.m_ScaleX, self.m_ScaleY = x, y
 		self.m_Transform:SetUIScale(Vector2.new(x, y))
+		MarkMoved(self)
 	end
 end
 
@@ -684,6 +698,41 @@ function Panel:GetWorldRect()
 		width = worldWidth,
 		height = worldHeight
 	}
+end
+
+--- Returns where the panel stands on a world space canvas, in the plane of the canvas and in world
+--- units: its centre (x to the right of the canvas centre, y above it) and its width and height. Unlike
+--- GetWorldRect, it doesn't change when the canvas actor moves. Nil on a screen space canvas.
+---@return table|nil
+function Panel:GetCanvasRect()
+	local frame = self.m_Controller:GetCanvasFrame()
+
+	if not frame then
+		return nil
+	end
+
+	-- Canvas vectors along the top edge and down the left edge, Y going down
+	local width, height = self.m_Width, self.m_Height
+	local cornerX, cornerY = self:LocalToScreen(0, 0)
+	local rightX, rightY = self:LocalToScreen(width, 0)
+	local bottomX, bottomY = self:LocalToScreen(0, height)
+	local acrossX, acrossY = rightX - cornerX, rightY - cornerY
+	local downX, downY = bottomX - cornerX, bottomY - cornerY
+	local scale = frame.scale
+
+	return {
+		x = (cornerX + (acrossX + downX) * 0.5 - frame.width * 0.5) * scale,
+		y = (frame.height * 0.5 - cornerY - (acrossY + downY) * 0.5) * scale,
+		width = math.sqrt(acrossX * acrossX + acrossY * acrossY) * scale,
+		height = math.sqrt(downX * downX + downY * downY) * scale
+	}
+end
+
+--- Returns true while the panel animates what it carries (a hover, a turn): the placement pass then
+--- places it every update, rather than only when something changed (see DModelPanel)
+---@return boolean
+function Panel:IsAnimating()
+	return false
 end
 
 ---@return UIController
