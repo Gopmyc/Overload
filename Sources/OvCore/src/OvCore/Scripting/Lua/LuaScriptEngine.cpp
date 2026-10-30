@@ -50,6 +50,14 @@ namespace
 
 			if (function.valid())
 			{
+				// One zone per callback, named after its script and function, so the profiler tells which script costs what
+				ZoneScopedN("Lua Callback");
+				if (TracyIsConnected)
+				{
+					const auto zoneName = p_behaviour.name + ":" + p_functionName;
+					ZoneName(zoneName.c_str(), zoneName.size());
+				}
+
 				sol::protected_function pfr = function;
 				auto pfrResult = pfr.call(table, std::forward<Args>(p_args)...);
 				if (!pfrResult.valid())

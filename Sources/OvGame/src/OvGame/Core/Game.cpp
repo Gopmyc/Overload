@@ -101,26 +101,20 @@ void OvGame::Core::Game::Update(float p_deltaTime)
 	if (auto currentScene = m_context.sceneManager.GetCurrentScene())
 	{
 		{
-			#ifdef _DEBUG
 			ZoneScopedN("Physics Update");
-			#endif
 
 			if (m_context.physicsEngine->Update(p_deltaTime))
 				currentScene->FixedUpdate(p_deltaTime);
 		}
 
 		{
-			#ifdef _DEBUG
 			ZoneScopedN("Scene Update");
-			#endif
 			currentScene->Update(p_deltaTime);
 			currentScene->LateUpdate(p_deltaTime);
 		}
 
 		{
-			#ifdef _DEBUG
 			ZoneScopedN("Audio Update");
-			#endif
 			m_context.audioEngine->Update();
 		}
 
