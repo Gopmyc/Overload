@@ -5,6 +5,7 @@
 */
 
 #include <algorithm>
+#include <unordered_set>
 
 #include <tinyxml2.h>
 
@@ -310,32 +311,32 @@ void OvCore::ECS::Actor::OnAwake()
 {
 	m_awaked = true;
 	std::for_each(m_components.begin(), m_components.end(), [](auto element) { element->OnAwake(); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [](auto & element) { element.second.OnAwake(); });
+	ForEachBehaviour([](auto& p_behaviour) { p_behaviour.OnAwake(); });
 }
 
 void OvCore::ECS::Actor::OnStart()
 {
 	m_started = true;
 	std::for_each(m_components.begin(), m_components.end(), [](auto element) { element->OnStart(); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [](auto & element) { element.second.OnStart(); });
+	ForEachBehaviour([](auto& p_behaviour) { p_behaviour.OnStart(); });
 }
 
 void OvCore::ECS::Actor::OnEnable()
 {
 	std::for_each(m_components.begin(), m_components.end(), [](auto element) { element->OnEnable(); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [](auto & element) { element.second.OnEnable(); });
+	ForEachBehaviour([](auto& p_behaviour) { p_behaviour.OnEnable(); });
 }
 
 void OvCore::ECS::Actor::OnDisable()
 {
 	std::for_each(m_components.begin(), m_components.end(), [](auto element) { element->OnDisable(); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [](auto & element) { element.second.OnDisable(); });
+	ForEachBehaviour([](auto& p_behaviour) { p_behaviour.OnDisable(); });
 }
 
 void OvCore::ECS::Actor::OnDestroy()
 {
 	std::for_each(m_components.begin(), m_components.end(), [](auto element) { element->OnDestroy(); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [](auto & element) { element.second.OnDestroy(); });
+	ForEachBehaviour([](auto& p_behaviour) { p_behaviour.OnDestroy(); });
 }
 
 void OvCore::ECS::Actor::OnUpdate(float p_deltaTime)
@@ -343,7 +344,7 @@ void OvCore::ECS::Actor::OnUpdate(float p_deltaTime)
 	if (IsActive())
 	{
 		std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnUpdate(p_deltaTime); });
-		std::for_each(m_behaviours.begin(), m_behaviours.end(), [&](auto & element) { element.second.OnUpdate(p_deltaTime); });
+		ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnUpdate(p_deltaTime); });
 	}
 }
 
@@ -352,7 +353,7 @@ void OvCore::ECS::Actor::OnFixedUpdate(float p_deltaTime)
 	if (IsActive())
 	{
 		std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnFixedUpdate(p_deltaTime); });
-		std::for_each(m_behaviours.begin(), m_behaviours.end(), [&](auto & element) { element.second.OnFixedUpdate(p_deltaTime); });
+		ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnFixedUpdate(p_deltaTime); });
 	}
 }
 
@@ -361,44 +362,44 @@ void OvCore::ECS::Actor::OnLateUpdate(float p_deltaTime)
 	if (IsActive())
 	{
 		std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnLateUpdate(p_deltaTime); });
-		std::for_each(m_behaviours.begin(), m_behaviours.end(), [&](auto & element) { element.second.OnLateUpdate(p_deltaTime); });
+		ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnLateUpdate(p_deltaTime); });
 	}
 }
 
 void OvCore::ECS::Actor::OnCollisionEnter(Components::CPhysicalObject& p_otherObject)
 {
 	std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnCollisionEnter(p_otherObject); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [&](auto & element) { element.second.OnCollisionEnter(p_otherObject); });
+	ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnCollisionEnter(p_otherObject); });
 }
 
 void OvCore::ECS::Actor::OnCollisionStay(Components::CPhysicalObject& p_otherObject)
 {
 	std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnCollisionStay(p_otherObject); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [&](auto & element) { element.second.OnCollisionStay(p_otherObject); });
+	ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnCollisionStay(p_otherObject); });
 }
 
 void OvCore::ECS::Actor::OnCollisionExit(Components::CPhysicalObject& p_otherObject)
 {
 	std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnCollisionExit(p_otherObject); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [&](auto & element) { element.second.OnCollisionExit(p_otherObject); });
+	ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnCollisionExit(p_otherObject); });
 }
 
 void OvCore::ECS::Actor::OnTriggerEnter(Components::CPhysicalObject& p_otherObject)
 {
 	std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnTriggerEnter(p_otherObject); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [&](auto & element) { element.second.OnTriggerEnter(p_otherObject); });
+	ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnTriggerEnter(p_otherObject); });
 }
 
 void OvCore::ECS::Actor::OnTriggerStay(Components::CPhysicalObject& p_otherObject)
 {
 	std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnTriggerStay(p_otherObject); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [&](auto & element) { element.second.OnTriggerStay(p_otherObject); });
+	ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnTriggerStay(p_otherObject); });
 }
 
 void OvCore::ECS::Actor::OnTriggerExit(Components::CPhysicalObject& p_otherObject)
 {
 	std::for_each(m_components.begin(), m_components.end(), [&](auto element) { element->OnTriggerExit(p_otherObject); });
-	std::for_each(m_behaviours.begin(), m_behaviours.end(), [&](auto & element) { element.second.OnTriggerExit(p_otherObject); });
+	ForEachBehaviour([&](auto& p_behaviour) { p_behaviour.OnTriggerExit(p_otherObject); });
 }
 
 bool OvCore::ECS::Actor::RemoveComponent(OvCore::ECS::Components::AComponent& p_component)
@@ -424,7 +425,11 @@ std::vector<std::shared_ptr<OvCore::ECS::Components::AComponent>>& OvCore::ECS::
 OvCore::ECS::Components::Behaviour & OvCore::ECS::Actor::AddBehaviour(const std::string & p_name)
 {
 	m_behaviours.try_emplace(p_name, *this, p_name);
-	m_behavioursOrder.push_back(p_name);
+
+	// Added again (or again after a removal during a loop): it keeps its place, once
+	if (std::find(m_behavioursOrder.begin(), m_behavioursOrder.end(), p_name) == m_behavioursOrder.end())
+		m_behavioursOrder.push_back(p_name);
+
 	Components::Behaviour& newInstance = m_behaviours.at(p_name);
 	BehaviourAddedEvent.Invoke(newInstance);
 	if (m_playing && !m_sleeping && IsActive())
@@ -460,18 +465,45 @@ bool OvCore::ECS::Actor::RemoveBehaviour(const std::string & p_name)
 	Components::Behaviour* found = GetBehaviour(p_name);
 	if (found)
 	{
-		const std::string nameCopy = p_name;
 		BehaviourRemovedEvent.Invoke(*found);
 		m_behaviours.erase(p_name);
-		auto it = std::find(m_behavioursOrder.begin(), m_behavioursOrder.end(), nameCopy);
-		if (it != m_behavioursOrder.end())
-			m_behavioursOrder.erase(it);
+
+		// A loop over the behaviours walks the order by index: it is compacted once the loop is over
+		if (m_behaviourLoops == 0)
+			CompactBehavioursOrder();
+
 		return true;
 	}
 	else
 	{
 		return false;
 	}
+}
+
+template<typename TCallback>
+void OvCore::ECS::Actor::ForEachBehaviour(TCallback&& p_callback)
+{
+	++m_behaviourLoops;
+
+	for (size_t i = 0; i < m_behavioursOrder.size(); ++i)
+	{
+		if (auto it = m_behaviours.find(m_behavioursOrder[i]); it != m_behaviours.end())
+		{
+			p_callback(it->second);
+		}
+	}
+
+	if (--m_behaviourLoops == 0)
+		CompactBehavioursOrder();
+}
+
+void OvCore::ECS::Actor::CompactBehavioursOrder()
+{
+	std::unordered_set<std::string> seen;
+
+	std::erase_if(m_behavioursOrder, [&](const std::string& p_name) {
+		return !m_behaviours.contains(p_name) || !seen.insert(p_name).second;
+	});
 }
 
 bool OvCore::ECS::Actor::RenameBehaviour(const std::string& p_previousName, const std::string& p_newName)

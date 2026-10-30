@@ -388,6 +388,19 @@ namespace OvCore::ECS
 		void RecursiveActiveUpdate();
 		void RecursiveWasActiveUpdate();
 
+		/**
+		* Calls p_callback on every behaviour, in their declared order. A behaviour added meanwhile is appended and called
+		* too; one removed keeps its name in the order until the outermost loop is over, so that no other is skipped.
+		* @param p_callback
+		*/
+		template<typename TCallback>
+		void ForEachBehaviour(TCallback&& p_callback);
+
+		/**
+		* Drops from the order the names of removed behaviours, and repeated names
+		*/
+		void CompactBehavioursOrder();
+
 	public:
 		/* Some events that are triggered when an action occur on the actor instance */
 		OvTools::Eventing::Event<Components::AComponent&>	ComponentAddedEvent;
@@ -428,6 +441,7 @@ namespace OvCore::ECS
 		std::vector<std::shared_ptr<Components::AComponent>> m_components;
 		std::unordered_map<std::string, Components::Behaviour> m_behaviours;
 		std::vector<std::string> m_behavioursOrder;
+		uint32_t m_behaviourLoops = 0;
 
 	public:
 		Components::CTransform& transform;
