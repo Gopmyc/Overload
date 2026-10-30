@@ -4,6 +4,6 @@
 ---@enum FrustumBehaviour
 FrustumBehaviour = {
     DISABLED = 0,
-    MESH_BOUNDS = 1,
-    CUSTOM_BOUNDS = 2,
+    MESH_BOUNDS = 2,
+    CUSTOM_BOUNDS = 3,
 }

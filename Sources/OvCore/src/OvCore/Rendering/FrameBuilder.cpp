@@ -310,6 +310,14 @@ OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::
 		if (!owner.IsActive()) continue;
 		const auto model = modelRenderer->GetModel();
 		if (!model) continue;
+
+		// Out of reach, in every pass at once: drawn, cast into shadows and reflections, picked
+		if (const float maxDistance = modelRenderer->GetMaxDrawDistance(); maxDistance > 0.0f && p_input.viewPosition &&
+			OvMaths::FVector3::Distance(owner.transform.GetWorldPosition(), p_input.viewPosition.value()) > maxDistance)
+		{
+			continue;
+		}
+
 		const auto materialRenderer = modelRenderer->owner.GetComponent<CMaterialRenderer>();
 		if (!materialRenderer) continue;
 		const auto* skinnedRenderer = owner.GetComponent<CSkinnedMeshRenderer>();

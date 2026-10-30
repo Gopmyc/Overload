@@ -23,3 +23,12 @@ function ModelRenderer:GetFrustumBehaviour() end
 --- Sets a bounding mode
 ---@param behaviour FrustumBehaviour
 function ModelRenderer:SetFrustumBehaviour(behaviour) end
+
+--- Returns the distance from the camera beyond which the model isn't drawn (0: always drawn)
+---@return number
+function ModelRenderer:GetMaxDrawDistance() end
+
+--- Sets the distance from the camera beyond which the model isn't drawn, in any pass: rendering, shadows,
+--- reflections and picking (0: always drawn). Measured from the actor's position.
+---@param distance number
+function ModelRenderer:SetMaxDrawDistance(distance) end

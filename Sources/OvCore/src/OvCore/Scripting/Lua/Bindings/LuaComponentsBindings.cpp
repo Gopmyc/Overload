@@ -104,7 +104,9 @@ void BindLuaComponents(sol::state& p_luaState)
 			p_this.SetModel(p_model);
 		},
 		"GetFrustumBehaviour", &CModelRenderer::GetFrustumBehaviour,
-		"SetFrustumBehaviour", &CModelRenderer::SetFrustumBehaviour
+		"SetFrustumBehaviour", &CModelRenderer::SetFrustumBehaviour,
+		"GetMaxDrawDistance", &CModelRenderer::GetMaxDrawDistance,
+		"SetMaxDrawDistance", &CModelRenderer::SetMaxDrawDistance
 	);
 
 	p_luaState.new_enum<OvCore::Rendering::EVisibilityFlags>("VisibilityFlags", {

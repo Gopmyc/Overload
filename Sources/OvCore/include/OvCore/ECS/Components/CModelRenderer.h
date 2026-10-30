@@ -82,6 +82,17 @@ namespace OvCore::ECS::Components
 		void SetCustomBoundingSphere(const OvRendering::Geometry::BoundingSphere& p_boundingSphere);
 
 		/**
+		* Sets the distance from the camera beyond which the model isn't drawn, in any pass (0: always drawn)
+		* @param p_distance
+		*/
+		void SetMaxDrawDistance(float p_distance);
+
+		/**
+		* Returns the distance from the camera beyond which the model isn't drawn (0: always drawn)
+		*/
+		float GetMaxDrawDistance() const;
+
+		/**
 		* Serialize the component
 		* @param p_doc
 		* @param p_node
@@ -106,6 +117,7 @@ namespace OvCore::ECS::Components
 		OvTools::Eventing::Event<> m_modelChangedEvent;
 		OvRendering::Geometry::BoundingSphere m_customBoundingSphere = { {}, 1.0f };
 		EFrustumBehaviour m_frustumBehaviour = EFrustumBehaviour::MESH_BOUNDS;
+		float m_maxDrawDistance = 0.0f;
 	};
 
 	template<>

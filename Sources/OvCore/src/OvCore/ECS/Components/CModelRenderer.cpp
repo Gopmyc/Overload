@@ -4,6 +4,8 @@
 * @licence: MIT
 */
 
+#include <algorithm>
+
 #include <OvCore/ECS/Actor.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
@@ -67,12 +69,23 @@ void OvCore::ECS::Components::CModelRenderer::SetCustomBoundingSphere(const OvRe
 	m_customBoundingSphere = p_boundingSphere;
 }
 
+void OvCore::ECS::Components::CModelRenderer::SetMaxDrawDistance(float p_distance)
+{
+	m_maxDrawDistance = std::max(p_distance, 0.0f);
+}
+
+float OvCore::ECS::Components::CModelRenderer::GetMaxDrawDistance() const
+{
+	return m_maxDrawDistance;
+}
+
 void OvCore::ECS::Components::CModelRenderer::OnSerialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node)
 {
 	OvCore::Helpers::Serializer::SerializeModel(p_doc, p_node, "model", m_model);
 	OvCore::Helpers::Serializer::SerializeInt(p_doc, p_node, "frustum_behaviour", reinterpret_cast<int&>(m_frustumBehaviour));
 	OvCore::Helpers::Serializer::SerializeVec3(p_doc, p_node, "custom_bounding_sphere_position", m_customBoundingSphere.position);
 	OvCore::Helpers::Serializer::SerializeFloat(p_doc, p_node, "custom_bounding_sphere_radius", m_customBoundingSphere.radius);
+	OvCore::Helpers::Serializer::SerializeFloat(p_doc, p_node, "max_draw_distance", m_maxDrawDistance);
 }
 
 void OvCore::ECS::Components::CModelRenderer::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode* p_node)
@@ -84,6 +97,7 @@ void OvCore::ECS::Components::CModelRenderer::OnDeserialize(tinyxml2::XMLDocumen
 	OvCore::Helpers::Serializer::DeserializeInt(p_doc, p_node, "frustum_behaviour", reinterpret_cast<int&>(m_frustumBehaviour));
 	OvCore::Helpers::Serializer::DeserializeVec3(p_doc, p_node, "custom_bounding_sphere_position", m_customBoundingSphere.position);
 	OvCore::Helpers::Serializer::DeserializeFloat(p_doc, p_node, "custom_bounding_sphere_radius", m_customBoundingSphere.radius);
+	OvCore::Helpers::Serializer::DeserializeFloat(p_doc, p_node, "max_draw_distance", m_maxDrawDistance);
 }
 
 void OvCore::ECS::Components::CModelRenderer::OnInspector(OvUI::Internal::WidgetContainer& p_root)
@@ -117,4 +131,6 @@ void OvCore::ECS::Components::CModelRenderer::OnInspector(OvUI::Internal::Widget
 	};
 
 	centerLabel.enabled = centerWidget.enabled = radiusLabel.enabled = radiusWidget.enabled = m_frustumBehaviour == EFrustumBehaviour::CUSTOM_BOUNDS;
+
+	GUIDrawer::DrawScalar<float>(p_root, "Max Draw Distance (0: always)", m_maxDrawDistance, 0.5f, 0.0f, GUIDrawer::_MAX_FLOAT);
 }

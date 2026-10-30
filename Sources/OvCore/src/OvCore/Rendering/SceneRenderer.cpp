@@ -310,7 +310,8 @@ void OvCore::Rendering::SceneRenderer::BeginFrame(const OvRendering::Data::Frame
 			.scene = sceneDescriptor.scene,
 			.renderSize = renderSize,
 			.renderUIInScreenSpace = sceneDescriptor.renderUIInScreenSpace,
-			.uiFrameResolver = &GetDescriptor<OvCore::Rendering::UIRenderingUtils::UIFrameResolver>()
+			.uiFrameResolver = &GetDescriptor<OvCore::Rendering::UIRenderingUtils::UIFrameResolver>(),
+			.viewPosition = p_frameDescriptor.camera.value().GetPosition()
 		})
 	});
 

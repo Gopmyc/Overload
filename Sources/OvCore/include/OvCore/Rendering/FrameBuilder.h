@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <OvMaths/FVector2.h>
+#include <OvMaths/FVector3.h>
 
 #include <OvCore/Rendering/EVisibilityFlags.h>
 #include <OvCore/SceneSystem/Scene.h>
@@ -105,6 +106,7 @@ namespace OvCore::Rendering::FrameBuilder
 		OvMaths::FVector2 renderSize = { 1.0f, 1.0f }; // Used to lay out the UI
 		bool renderUIInScreenSpace = true;
 		const UIRenderingUtils::UIFrameResolver* uiFrameResolver = nullptr; // Created from the fields above if not provided
+		std::optional<OvMaths::FVector3> viewPosition; // Where the camera stands: a model beyond its max draw distance is left out
 	};
 
 	/**
