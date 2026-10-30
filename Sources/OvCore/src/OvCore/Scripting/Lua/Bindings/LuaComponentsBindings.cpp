@@ -11,6 +11,7 @@
 #include <OvCore/ECS/Components/CAmbientSphereLight.h>  
 #include <OvCore/ECS/Components/CAudioListener.h>  
 #include <OvCore/ECS/Components/CAudioSource.h>  
+#include <OvCore/ECS/Components/CBoneAttachment.h>
 #include <OvCore/ECS/Components/CCamera.h>  
 #include <OvCore/ECS/Components/CDirectionalLight.h>  
 #include <OvCore/ECS/Components/CMaterialRenderer.h>  
@@ -124,6 +125,26 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetUserMatrixElement", &CMaterialRenderer::GetUserMatrixElement,
 		"SetVisibilityFlags", &CMaterialRenderer::SetVisibilityFlags,
 		"GetVisibilityFlags", &CMaterialRenderer::GetVisibilityFlags
+	);
+
+	p_luaState.new_usertype<CBoneAttachment>("BoneAttachment",
+		sol::base_classes, sol::bases<AComponent>(),
+		"SetBone", &CBoneAttachment::SetBone,
+		"GetBone", &CBoneAttachment::GetBone,
+		"SetOffsetPosition", &CBoneAttachment::SetOffsetPosition,
+		"GetOffsetPosition", &CBoneAttachment::GetOffsetPosition,
+		"SetOffsetRotation", &CBoneAttachment::SetOffsetRotation,
+		"GetOffsetRotation", &CBoneAttachment::GetOffsetRotation,
+		"SetOffsetScale", &CBoneAttachment::SetOffsetScale,
+		"GetOffsetScale", &CBoneAttachment::GetOffsetScale,
+		"SetTarget", [](CBoneAttachment& p_this, std::optional<OvCore::Scripting::ActorRef> p_target) {
+			p_this.SetTarget(p_target && p_target->guid != 0 ? &p_target->Resolve() : nullptr);
+		},
+		"GetTarget", [](CBoneAttachment& p_this) -> std::optional<OvCore::Scripting::ActorRef> {
+			if (p_this.GetTargetGUID() == 0) return std::nullopt;
+			return OvCore::Scripting::ActorRef{ p_this.GetTargetGUID() };
+		},
+		"IsAttached", &CBoneAttachment::IsAttached
 	);
 
 	p_luaState.new_usertype<CSkinnedMeshRenderer>("SkinnedMeshRenderer",

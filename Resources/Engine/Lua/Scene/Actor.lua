@@ -134,6 +134,10 @@ function Actor:GetMaterialRenderer() end
 ---@return SkinnedMeshRenderer|nil
 function Actor:GetSkinnedMeshRenderer() end
 
+--- Returns the BoneAttachment attached to this actor (If any)
+---@return BoneAttachment|nil
+function Actor:GetBoneAttachment() end
+
 --- Returns the AudioSource attached to this actor (If any)
 ---@return AudioSource|nil
 function Actor:GetAudioSource() end
@@ -245,6 +249,10 @@ function Actor:AddMaterialRenderer() end
 ---@return SkinnedMeshRenderer
 function Actor:AddSkinnedMeshRenderer() end
 
+--- Adds a BoneAttachment component to the actor and returns it
+---@return BoneAttachment
+function Actor:AddBoneAttachment() end
+
 --- Adds an AudioSource component to the actor and returns it
 ---@return AudioSource
 function Actor:AddAudioSource() end
@@ -309,6 +317,8 @@ function Actor:RemoveAmbientSphereLight() end
 function Actor:RemoveMaterialRenderer() end
 --- Removes the SkinnedMeshRenderer component from the actor
 function Actor:RemoveSkinnedMeshRenderer() end
+--- Removes the BoneAttachment component from the actor
+function Actor:RemoveBoneAttachment() end
 --- Removes the AudioSource component from the actor
 function Actor:RemoveAudioSource() end
 --- Removes the AudioListener component from the actor

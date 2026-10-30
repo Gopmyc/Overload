@@ -154,6 +154,39 @@ void OvCore::SceneSystem::Scene::LateUpdate(float p_deltaTime)
 	ZoneScoped;
 	auto actors = m_actors;
 	std::for_each(actors.begin(), actors.end(), std::bind(std::mem_fn(&ECS::Actor::OnLateUpdate), std::placeholders::_1, p_deltaTime));
+
+	UpdateBoneAttachments();
+}
+
+void OvCore::SceneSystem::Scene::UpdateBoneAttachments()
+{
+	ZoneScoped;
+
+	auto& attachments = m_fastAccessComponents.boneAttachments;
+
+	if (attachments.empty())
+	{
+		return;
+	}
+
+	// Parents first: an attachment riding on another's actor, or under it, is placed once that one is
+	const auto depth = [](const ECS::Actor& p_actor) {
+		uint32_t result = 0;
+		for (auto parent = p_actor.GetParent(); parent; parent = parent->GetParent()) ++result;
+		return result;
+	};
+
+	std::stable_sort(attachments.begin(), attachments.end(), [&](const auto* p_left, const auto* p_right) {
+		return depth(p_left->owner) < depth(p_right->owner);
+	});
+
+	for (auto attachment : attachments)
+	{
+		if (attachment->owner.IsActive())
+		{
+			attachment->Apply(*this);
+		}
+	}
 }
 
 OvCore::ECS::Actor& OvCore::SceneSystem::Scene::CreateActor()
@@ -454,6 +487,9 @@ void OvCore::SceneSystem::Scene::OnComponentAdded(ECS::Components::AComponent& p
 
 	if (auto result = dynamic_cast<ECS::Components::CReflectionProbe*>(&p_compononent))
 		m_fastAccessComponents.reflectionProbes.push_back(result);
+
+	if (auto result = dynamic_cast<ECS::Components::CBoneAttachment*>(&p_compononent))
+		m_fastAccessComponents.boneAttachments.push_back(result);
 }
 
 void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent& p_compononent)
@@ -472,6 +508,9 @@ void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent&
 
 	if (auto result = dynamic_cast<ECS::Components::CReflectionProbe*>(&p_compononent))
 		m_fastAccessComponents.reflectionProbes.erase(std::remove(m_fastAccessComponents.reflectionProbes.begin(), m_fastAccessComponents.reflectionProbes.end(), result), m_fastAccessComponents.reflectionProbes.end());
+
+	if (auto result = dynamic_cast<ECS::Components::CBoneAttachment*>(&p_compononent))
+		m_fastAccessComponents.boneAttachments.erase(std::remove(m_fastAccessComponents.boneAttachments.begin(), m_fastAccessComponents.boneAttachments.end(), result), m_fastAccessComponents.boneAttachments.end());
 }
 
 std::vector<OvCore::ECS::Actor*>& OvCore::SceneSystem::Scene::GetActors()

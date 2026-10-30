@@ -15,6 +15,7 @@
 #include <OvCore/ECS/Components/CAmbientSphereLight.h>
 #include <OvCore/ECS/Components/CAudioListener.h>
 #include <OvCore/ECS/Components/CAudioSource.h>
+#include <OvCore/ECS/Components/CBoneAttachment.h>
 #include <OvCore/ECS/Components/CCamera.h>
 #include <OvCore/ECS/Components/CDirectionalLight.h>
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
@@ -148,6 +149,7 @@ void BindLuaActor(sol::state& p_luaState)
 		"GetModelRenderer", [](ActorRef& r) { return r.Resolve().GetComponent<CModelRenderer>(); },
 		"GetMaterialRenderer", [](ActorRef& r) { return r.Resolve().GetComponent<CMaterialRenderer>(); },
 		"GetSkinnedMeshRenderer", [](ActorRef& r) { return r.Resolve().GetComponent<CSkinnedMeshRenderer>(); },
+		"GetBoneAttachment", [](ActorRef& r) { return r.Resolve().GetComponent<CBoneAttachment>(); },
 		"GetAudioSource", [](ActorRef& r) { return r.Resolve().GetComponent<CAudioSource>(); },
 		"GetAudioListener", [](ActorRef& r) { return r.Resolve().GetComponent<CAudioListener>(); },
 		"GetPostProcessStack", [](ActorRef& r) { return r.Resolve().GetComponent<CPostProcessStack>(); },
@@ -207,6 +209,7 @@ void BindLuaActor(sol::state& p_luaState)
 		"AddAmbientSphereLight", [](ActorRef& r) -> CAmbientSphereLight& { return r.Resolve().AddComponent<CAmbientSphereLight>(); },
 		"AddMaterialRenderer", [](ActorRef& r) -> CMaterialRenderer& { return r.Resolve().AddComponent<CMaterialRenderer>(); },
 		"AddSkinnedMeshRenderer", [](ActorRef& r) -> CSkinnedMeshRenderer& { return r.Resolve().AddComponent<CSkinnedMeshRenderer>(); },
+		"AddBoneAttachment", [](ActorRef& r) -> CBoneAttachment& { return r.Resolve().AddComponent<CBoneAttachment>(); },
 		"AddAudioSource", [](ActorRef& r) -> CAudioSource& { return r.Resolve().AddComponent<CAudioSource>(); },
 		"AddAudioListener", [](ActorRef& r) -> CAudioListener& { return r.Resolve().AddComponent<CAudioListener>(); },
 		"AddPostProcessStack", [](ActorRef& r) -> CPostProcessStack& { return r.Resolve().AddComponent<CPostProcessStack>(); },
@@ -231,6 +234,7 @@ void BindLuaActor(sol::state& p_luaState)
 		"RemoveAmbientSphereLight", [](ActorRef& r) { return r.Resolve().RemoveComponent<CAmbientSphereLight>(); },
 		"RemoveMaterialRenderer", [](ActorRef& r) { return r.Resolve().RemoveComponent<CMaterialRenderer>(); },
 		"RemoveSkinnedMeshRenderer", [](ActorRef& r) { return r.Resolve().RemoveComponent<CSkinnedMeshRenderer>(); },
+		"RemoveBoneAttachment", [](ActorRef& r) { return r.Resolve().RemoveComponent<CBoneAttachment>(); },
 		"RemoveAudioSource", [](ActorRef& r) { return r.Resolve().RemoveComponent<CAudioSource>(); },
 		"RemoveAudioListener", [](ActorRef& r) { return r.Resolve().RemoveComponent<CAudioListener>(); },
 		"RemovePostProcessStack", [](ActorRef& r) { return r.Resolve().RemoveComponent<CPostProcessStack>(); },

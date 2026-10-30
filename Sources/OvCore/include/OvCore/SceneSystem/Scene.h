@@ -13,6 +13,7 @@
 
 #include <OvCore/API/ISerializable.h>
 #include <OvCore/ECS/Actor.h>
+#include <OvCore/ECS/Components/CBoneAttachment.h>
 #include <OvCore/ECS/Components/CCamera.h>
 #include <OvCore/ECS/Components/CLight.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
@@ -39,6 +40,7 @@ namespace OvCore::SceneSystem
 			std::vector<ECS::Components::CLight*> lights;
 			std::vector<ECS::Components::CPostProcessStack*> postProcessStacks;
 			std::vector<ECS::Components::CReflectionProbe*> reflectionProbes;
+			std::vector<ECS::Components::CBoneAttachment*> boneAttachments;
 		};
 
 		/**
@@ -111,6 +113,12 @@ namespace OvCore::SceneSystem
 		* @param p_deltaTime
 		*/
 		void LateUpdate(float p_deltaTime);
+
+		/**
+		* Places every bone attachment on its bone, parents first. Called at the end of LateUpdate, once every script
+		* has run.
+		*/
+		void UpdateBoneAttachments();
 
 		/**
 		* Create an actor with a default name and return a reference to it.

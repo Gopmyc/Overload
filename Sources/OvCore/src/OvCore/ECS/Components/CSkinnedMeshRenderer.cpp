@@ -784,6 +784,27 @@ std::optional<OvMaths::FVector3> OvCore::ECS::Components::CSkinnedMeshRenderer::
 	return scale;
 }
 
+std::optional<uint32_t> OvCore::ECS::Components::CSkinnedMeshRenderer::FindNodeIndex(const std::string& p_name) const
+{
+	if (!HasCompatibleModel())
+	{
+		return std::nullopt;
+	}
+
+	return m_model->GetSkeleton().value().FindNodeIndex(p_name);
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::GetNodeGlobalTransform(uint32_t p_nodeIndex, OvMaths::FVector3& p_position, OvMaths::FQuaternion& p_rotation, OvMaths::FVector3& p_scale) const
+{
+	if (p_nodeIndex >= m_globalPose.size())
+	{
+		return false;
+	}
+
+	DecomposeTransform(m_globalPose[p_nodeIndex], p_position, p_rotation, p_scale);
+	return true;
+}
+
 std::optional<OvMaths::FVector3> OvCore::ECS::Components::CSkinnedMeshRenderer::GetBoneGlobalPosition(uint32_t p_boneIndex) const
 {
 	const auto nodeIndex = GetNodeIndexFromBoneIndex(p_boneIndex);

@@ -17,6 +17,7 @@
 #include <OvCore/ECS/Components/CAmbientSphereLight.h>
 #include <OvCore/ECS/Components/CAudioListener.h>
 #include <OvCore/ECS/Components/CAudioSource.h>
+#include <OvCore/ECS/Components/CBoneAttachment.h>
 #include <OvCore/ECS/Components/CCamera.h>
 #include <OvCore/ECS/Components/CDirectionalLight.h>
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
@@ -115,6 +116,7 @@ namespace
 		CreateComponentInfo<CAmbientSphereLight>("Ambient Sphere Light"),
 		CreateComponentInfo<CMaterialRenderer>("Material Renderer"),
 		CreateComponentInfo<CSkinnedMeshRenderer>("Skinned Mesh Renderer"),
+		CreateComponentInfo<CBoneAttachment>("Bone Attachment"),
 		CreateComponentInfo<CAudioSource>("Audio Source"),
 		CreateComponentInfo<CAudioListener>("Audio Listener"),
 		CreateComponentInfo<CPostProcessStack>("Post Process Stack"),

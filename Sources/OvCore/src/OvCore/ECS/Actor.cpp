@@ -14,6 +14,7 @@
 #include <OvCore/ECS/Components/CAmbientSphereLight.h>
 #include <OvCore/ECS/Components/CAudioListener.h>
 #include <OvCore/ECS/Components/CAudioSource.h>
+#include <OvCore/ECS/Components/CBoneAttachment.h>
 #include <OvCore/ECS/Components/CCamera.h>
 #include <OvCore/ECS/Components/CDirectionalLight.h>
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
@@ -655,6 +656,7 @@ void OvCore::ECS::Actor::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::
 				else if (IsType<CPostProcessStack>(componentType)) component = &AddComponent<CPostProcessStack>();
 				else if (IsType<CReflectionProbe>(componentType)) component = &AddComponent<CReflectionProbe>();
 				else if (IsType<CSkinnedMeshRenderer>(componentType)) component = &AddComponent<CSkinnedMeshRenderer>();
+				else if (IsType<CBoneAttachment>(componentType)) component = &AddComponent<CBoneAttachment>();
 				else if (IsType<UI::CCanvas>(componentType)) component = &AddComponent<UI::CCanvas>();
 				else if (IsType<UI::CHorizontalLayout>(componentType)) component = &AddComponent<UI::CHorizontalLayout>();
 				else if (IsType<UI::CImage>(componentType)) component = &AddComponent<UI::CImage>();
