@@ -26,6 +26,7 @@ void BindLuaGlobal(sol::state& p_state);
 void BindLuaMath(sol::state& p_state);
 void BindLuaProfiler(sol::state& p_state);
 void BindLuaStorage(sol::state& p_state);
+void BindLuaJson(sol::state& p_state);
 
 namespace
 {
@@ -392,6 +393,7 @@ void OvCore::Scripting::LuaScriptEngine::CreateContext()
 	BindLuaMath(*m_context.luaState);
 	BindLuaProfiler(*m_context.luaState);
 	BindLuaStorage(*m_context.luaState);
+	BindLuaJson(*m_context.luaState);
 
 	m_context.errorCount = 0;
 
