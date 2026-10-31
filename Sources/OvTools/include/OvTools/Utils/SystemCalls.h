@@ -75,6 +75,12 @@ namespace OvTools::Utils
 		static std::string GetPathToAppdata();
 
 		/**
+		* Return the folder where an application keeps the user's own data, such as saved games: the roaming AppData
+		* folder on Windows, $XDG_DATA_HOME (by default ~/.local/share) on Linux
+		*/
+		static std::string GetPathToUserData();
+
+		/**
 		* Execute a custom command. Returns true if the command invocation succeeded
 		* @param p_command
 		*/

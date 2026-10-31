@@ -278,6 +278,30 @@ std::string OvTools::Utils::SystemCalls::GetPathToAppdata()
 #endif
 }
 
+std::string OvTools::Utils::SystemCalls::GetPathToUserData()
+{
+#ifdef _WIN32
+	return GetPathToAppdata();
+#else
+	// The XDG base directories: data belongs in XDG_DATA_HOME, which defaults to ~/.local/share
+	const char* dataHome = std::getenv("XDG_DATA_HOME");
+	if (dataHome != nullptr && dataHome[0] == '/')
+	{
+		return std::string(dataHome);
+	}
+
+	const char* home = std::getenv("HOME");
+	if (home != nullptr && home[0] != '\0')
+	{
+		return std::string(home) + "/.local/share";
+	}
+
+	struct passwd* pw = getpwuid(getuid());
+	assert(pw != nullptr && "Failed to get user home directory");
+	return std::string(pw->pw_dir) + "/.local/share";
+#endif
+}
+
 bool OvTools::Utils::SystemCalls::ExecuteCommand(const std::string_view p_command)
 {
 #if defined(_WIN32)

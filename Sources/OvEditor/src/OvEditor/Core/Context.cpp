@@ -203,6 +203,11 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 		engineAssetsPath
 	);
 
+	// Play mode keeps its saves where the built game will: they are the same game's
+	saveStorage = std::make_unique<OvTools::Filesystem::SaveStorage>(
+		OvTools::Filesystem::SaveStorage::GetDefaultRoot(projectSettings.GetOrDefault<std::string>("executable_name", "Game"))
+	);
+
 	// Ensures lua project files are up-to-date. This is necessary for Lua's LSP to function properly.
 	// If Overload's installation directory changes, references to engine symbols would be lost,
 	// hence this invocation.
@@ -225,6 +230,7 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	ServiceLocator::Provide<OvCore::SceneSystem::SceneManager>(sceneManager);
 	ServiceLocator::Provide<OvAudio::Core::AudioEngine>(*audioEngine);
 	ServiceLocator::Provide<OvCore::Scripting::ScriptEngine>(*scriptEngine);
+	ServiceLocator::Provide<OvTools::Filesystem::SaveStorage>(*saveStorage);
 	ServiceLocator::Provide<OvTools::Time::Clock>(clock);
 
 	ApplyProjectSettings();

@@ -166,6 +166,10 @@ OvGame::Core::Context::Context() :
 		engineAssetsPath
 	);
 
+	saveStorage = std::make_unique<OvTools::Filesystem::SaveStorage>(
+		OvTools::Filesystem::SaveStorage::GetDefaultRoot(projectSettings.GetOrDefault<std::string>("executable_name", "Game"))
+	);
+
 	/* Service Locator providing */
 	ServiceLocator::Provide<OvPhysics::Core::PhysicsEngine>(*physicsEngine);
 	ServiceLocator::Provide<ModelManager>(modelManager);
@@ -180,6 +184,7 @@ OvGame::Core::Context::Context() :
 	ServiceLocator::Provide<OvCore::SceneSystem::SceneManager>(sceneManager);
 	ServiceLocator::Provide<OvAudio::Core::AudioEngine>(*audioEngine);
 	ServiceLocator::Provide<OvCore::Scripting::ScriptEngine>(*scriptEngine);
+	ServiceLocator::Provide<OvTools::Filesystem::SaveStorage>(*saveStorage);
 	ServiceLocator::Provide<OvTools::Time::Clock>(clock);
 
 	framebuffer = std::make_unique<baregl::Framebuffer>("Main");
