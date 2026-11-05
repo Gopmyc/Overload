@@ -252,6 +252,34 @@ namespace
 		return true;
 	}
 
+	// Whether a node the source lacks hangs under a bone both skeletons share: the first of its ancestors the source
+	// knows must be a bone on both sides, never the scene root, the armature or a mesh node
+	bool HangsUnderSharedBone(
+		const OvRendering::Animation::Skeleton& p_targetSkeleton,
+		const OvRendering::Animation::Skeleton& p_sourceSkeleton,
+		size_t p_targetNodeIndex
+	)
+	{
+		int32_t nodeIndex = p_targetSkeleton.nodes[p_targetNodeIndex].parentIndex;
+
+		while (nodeIndex >= 0 && static_cast<size_t>(nodeIndex) < p_targetSkeleton.nodes.size())
+		{
+			const auto& node = p_targetSkeleton.nodes[static_cast<size_t>(nodeIndex)];
+
+			if (p_sourceSkeleton.FindNodeIndex(node.name).has_value())
+			{
+				return node.boneIndex >= 0 && p_sourceSkeleton.FindBoneIndex(node.name).has_value();
+			}
+
+			nodeIndex = node.parentIndex;
+		}
+
+		return false;
+	}
+
+	// The source's nodes mapped onto the target's by name. The target may extend the source's skeleton: bones of its
+	// own (hair, cloth) under a bone both share, which no track drives and which keep their bind pose for scripts to
+	// move. Only against a source with bones, so that a misnamed bone is never taken for an extension.
 	bool BuildAnimationNodeMap(
 		const OvRendering::Animation::Skeleton& p_targetSkeleton,
 		const OvRendering::Animation::Skeleton& p_sourceSkeleton,
@@ -271,6 +299,8 @@ namespace
 			return false;
 		}
 
+		std::vector<bool> extensionNodes(p_targetSkeleton.nodes.size(), false);
+
 		for (size_t targetNodeIndex = 0; targetNodeIndex < requiredNodes.size(); ++targetNodeIndex)
 		{
 			if (!requiredNodes[targetNodeIndex])
@@ -282,7 +312,13 @@ namespace
 			const auto sourceNodeIndex = p_sourceSkeleton.FindNodeIndex(targetNode.name);
 			if (!sourceNodeIndex.has_value() || *sourceNodeIndex >= p_sourceSkeleton.nodes.size())
 			{
-				return false;
+				if (p_sourceSkeleton.bones.empty() || !HangsUnderSharedBone(p_targetSkeleton, p_sourceSkeleton, targetNodeIndex))
+				{
+					return false;
+				}
+
+				extensionNodes[targetNodeIndex] = true;
+				continue;
 			}
 
 			const auto& sourceNode = p_sourceSkeleton.nodes[*sourceNodeIndex];
@@ -324,13 +360,25 @@ namespace
 
 		if (!p_sourceSkeleton.bones.empty())
 		{
-			if (p_sourceSkeleton.bones.size() != p_targetSkeleton.bones.size())
+			size_t extensionBones = 0;
+
+			for (const auto& targetBone : p_targetSkeleton.bones)
+			{
+				extensionBones += extensionNodes[targetBone.nodeIndex] ? 1 : 0;
+			}
+
+			if (p_sourceSkeleton.bones.size() + extensionBones != p_targetSkeleton.bones.size())
 			{
 				return false;
 			}
 
 			for (const auto& targetBone : p_targetSkeleton.bones)
 			{
+				if (extensionNodes[targetBone.nodeIndex])
+				{
+					continue;
+				}
+
 				const auto sourceBoneIndex = p_sourceSkeleton.FindBoneIndex(targetBone.name);
 				if (!sourceBoneIndex.has_value() || *sourceBoneIndex >= p_sourceSkeleton.bones.size())
 				{
