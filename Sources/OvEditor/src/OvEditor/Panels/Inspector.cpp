@@ -24,6 +24,7 @@
 #include <OvCore/ECS/Components/CModelRenderer.h>
 #include <OvCore/ECS/Components/CPhysicalBox.h>
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>
+#include <OvCore/ECS/Components/CPhysicalHeightField.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
 #include <OvCore/ECS/Components/CPointLight.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
@@ -109,6 +110,7 @@ namespace
 		CreateComponentInfo<CPhysicalBox>("Physical Box"),
 		CreateComponentInfo<CPhysicalSphere>("Physical Sphere"),
 		CreateComponentInfo<CPhysicalCapsule>("Physical Capsule"),
+		CreateComponentInfo<CPhysicalHeightField>("Physical Height Field"),
 		CreateComponentInfo<CPointLight>("Point Light"),
 		CreateComponentInfo<CDirectionalLight>("Directional Light"),
 		CreateComponentInfo<CSpotLight>("Spot Light"),

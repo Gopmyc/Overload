@@ -14,6 +14,7 @@
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
 #include <OvCore/ECS/Components/CPhysicalBox.h>
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>
+#include <OvCore/ECS/Components/CPhysicalHeightField.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
 #include <OvCore/ECS/Components/CPointLight.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
@@ -268,6 +269,7 @@ void OvEditor::Utils::ActorCreationMenu::GenerateActorCreationMenu(OvUI::Widgets
 	physicals.CreateWidget<MenuItem>("Physical Box").ClickedEvent += ActorWithComponentCreationHandler<CPhysicalBox>(p_parent, p_onItemClicked);
 	physicals.CreateWidget<MenuItem>("Physical Sphere").ClickedEvent += ActorWithComponentCreationHandler<CPhysicalSphere>(p_parent, p_onItemClicked);
 	physicals.CreateWidget<MenuItem>("Physical Capsule").ClickedEvent += ActorWithComponentCreationHandler<CPhysicalCapsule>(p_parent, p_onItemClicked);
+	physicals.CreateWidget<MenuItem>("Physical Height Field").ClickedEvent += ActorWithComponentCreationHandler<CPhysicalHeightField>(p_parent, p_onItemClicked);
 	lights.CreateWidget<MenuItem>("Point").ClickedEvent += ActorWithComponentCreationHandler<CPointLight>(p_parent, p_onItemClicked);
 	lights.CreateWidget<MenuItem>("Directional").ClickedEvent += ActorWithComponentCreationHandler<CDirectionalLight>(p_parent, p_onItemClicked);
 	lights.CreateWidget<MenuItem>("Spot").ClickedEvent += ActorWithComponentCreationHandler<CSpotLight>(p_parent, p_onItemClicked);
