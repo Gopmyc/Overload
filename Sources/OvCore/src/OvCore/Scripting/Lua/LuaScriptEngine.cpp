@@ -34,6 +34,7 @@ namespace
 	// and they die with the lua state, so Reload() invalidates them for free.
 	constexpr auto kLoadedScriptsKey = "__OverloadLoadedScripts";
 	constexpr auto kLoadingScriptsKey = "__OverloadLoadingScripts";
+	constexpr auto kCompiledBehavioursKey = "__OverloadCompiledBehaviours";
 
 	template<typename... Args>
 	void ExecuteLuaFunction(OvCore::ECS::Components::Behaviour& p_behaviour, const std::string& p_functionName, Args&& ...p_args)
@@ -79,7 +80,32 @@ namespace
 	{
 		using namespace OvCore::Scripting;
 
-		const auto result = p_luaState.safe_script_file(p_scriptName, &sol::script_pass_on_error);
+		// A behaviour script is read and compiled once per Lua state, but run for each behaviour, which so gets a table
+		// and functions of its own
+		sol::table compiledBehaviours = p_luaState.registry()[kCompiledBehavioursKey];
+		const sol::object compiled = compiledBehaviours[p_scriptName];
+		sol::protected_function chunk;
+
+		if (compiled.get_type() == sol::type::function)
+		{
+			chunk = compiled.as<sol::protected_function>();
+		}
+		else
+		{
+			sol::load_result loaded = p_luaState.load_file(p_scriptName);
+
+			if (!loaded.valid())
+			{
+				sol::error err = loaded;
+				OVLOG_ERROR(err.what());
+				return {};
+			}
+
+			chunk = loaded.get<sol::protected_function>();
+			compiledBehaviours[p_scriptName] = chunk;
+		}
+
+		const sol::protected_function_result result = chunk();
 
 		if (!result.valid())
 		{
@@ -386,6 +412,7 @@ void OvCore::Scripting::LuaScriptEngine::CreateContext()
 
 	m_context.luaState->registry()[kLoadedScriptsKey] = m_context.luaState->create_table();
 	m_context.luaState->registry()[kLoadingScriptsKey] = m_context.luaState->create_table();
+	m_context.luaState->registry()[kCompiledBehavioursKey] = m_context.luaState->create_table();
 
 	BindLuaActor(*m_context.luaState);
 	BindLuaComponents(*m_context.luaState);
