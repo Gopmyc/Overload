@@ -1162,12 +1162,13 @@ void OvEditor::Core::EditorActions::DuplicateActor
 	p_toDuplicate.OnSerialize(doc, actorsRoot);
 	auto& newActor = CreateEmptyActor(false);
 	int64_t idToUse = newActor.GetID();
-	uint64_t guidToUse = newActor.GetGUID();
 	tinyxml2::XMLElement* currentActor = actorsRoot->FirstChildElement("actor");
+
+	// The copy keeps its own GUID, never shared with the duplicated actor
+	SetActorNodeValue(doc, *currentActor, "guid", std::to_string(newActor.GetGUID()));
 	newActor.OnDeserialize(doc, currentActor);
 	
 	newActor.SetID(idToUse);
-	newActor.SetGUID(guidToUse);
 	auto currentScene = m_context.sceneManager.GetCurrentScene();
 
 	if (p_forcedParent)

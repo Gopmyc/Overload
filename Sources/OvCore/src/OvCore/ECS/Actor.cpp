@@ -135,7 +135,13 @@ void OvCore::ECS::Actor::SetID(int64_t p_id)
 
 void OvCore::ECS::Actor::SetGUID(uint64_t p_guid)
 {
+	const uint64_t previousGUID = m_guid;
 	m_guid = p_guid;
+
+	if (m_guid != previousGUID)
+	{
+		GUIDChangedEvent.Invoke(*this, previousGUID);
+	}
 
 #if defined(LUA_SCRIPTING)
 	// Lua scripts reference their owner by GUID, so an actor instantiated from a prefab updates them
@@ -617,7 +623,14 @@ void OvCore::ECS::Actor::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::
 	OvCore::Helpers::Serializer::DeserializeString(p_doc, p_actorsRoot, "tag", m_tag);
 	OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, p_actorsRoot, "active", m_active);
 	OvCore::Helpers::Serializer::DeserializeInt64(p_doc, p_actorsRoot, "id", m_actorID);
+	const uint64_t previousGUID = m_guid;
 	OvCore::Helpers::Serializer::DeserializeUInt64(p_doc, p_actorsRoot, "guid", m_guid);
+
+	if (m_guid != previousGUID)
+	{
+		GUIDChangedEvent.Invoke(*this, previousGUID);
+	}
+
 	std::string prefabSource;
 	OvCore::Helpers::Serializer::DeserializeString(p_doc, p_actorsRoot, "prefab_source", prefabSource);
 	SetPrefabSource(prefabSource);

@@ -407,6 +407,7 @@ namespace OvCore::ECS
 		OvTools::Eventing::Event<Components::AComponent&>	ComponentRemovedEvent;
 		OvTools::Eventing::Event<Components::Behaviour&>	BehaviourAddedEvent;
 		OvTools::Eventing::Event<Components::Behaviour&>	BehaviourRemovedEvent;
+		OvTools::Eventing::Event<Actor&, uint64_t>			GUIDChangedEvent; // the previous GUID is given
 
 		/* Some events that are triggered when an action occur on any actor */
 		static OvTools::Eventing::Event<Actor&>				DestroyedEvent;

@@ -13,6 +13,7 @@
 
 #include <OvDebug/Logger.h>
 #include <OvCore/ECS/Actor.h>
+#include <OvCore/Helpers/Serializer.h>
 #include <OvCore/SceneSystem/PrefabOperations.h>
 
 namespace
@@ -131,10 +132,17 @@ OvCore::ECS::Actor* OvCore::SceneSystem::PrefabOperations::InstantiateFromFile(
 	{
 		auto& newActor = p_createActor();
 		const int64_t generatedID = newActor.GetID();
-		const uint64_t generatedGUID = newActor.GetGUID();
+
+		// The instance keeps its own GUID, written over the source's so that no other actor ever shares it
+		uint64_t sourceGUID = newActor.GetGUID();
+		if (auto* guidNode = currentActor->FirstChildElement("guid"))
+		{
+			OvCore::Helpers::Serializer::DeserializeUInt64(doc, currentActor, "guid", sourceGUID);
+			guidNode->SetText(std::to_string(newActor.GetGUID()).c_str());
+		}
 
 		newActor.OnDeserialize(doc, currentActor);
-		const uint64_t prefabNodeGUID = newActor.HasPrefabNodeGUID() ? newActor.GetPrefabNodeGUID() : newActor.GetGUID();
+		const uint64_t prefabNodeGUID = newActor.HasPrefabNodeGUID() ? newActor.GetPrefabNodeGUID() : sourceGUID;
 		newActor.SetPrefabNodeGUID(prefabNodeGUID);
 
 		pendingAttachments.push_back({
@@ -145,7 +153,6 @@ OvCore::ECS::Actor* OvCore::SceneSystem::PrefabOperations::InstantiateFromFile(
 		sourceToInstance[newActor.GetID()] = &newActor;
 
 		newActor.SetID(generatedID);
-		newActor.SetGUID(generatedGUID);
 	}
 
 	OvCore::ECS::Actor* instantiatedRoot = nullptr;

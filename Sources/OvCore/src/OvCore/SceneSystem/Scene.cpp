@@ -43,6 +43,8 @@ OvCore::SceneSystem::Scene::~Scene()
 	});
 
 	m_actors.clear();
+	m_actorsByGUID.clear();
+	m_shadowedActorsByGUID.clear();
 }
 
 void OvCore::SceneSystem::Scene::AddDefaultCamera()
@@ -200,6 +202,12 @@ OvCore::ECS::Actor& OvCore::SceneSystem::Scene::CreateActor(const std::string& p
 	ECS::Actor& instance = *m_actors.back();
 	instance.ComponentAddedEvent	+= std::bind(&Scene::OnComponentAdded, this, std::placeholders::_1);
 	instance.ComponentRemovedEvent	+= std::bind(&Scene::OnComponentRemoved, this, std::placeholders::_1);
+	instance.GUIDChangedEvent		+= [this](ECS::Actor& p_actor, uint64_t p_previousGUID)
+	{
+		UnindexActorGUID(&p_actor, p_previousGUID);
+		IndexActorGUID(p_actor, p_actor.GetGUID());
+	};
+	IndexActorGUID(instance, instance.GetGUID());
 	if (m_batchActorCreation)
 	{
 		m_batchCreatedActors.push_back(std::ref(instance));
@@ -350,7 +358,9 @@ bool OvCore::SceneSystem::Scene::DestroyActor(ECS::Actor& p_target)
 
 	if (found != m_actors.end())
 	{
+		const uint64_t guid = p_target.GetGUID();
 		delete *found;
+		UnindexActorGUID(&p_target, guid);
 		m_actors.erase(found);
 		return true;
 	}
@@ -377,7 +387,9 @@ void OvCore::SceneSystem::Scene::CollectGarbages()
 		bool isGarbage = !element->IsAlive();
 		if (isGarbage)
 		{
+			const uint64_t guid = element->GetGUID();
 			delete element;
+			UnindexActorGUID(element, guid);
 		}
 		return isGarbage;
 	}), m_actors.end());
@@ -424,12 +436,43 @@ OvCore::ECS::Actor* OvCore::SceneSystem::Scene::FindActorByID(int64_t p_id) cons
 
 OvCore::ECS::Actor* OvCore::SceneSystem::Scene::FindActorByGUID(uint64_t p_guid) const
 {
-	auto result = std::find_if(m_actors.begin(), m_actors.end(), [p_guid](OvCore::ECS::Actor* element)
-	{
-		return element->GetGUID() == p_guid;
-	});
+	const auto found = m_actorsByGUID.find(p_guid);
+	return found != m_actorsByGUID.end() ? found->second : nullptr;
+}
 
-	return result != m_actors.end() ? *result : nullptr;
+void OvCore::SceneSystem::Scene::IndexActorGUID(ECS::Actor& p_actor, uint64_t p_guid)
+{
+	if (!m_actorsByGUID.try_emplace(p_guid, &p_actor).second)
+	{
+		m_shadowedActorsByGUID.emplace(p_guid, &p_actor);
+	}
+}
+
+void OvCore::SceneSystem::Scene::UnindexActorGUID(const ECS::Actor* p_actor, uint64_t p_guid)
+{
+	// The actor is only compared here, it may already be deleted
+	if (auto found = m_actorsByGUID.find(p_guid); found != m_actorsByGUID.end() && found->second == p_actor)
+	{
+		if (auto shadowed = m_shadowedActorsByGUID.find(p_guid); shadowed != m_shadowedActorsByGUID.end())
+		{
+			found->second = shadowed->second;
+			m_shadowedActorsByGUID.erase(shadowed);
+		}
+		else
+		{
+			m_actorsByGUID.erase(found);
+		}
+
+		return;
+	}
+
+	const auto [first, last] = m_shadowedActorsByGUID.equal_range(p_guid);
+	const auto shadowed = std::find_if(first, last, [p_actor](const auto& p_entry) { return p_entry.second == p_actor; });
+
+	if (shadowed != last)
+	{
+		m_shadowedActorsByGUID.erase(shadowed);
+	}
 }
 
 std::vector<std::reference_wrapper<OvCore::ECS::Actor>> OvCore::SceneSystem::Scene::FindActorsByName(const std::string & p_name) const

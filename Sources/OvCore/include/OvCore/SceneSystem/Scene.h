@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <OvCore/API/ISerializable.h>
@@ -245,12 +246,18 @@ namespace OvCore::SceneSystem
 		void BeginBatchActorCreation();
 		void EndBatchActorCreation(bool p_startCreatedActors);
 		ECS::Actor* InstantiatePrefabInternal(const std::string& p_prefabPath, OvTools::Utils::OptRef<ECS::Actor> p_parent);
+		void IndexActorGUID(ECS::Actor& p_actor, uint64_t p_guid);
+		void UnindexActorGUID(const ECS::Actor* p_actor, uint64_t p_guid);
 
 		int64_t m_availableID = 1;
 		bool m_isPlaying = false;
 		bool m_batchActorCreation = false;
 		std::vector<ECS::Actor*> m_actors;
 		std::vector<std::reference_wrapper<ECS::Actor>> m_batchCreatedActors;
+
+		/* Actors by GUID. When two actors share one, the first keeps the entry and the other waits in the shadow map */
+		std::unordered_map<uint64_t, ECS::Actor*> m_actorsByGUID;
+		std::unordered_multimap<uint64_t, ECS::Actor*> m_shadowedActorsByGUID;
 
 		FastAccessComponents m_fastAccessComponents;
 		std::filesystem::path m_projectAssetsPath;
