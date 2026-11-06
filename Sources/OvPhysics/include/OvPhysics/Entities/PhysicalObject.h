@@ -127,6 +127,12 @@ namespace OvPhysics::Entities
 		bool IsKinematic() const;
 
 		/**
+		* Returns true if the physical object is static: it never moves by itself, never sleeps nor wakes up, and its
+		* body is only moved when its transform changes
+		*/
+		bool IsStatic() const;
+
+		/**
 		* Returns a reference to the transform of the physical object
 		*/
 		OvMaths::FTransform& GetTransform();
@@ -192,6 +198,12 @@ namespace OvPhysics::Entities
 		void SetKinematic(bool p_kinematic);
 
 		/**
+		* Defines if the physical object should be static or not (a static object ignores the kinematic setting)
+		* @param p_static
+		*/
+		void SetStatic(bool p_static);
+
+		/**
 		* Defines if the physical object should be enabled or not
 		* @param p_enabled
 		*/
@@ -224,6 +236,11 @@ namespace OvPhysics::Entities
 		*/
 		virtual JPH::Shape* CreateShape(const OvMaths::FVector3& p_scale) const = 0;
 
+		/**
+		* Returns true if the shape of the physical object can only be used by a static body
+		*/
+		virtual bool MustBeStatic() const;
+
 		void Consider();
 		void Unconsider();
 
@@ -255,6 +272,7 @@ namespace OvPhysics::Entities
 		/* Settings */
 		float					m_mass = 1.f;
 		bool					m_kinematic = false;
+		bool					m_static = false;
 		bool					m_trigger = false;
 		bool					m_enabled = true;
 		bool					m_considered = false;
@@ -265,6 +283,8 @@ namespace OvPhysics::Entities
 		/* Other */
 		std::any m_userData;
 		OvMaths::FVector3 m_previousScale = { 0.0f, 0.0f, 0.0f };
+		OvMaths::FVector3 m_bodyPosition;
+		OvMaths::FQuaternion m_bodyRotation;
 		static OvTools::Eventing::Event<PhysicalObject&>	CreatedEvent;
 		static OvTools::Eventing::Event<PhysicalObject&>	DestroyedEvent;
 

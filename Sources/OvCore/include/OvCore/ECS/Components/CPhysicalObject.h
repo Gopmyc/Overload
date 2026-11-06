@@ -94,6 +94,11 @@ namespace OvCore::ECS::Components
 		bool IsKinematic() const;
 
 		/**
+		* Returns true if the physical object is static
+		*/
+		bool IsStatic() const;
+
+		/**
 		* Defines a new mass for the physical object
 		* @param p_mass
 		*/
@@ -152,6 +157,12 @@ namespace OvCore::ECS::Components
 		* @param p_kinematic
 		*/
 		void SetKinematic(bool p_kinematic);
+
+		/**
+		* Defines if the physical object should be static or not (a static object ignores the kinematic setting)
+		* @param p_static
+		*/
+		void SetStatic(bool p_static);
 
 		/**
 		* Serialize the component

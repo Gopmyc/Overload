@@ -91,6 +91,11 @@ bool OvCore::ECS::Components::CPhysicalObject::IsKinematic() const
 	return m_physicalObject->IsKinematic();
 }
 
+bool OvCore::ECS::Components::CPhysicalObject::IsStatic() const
+{
+	return m_physicalObject->IsStatic();
+}
+
 void OvCore::ECS::Components::CPhysicalObject::SetMass(float p_mass)
 {
 	m_physicalObject->SetMass(p_mass);
@@ -136,10 +141,16 @@ void OvCore::ECS::Components::CPhysicalObject::SetKinematic(bool p_kinematic)
 	m_physicalObject->SetKinematic(p_kinematic);
 }
 
+void OvCore::ECS::Components::CPhysicalObject::SetStatic(bool p_static)
+{
+	m_physicalObject->SetStatic(p_static);
+}
+
 void OvCore::ECS::Components::CPhysicalObject::OnSerialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node)
 {
 	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "is_trigger", IsTrigger());
 	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "is_kinematic", IsKinematic());
+	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "is_static", IsStatic());
 	Helpers::Serializer::SerializeFloat(p_doc, p_node, "bounciness", GetBounciness());
 	Helpers::Serializer::SerializeFloat(p_doc, p_node, "mass", GetMass());
 	Helpers::Serializer::SerializeFloat(p_doc, p_node, "friction", GetFriction());
@@ -152,6 +163,7 @@ void OvCore::ECS::Components::CPhysicalObject::OnDeserialize(tinyxml2::XMLDocume
 {
 	SetTrigger(Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "is_trigger"));
 	SetKinematic(Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "is_kinematic"));
+	SetStatic(Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "is_static"));
 	SetBounciness(Helpers::Serializer::DeserializeFloat(p_doc, p_node, "bounciness"));
 	SetMass(Helpers::Serializer::DeserializeFloat(p_doc, p_node, "mass"));
 	SetFriction(Helpers::Serializer::DeserializeFloat(p_doc, p_node, "friction"));
@@ -164,6 +176,7 @@ void OvCore::ECS::Components::CPhysicalObject::OnInspector(OvUI::Internal::Widge
 {
 	Helpers::GUIDrawer::DrawBoolean(p_root, "Trigger", std::bind(&CPhysicalObject::IsTrigger, this), std::bind(&CPhysicalObject::SetTrigger, this, std::placeholders::_1));
 	Helpers::GUIDrawer::DrawBoolean(p_root, "Kinematic", std::bind(&CPhysicalObject::IsKinematic, this), std::bind(&CPhysicalObject::SetKinematic, this, std::placeholders::_1));
+	Helpers::GUIDrawer::DrawBoolean(p_root, "Static", std::bind(&CPhysicalObject::IsStatic, this), std::bind(&CPhysicalObject::SetStatic, this, std::placeholders::_1));
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Mass", std::bind(&CPhysicalObject::GetMass, this), std::bind(&CPhysicalObject::SetMass, this, std::placeholders::_1), 0.1f, 0.f, 10000.f);
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Bounciness", std::bind(&CPhysicalObject::GetBounciness, this), std::bind(&CPhysicalObject::SetBounciness, this, std::placeholders::_1), 0.1f, 0.f, 1.f);
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Friction", std::bind(&CPhysicalObject::GetFriction, this), std::bind(&CPhysicalObject::SetFriction, this, std::placeholders::_1), 0.1f, 0.f, 1.f);

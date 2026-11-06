@@ -75,6 +75,13 @@ namespace
 
 		return result;
 	}
+
+	bool IsSamePose(const OvMaths::FVector3& p_position, const OvMaths::FQuaternion& p_rotation, const OvMaths::FVector3& p_otherPosition, const OvMaths::FQuaternion& p_otherRotation)
+	{
+		return
+			p_position.x == p_otherPosition.x && p_position.y == p_otherPosition.y && p_position.z == p_otherPosition.z &&
+			p_rotation.x == p_otherRotation.x && p_rotation.y == p_otherRotation.y && p_rotation.z == p_otherRotation.z && p_rotation.w == p_otherRotation.w;
+	}
 }
 
 OvPhysics::Entities::PhysicalObject::PhysicalObject() :
@@ -184,6 +191,16 @@ bool OvPhysics::Entities::PhysicalObject::IsKinematic() const
 	return m_kinematic;
 }
 
+bool OvPhysics::Entities::PhysicalObject::IsStatic() const
+{
+	return m_static || MustBeStatic();
+}
+
+bool OvPhysics::Entities::PhysicalObject::MustBeStatic() const
+{
+	return false;
+}
+
 OvMaths::FTransform& OvPhysics::Entities::PhysicalObject::GetTransform()
 {
 	return *m_transform;
@@ -259,6 +276,15 @@ void OvPhysics::Entities::PhysicalObject::SetKinematic(bool p_kinematic)
 	RecreateBody();
 }
 
+void OvPhysics::Entities::PhysicalObject::SetStatic(bool p_static)
+{
+	if (m_static != p_static)
+	{
+		m_static = p_static;
+		RecreateBody();
+	}
+}
+
 void OvPhysics::Entities::PhysicalObject::SetEnabled(bool p_enabled)
 {
 	m_enabled = p_enabled;
@@ -276,12 +302,22 @@ bool OvPhysics::Entities::PhysicalObject::IsEnabled() const
 
 void OvPhysics::Entities::PhysicalObject::UpdateBodyTransform()
 {
-	m_bodyInterface->SetPositionAndRotation(
-		m_body->GetID(),
-		Conversion::ToJoltVector3(m_transform->GetWorldPosition()),
-		Conversion::ToJoltQuaternion(m_transform->GetWorldRotation()),
-		JPH::EActivation::DontActivate
-	);
+	const OvMaths::FVector3& position = m_transform->GetWorldPosition();
+	const OvMaths::FQuaternion& rotation = m_transform->GetWorldRotation();
+
+	// The body is only moved when its transform was, which most static bodies never are
+	if (!IsSamePose(position, rotation, m_bodyPosition, m_bodyRotation))
+	{
+		m_bodyPosition = position;
+		m_bodyRotation = rotation;
+
+		m_bodyInterface->SetPositionAndRotation(
+			m_body->GetID(),
+			Conversion::ToJoltVector3(position),
+			Conversion::ToJoltQuaternion(rotation),
+			JPH::EActivation::DontActivate
+		);
+	}
 
 	if (OvMaths::FVector3::Distance(m_transform->GetWorldScale(), m_previousScale) >= 0.01f)
 	{
@@ -291,7 +327,7 @@ void OvPhysics::Entities::PhysicalObject::UpdateBodyTransform()
 
 void OvPhysics::Entities::PhysicalObject::UpdateFTransform()
 {
-	if (m_kinematic)
+	if (!m_body->IsDynamic())
 	{
 		return;
 	}
@@ -310,6 +346,9 @@ void OvPhysics::Entities::PhysicalObject::UpdateFTransform()
 		m_transform->SetLocalPosition(position);
 		m_transform->SetLocalRotation(rotation);
 	}
+
+	m_bodyPosition = m_transform->GetWorldPosition();
+	m_bodyRotation = m_transform->GetWorldRotation();
 }
 
 void OvPhysics::Entities::PhysicalObject::RecreateBody()
@@ -322,7 +361,7 @@ void OvPhysics::Entities::PhysicalObject::Consider()
 	if (!m_considered)
 	{
 		m_considered = true;
-		m_bodyInterface->AddBody(m_body->GetID(), JPH::EActivation::Activate);
+		m_bodyInterface->AddBody(m_body->GetID(), m_body->IsStatic() ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
 	}
 }
 
@@ -340,24 +379,33 @@ void OvPhysics::Entities::PhysicalObject::CreateBody(const Settings::BodySetting
 	OVASSERT(m_bodyInterface != nullptr, "A PhysicsEngine must exist before creating a PhysicalObject");
 
 	m_previousScale = m_transform->GetWorldScale();
+	m_bodyPosition = m_transform->GetWorldPosition();
+	m_bodyRotation = m_transform->GetWorldRotation();
 	m_linearFactor = p_bodySettings.linearFactor;
 	m_angularFactor = p_bodySettings.angularFactor;
 
 	// Jolt cannot simulate a dynamic body without any degree of freedom, such a body is simulated as kinematic
 	const JPH::EAllowedDOFs allowedDOFs = ToAllowedDOFs(m_linearFactor, m_angularFactor);
-	const bool isDynamic = !m_kinematic && allowedDOFs != JPH::EAllowedDOFs::None;
+	const bool isStatic = IsStatic();
+	const bool isDynamic = !isStatic && !m_kinematic && allowedDOFs != JPH::EAllowedDOFs::None;
 
 	JPH::BodyCreationSettings bodyCreationSettings(
 		CreateShape({ std::abs(m_previousScale.x), std::abs(m_previousScale.y), std::abs(m_previousScale.z) }),
-		Conversion::ToJoltVector3(m_transform->GetWorldPosition()),
-		Conversion::ToJoltQuaternion(m_transform->GetWorldRotation()),
-		isDynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Kinematic,
+		Conversion::ToJoltVector3(m_bodyPosition),
+		Conversion::ToJoltQuaternion(m_bodyRotation),
+		isStatic ? JPH::EMotionType::Static : isDynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Kinematic,
 		kObjectLayer
 	);
 
 	bodyCreationSettings.mAllowedDOFs = isDynamic ? allowedDOFs : JPH::EAllowedDOFs::All;
-	bodyCreationSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-	bodyCreationSettings.mMassPropertiesOverride.mMass = std::max(kMinimumMass, m_mass);
+
+	// A static body has no mass
+	if (!isStatic)
+	{
+		bodyCreationSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+		bodyCreationSettings.mMassPropertiesOverride.mMass = std::max(kMinimumMass, m_mass);
+	}
+
 	bodyCreationSettings.mIsSensor = p_bodySettings.isTrigger;
 	bodyCreationSettings.mMotionQuality = ToMotionQuality(m_collisionMode);
 	bodyCreationSettings.mAllowSleeping = false; // TODO: Avoid using always active
