@@ -5,8 +5,13 @@
 */
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <format>
+#include <limits>
+#include <optional>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include <OvDebug/Logger.h>
@@ -33,10 +38,219 @@
 
 #include <OvPhysics/Entities/PhysicalObject.h>
 
+#include <OvRendering/Geometry/Vertex.h>
+#include <OvRendering/Resources/Mesh.h>
+
 #include <OvWindowing/Cursor/ECursorShape.h>
 #include <OvWindowing/Inputs/InputManager.h>
 
 #include <sol/sol.hpp>
+
+namespace
+{
+	using Results = std::tuple<sol::object, sol::object>;
+
+	/**
+	* Reads the flat array of numbers p_name of p_geometry: nothing when it is absent, or an error when it is not an
+	* array of finite numbers whose size is p_valuesPerVertex * p_vertexCount (any multiple of p_valuesPerVertex when
+	* p_vertexCount is 0)
+	*/
+	std::optional<std::string> ReadNumbers(
+		const sol::table& p_geometry,
+		const char* p_name,
+		size_t p_valuesPerVertex,
+		size_t p_vertexCount,
+		std::vector<float>& p_values
+	)
+	{
+		const sol::object array = p_geometry.raw_get<sol::object>(p_name);
+
+		if (array.get_type() == sol::type::lua_nil)
+		{
+			return std::nullopt;
+		}
+
+		if (array.get_type() != sol::type::table)
+		{
+			return std::format("{} must be an array of numbers", p_name);
+		}
+
+		const sol::table table = array.as<sol::table>();
+		const size_t size = table.size();
+
+		if (size == 0 || size % p_valuesPerVertex != 0 || (p_vertexCount != 0 && size != p_valuesPerVertex * p_vertexCount))
+		{
+			return p_vertexCount != 0 ?
+				std::format("{} must hold {} numbers ({} per vertex), not {}", p_name, p_valuesPerVertex * p_vertexCount, p_valuesPerVertex, size) :
+				std::format("{} must hold a multiple of {} numbers, not {}", p_name, p_valuesPerVertex, size);
+		}
+
+		p_values.resize(size);
+
+		for (size_t index = 0; index < size; ++index)
+		{
+			const auto value = table.raw_get<sol::optional<double>>(index + 1);
+			if (!value || !std::isfinite(*value))
+			{
+				return std::format("{}[{}] is not a finite number", p_name, index + 1);
+			}
+
+			p_values[index] = static_cast<float>(*value);
+		}
+
+		return std::nullopt;
+	}
+
+	/**
+	* Model(), or nil and why: one mesh from flat arrays (Positions and Indices required, Normals, TexCoords, Tangents
+	* and Bitangents optional), registered under the path or replacing the meshes of the model made there before
+	*/
+	Results CreateModel(sol::this_state p_state, const sol::object& p_path, const sol::object& p_geometry, const sol::object& p_materialName)
+	{
+		using namespace OvRendering;
+		using OvMaths::FVector3;
+
+		const auto failure = [&p_state](const std::string& p_error) -> Results {
+			return { sol::make_object(p_state, sol::lua_nil), sol::make_object(p_state, p_error) };
+		};
+
+		if (p_path.get_type() != sol::type::string || p_path.as<std::string>().empty())
+		{
+			return failure("the path must be a non-empty string");
+		}
+
+		if (p_geometry.get_type() != sol::type::table)
+		{
+			return failure("the geometry must be a table");
+		}
+
+		if (p_materialName.get_type() != sol::type::lua_nil && p_materialName.get_type() != sol::type::string)
+		{
+			return failure("the material name must be a string");
+		}
+
+		const sol::table geometry = p_geometry.as<sol::table>();
+		std::vector<float> positions, indexValues, normals, texCoords, tangents, bitangents;
+
+		if (auto error = ReadNumbers(geometry, "Positions", 3, 0, positions))
+		{
+			return failure(*error);
+		}
+
+		if (auto error = ReadNumbers(geometry, "Indices", 3, 0, indexValues))
+		{
+			return failure(*error);
+		}
+
+		if (positions.empty() || indexValues.empty())
+		{
+			return failure("Positions and Indices are required");
+		}
+
+		const size_t vertexCount = positions.size() / 3;
+
+		if (vertexCount > std::numeric_limits<uint32_t>::max())
+		{
+			return failure("too many vertices");
+		}
+
+		for (const auto& [name, valuesPerVertex, values] : {
+			std::tuple{ "Normals", size_t{ 3 }, &normals },
+			std::tuple{ "TexCoords", size_t{ 2 }, &texCoords },
+			std::tuple{ "Tangents", size_t{ 3 }, &tangents },
+			std::tuple{ "Bitangents", size_t{ 3 }, &bitangents }
+		})
+		{
+			if (auto error = ReadNumbers(geometry, name, valuesPerVertex, vertexCount, *values))
+			{
+				return failure(*error);
+			}
+		}
+
+		std::vector<uint32_t> indices(indexValues.size());
+
+		for (size_t index = 0; index < indexValues.size(); ++index)
+		{
+			const float value = indexValues[index];
+			if (value < 0.0f || value != std::floor(value) || value >= static_cast<float>(vertexCount))
+			{
+				return failure(std::format("Indices[{}] is not the index of a vertex (from 0 to {})", index + 1, vertexCount - 1));
+			}
+
+			indices[index] = static_cast<uint32_t>(value);
+		}
+
+		std::vector<Geometry::Vertex> vertices(vertexCount, Geometry::Vertex{});
+
+		for (size_t vertex = 0; vertex < vertexCount; ++vertex)
+		{
+			std::copy_n(&positions[vertex * 3], 3, vertices[vertex].position);
+
+			if (!normals.empty())
+			{
+				std::copy_n(&normals[vertex * 3], 3, vertices[vertex].normals);
+			}
+
+			if (!texCoords.empty())
+			{
+				std::copy_n(&texCoords[vertex * 2], 2, vertices[vertex].texCoords);
+			}
+
+			if (!tangents.empty())
+			{
+				std::copy_n(&tangents[vertex * 3], 3, vertices[vertex].tangent);
+			}
+
+			if (!bitangents.empty())
+			{
+				std::copy_n(&bitangents[vertex * 3], 3, vertices[vertex].bitangent);
+			}
+		}
+
+		// Missing normals are smoothed: each vertex takes the sum of its triangles' normals, weighted by their area
+		if (normals.empty())
+		{
+			std::vector<FVector3> sums(vertexCount, FVector3::Zero);
+
+			for (size_t index = 0; index + 2 < indices.size(); index += 3)
+			{
+				const auto position = [&vertices](uint32_t p_vertex) {
+					const auto& vertex = vertices[p_vertex].position;
+					return FVector3{ vertex[0], vertex[1], vertex[2] };
+				};
+
+				const FVector3 a = position(indices[index]);
+				const FVector3 normal = FVector3::Cross(position(indices[index + 1]) - a, position(indices[index + 2]) - a);
+
+				for (size_t corner = 0; corner < 3; ++corner)
+				{
+					sums[indices[index + corner]] += normal;
+				}
+			}
+
+			for (size_t vertex = 0; vertex < vertexCount; ++vertex)
+			{
+				const float length = FVector3::Length(sums[vertex]);
+				const FVector3 normal = length > 0.0f ? sums[vertex] / length : FVector3::Up;
+				vertices[vertex].normals[0] = normal.x;
+				vertices[vertex].normals[1] = normal.y;
+				vertices[vertex].normals[2] = normal.z;
+			}
+		}
+
+		const std::string materialName = p_materialName.get_type() == sol::type::string ? p_materialName.as<std::string>() : "Material";
+		auto* mesh = new Resources::Mesh(vertices, indices, 0);
+		auto* model = OVSERVICE(OvCore::ResourceManagement::ModelManager).CreateFromGeometry(p_path.as<std::string>(), { mesh }, { materialName });
+
+		if (!model)
+		{
+			delete mesh;
+			return failure("a model loaded from a file already has this path");
+		}
+
+		return { sol::make_object(p_state, model), sol::make_object(p_state, sol::lua_nil) };
+	}
+}
 
 void BindLuaGlobal(sol::state& p_luaState)
 {
@@ -293,7 +507,8 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"GetTexture", [](const std::string& p_resPath) { return OVSERVICE(TextureManager).GetResource(p_resPath); },
 		"GetMaterial", [](const std::string& p_resPath) { return OVSERVICE(MaterialManager).GetResource(p_resPath); },
 		"GetSound", [](const std::string& p_resPath) { return OVSERVICE(SoundManager).GetResource(p_resPath); },
-		"GetScript", [](const std::string& p_resPath) { return OVSERVICE(ScriptEngine).GetScript(p_resPath); }
+		"GetScript", [](const std::string& p_resPath) { return OVSERVICE(ScriptEngine).GetScript(p_resPath); },
+		"CreateModel", &CreateModel
 	);
 
 	p_luaState.create_named_table("Math",
