@@ -4,6 +4,13 @@
 * @licence: MIT
 */
 
+#include <cmath>
+#include <format>
+#include <optional>
+#include <string>
+#include <tuple>
+#include <vector>
+
 #include <sol/sol.hpp>
 
 #include <OvCore/ECS/Actor.h>  
@@ -18,6 +25,7 @@
 #include <OvCore/ECS/Components/CModelRenderer.h>  
 #include <OvCore/ECS/Components/CPhysicalBox.h>  
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>  
+#include <OvCore/ECS/Components/CPhysicalHeightField.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>  
 #include <OvCore/ECS/Components/CPointLight.h>  
 #include <OvCore/ECS/Components/CPostProcessStack.h>  
@@ -32,6 +40,64 @@
 #include <OvCore/ECS/Components/UI/CText.h>
 #include <OvCore/ECS/Components/UI/CVerticalLayout.h>
 #include <OvCore/Scripting/Common/ScriptPropertyValue.h>
+
+namespace
+{
+	constexpr uint32_t kMinimumHeightFieldSampleCount = 3;
+	constexpr uint32_t kMaximumHeightFieldSampleCount = 4096;
+
+	// true, or false and why: the heights are only applied when every argument is valid
+	std::tuple<bool, std::optional<std::string>> SetHeights(
+		OvCore::ECS::Components::CPhysicalHeightField& p_heightField,
+		const sol::object& p_sampleCount,
+		const sol::object& p_spacing,
+		const sol::object& p_heights
+	)
+	{
+		const auto count = p_sampleCount.as<sol::optional<double>>();
+		if (!count || *count != std::floor(*count) || *count < kMinimumHeightFieldSampleCount || *count > kMaximumHeightFieldSampleCount)
+		{
+			return { false, std::format("the sample count must be a whole number from {} to {}", kMinimumHeightFieldSampleCount, kMaximumHeightFieldSampleCount) };
+		}
+
+		const auto spacing = p_spacing.as<sol::optional<double>>();
+		if (!spacing || !std::isfinite(*spacing) || *spacing <= 0.0)
+		{
+			return { false, "the spacing must be a positive number" };
+		}
+
+		if (p_heights.get_type() != sol::type::table)
+		{
+			return { false, "the heights must be an array of numbers" };
+		}
+
+		const auto sampleCount = static_cast<uint32_t>(*count);
+		const sol::table table = p_heights.as<sol::table>();
+		const size_t expectedSize = static_cast<size_t>(sampleCount) * sampleCount;
+		const size_t size = table.size();
+
+		if (size != 0 && size != expectedSize)
+		{
+			return { false, std::format("{} heights given for {} samples", size, expectedSize) };
+		}
+
+		std::vector<float> heights(size);
+
+		for (size_t index = 0; index < size; ++index)
+		{
+			const auto height = table.raw_get<sol::optional<double>>(index + 1);
+			if (!height || !std::isfinite(*height))
+			{
+				return { false, std::format("the height {} is not a finite number", index + 1) };
+			}
+
+			heights[index] = static_cast<float>(*height);
+		}
+
+		p_heightField.SetHeights(sampleCount, static_cast<float>(*spacing), std::move(heights));
+		return { true, std::nullopt };
+	}
+}
 
 void BindLuaComponents(sol::state& p_luaState)
 {
@@ -258,7 +324,9 @@ void BindLuaComponents(sol::state& p_luaState)
 		"ClearForces", &CPhysicalObject::ClearForces,
 		"SetCollisionDetectionMode", &CPhysicalObject::SetCollisionDetectionMode,
 		"GetCollisionMode", &CPhysicalObject::GetCollisionDetectionMode,
-		"SetKinematic", &CPhysicalObject::SetKinematic
+		"SetKinematic", &CPhysicalObject::SetKinematic,
+		"IsStatic", &CPhysicalObject::IsStatic,
+		"SetStatic", &CPhysicalObject::SetStatic
 	);
 
 	p_luaState.new_usertype<CPhysicalBox>("PhysicalBox",
@@ -279,6 +347,13 @@ void BindLuaComponents(sol::state& p_luaState)
 		"SetRadius", &CPhysicalCapsule::SetRadius,
 		"GetHeight", &CPhysicalCapsule::GetHeight,
 		"SetHeight", &CPhysicalCapsule::SetHeight
+	);
+
+	p_luaState.new_usertype<CPhysicalHeightField>("PhysicalHeightField",
+		sol::base_classes, sol::bases<CPhysicalObject, AComponent>(),
+		"SetHeights", &SetHeights,
+		"GetSampleCount", &CPhysicalHeightField::GetSampleCount,
+		"GetSpacing", &CPhysicalHeightField::GetSpacing
 	);
 
 	p_luaState.new_enum<OvRendering::Settings::EProjectionMode>("ProjectionMode", {

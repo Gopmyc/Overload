@@ -94,6 +94,10 @@ function Actor:GetPhysicalSphere() end
 ---@return PhysicalCapsule|nil
 function Actor:GetPhysicalCapsule() end
 
+--- Returns the PhysicalHeightField attached to this actor (If any)
+---@return PhysicalHeightField|nil
+function Actor:GetPhysicalHeightField() end
+
 --- Returns the Camera attached to this actor (If any)
 ---@return Camera|nil
 function Actor:GetCamera() end
@@ -217,6 +221,10 @@ function Actor:AddPhysicalSphere() end
 ---@return PhysicalCapsule
 function Actor:AddPhysicalCapsule() end
 
+--- Adds a PhysicalHeightField component to the actor and returns it
+---@return PhysicalHeightField
+function Actor:AddPhysicalHeightField() end
+
 --- Adds a Camera component to the actor and returns it
 ---@return Camera
 function Actor:AddCamera() end
@@ -301,6 +309,8 @@ function Actor:RemovePhysicalBox() end
 function Actor:RemovePhysicalSphere() end
 --- Removes the PhysicalCapsule component from the actor
 function Actor:RemovePhysicalCapsule() end
+--- Removes the PhysicalHeightField component from the actor
+function Actor:RemovePhysicalHeightField() end
 --- Removes the Camera component from the actor
 function Actor:RemoveCamera() end
 --- Removes the PointLight component from the actor

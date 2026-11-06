@@ -94,3 +94,12 @@ function PhysicalObject:GetCollisionMode() end
 --- Defines if the physical object should be kinematic or not
 ---@param kinematic boolean
 function PhysicalObject:SetKinematic(kinematic) end
+
+--- Returns true if the physical object is static: it never moves by itself, and its body only follows its transform
+--- when the transform changes
+---@return boolean
+function PhysicalObject:IsStatic() end
+
+--- Defines if the physical object should be static or not (a static object ignores the kinematic setting)
+---@param static boolean
+function PhysicalObject:SetStatic(static) end
