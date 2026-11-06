@@ -62,6 +62,37 @@ void OvRendering::Resources::Loaders::ModelLoader::Reload(
 	}
 }
 
+OvRendering::Resources::Model* OvRendering::Resources::Loaders::ModelLoader::Create(
+	const std::string& p_path,
+	std::vector<Mesh*> p_meshes,
+	std::vector<std::string> p_materialNames
+)
+{
+	Model* result = new Model(p_path);
+	Replace(*result, std::move(p_meshes), std::move(p_materialNames));
+	return result;
+}
+
+void OvRendering::Resources::Loaders::ModelLoader::Replace(
+	Model& p_model,
+	std::vector<Mesh*> p_meshes,
+	std::vector<std::string> p_materialNames
+)
+{
+	for (auto mesh : p_model.m_meshes)
+	{
+		delete mesh;
+	}
+
+	p_model.m_meshes = std::move(p_meshes);
+	p_model.m_materialNames = std::move(p_materialNames);
+	p_model.m_embeddedMaterials.clear();
+	p_model.m_embeddedTextures.clear();
+	p_model.m_skeleton.reset();
+	p_model.m_animations.clear();
+	p_model.ComputeBoundingSphere();
+}
+
 bool OvRendering::Resources::Loaders::ModelLoader::Destroy(Model*& p_modelInstance)
 {
 	if (p_modelInstance)

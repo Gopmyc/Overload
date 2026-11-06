@@ -128,11 +128,18 @@ OvRendering::Resources::Model* OvCore::ResourceManagement::ModelManager::CreateR
 
 void OvCore::ResourceManagement::ModelManager::DestroyResource(OvRendering::Resources::Model* p_resource)
 {
+	m_geometryModels.erase(p_resource);
 	OvRendering::Resources::Loaders::ModelLoader::Destroy(p_resource);
 }
 
 void OvCore::ResourceManagement::ModelManager::ReloadResource(OvRendering::Resources::Model* p_resource, const std::filesystem::path& p_path)
 {
+	// A model made from geometry has no file to be reloaded from
+	if (m_geometryModels.contains(p_resource))
+	{
+		return;
+	}
+
 	std::string realPath = GetRealPath(p_path).string();
 	const auto metadata = GetAssetMetadata(realPath);
 	OvRendering::Resources::Loaders::ModelLoader::Reload(
@@ -143,4 +150,28 @@ void OvCore::ResourceManagement::ModelManager::ReloadResource(OvRendering::Resou
 	);
 
 	ReloadEmbeddedModelResources(p_path.string());
+}
+
+OvRendering::Resources::Model* OvCore::ResourceManagement::ModelManager::CreateFromGeometry(
+	const std::filesystem::path& p_path,
+	std::vector<OvRendering::Resources::Mesh*> p_meshes,
+	std::vector<std::string> p_materialNames
+)
+{
+	if (auto existing = GetResource(p_path, false))
+	{
+		if (!m_geometryModels.contains(existing))
+		{
+			return nullptr;
+		}
+
+		// The model keeps its address, but not its content: what caches its meshes (shadows) learns it through the revision
+		OvRendering::Resources::Loaders::ModelLoader::Replace(*existing, std::move(p_meshes), std::move(p_materialNames));
+		MarkResourcesChanged();
+		return existing;
+	}
+
+	auto model = OvRendering::Resources::Loaders::ModelLoader::Create(p_path.string(), std::move(p_meshes), std::move(p_materialNames));
+	m_geometryModels.insert(model);
+	return RegisterResource(p_path, model);
 }

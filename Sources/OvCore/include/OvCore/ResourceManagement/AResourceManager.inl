@@ -105,6 +105,12 @@ namespace OvCore::ResourceManagement
 	}
 
 	template<typename T>
+	inline void AResourceManager<T>::MarkResourcesChanged()
+	{
+		++m_resourcesRevision;
+	}
+
+	template<typename T>
 	inline void AResourceManager<T>::UnloadResources()
 	{
 		if (m_resources.empty())

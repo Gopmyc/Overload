@@ -7,6 +7,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "OvRendering/Resources/Model.h"
 #include "OvRendering/Resources/Parsers/AssimpParser.h"
@@ -49,6 +50,23 @@ namespace OvRendering::Resources::Loaders
 			Parsers::EModelParserFlags p_parserFlags = Parsers::EModelParserFlags::NONE,
 			bool p_generateEmbeddedAssets = true
 		);
+
+		/**
+		* Create a model made of the given meshes, which it then owns (no file is read)
+		* @param p_path
+		* @param p_meshes
+		* @param p_materialNames
+		*/
+		static Model* Create(const std::string& p_path, std::vector<Mesh*> p_meshes, std::vector<std::string> p_materialNames);
+
+		/**
+		* Replace the meshes of a model by the given ones, which it then owns. The previous meshes are destroyed, and so
+		* is what came from a file (skeleton, animations, embedded assets)
+		* @param p_model
+		* @param p_meshes
+		* @param p_materialNames
+		*/
+		static void Replace(Model& p_model, std::vector<Mesh*> p_meshes, std::vector<std::string> p_materialNames);
 
 		/**
 		* Disabled constructor

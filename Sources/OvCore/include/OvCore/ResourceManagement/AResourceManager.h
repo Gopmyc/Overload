@@ -121,6 +121,11 @@ namespace OvCore::ResourceManagement
 		virtual void ReloadResource(T* p_resource, const std::filesystem::path& p_path) = 0;
 		std::filesystem::path GetRealPath(const std::filesystem::path& p_path) const;
 
+		/**
+		* Changes the revision, for a resource whose content changed in place
+		*/
+		void MarkResourcesChanged();
+
 	private:
 		inline static std::filesystem::path __PROJECT_ASSETS_PATH;
 		inline static std::filesystem::path __ENGINE_ASSETS_PATH;
