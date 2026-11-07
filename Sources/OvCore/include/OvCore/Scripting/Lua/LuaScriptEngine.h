@@ -85,5 +85,15 @@ namespace OvCore::Scripting
 		* @param p_path
 		*/
 		sol::object GetScript(const std::string& p_path);
+
+		/**
+		* What require returns: the value GetScript returns, the extension optional. A script that cannot be loaded
+		* raises a Lua error that says why, where require was called
+		* @param p_path
+		*/
+		sol::object RequireScript(const std::string& p_path);
+
+	private:
+		sol::object LoadModule(const std::string& p_path, std::string& p_error);
 	};
 }

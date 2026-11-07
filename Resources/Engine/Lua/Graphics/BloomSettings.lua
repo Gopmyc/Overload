@@ -5,3 +5,7 @@
 ---@field Intensity number
 ---@field Passes integer
 BloomSettings = {}
+
+--- Creates settings with their default values
+---@return BloomSettings
+function BloomSettings.new() end

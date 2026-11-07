@@ -32,6 +32,12 @@ function Matrix4:__div(rhs) end
 ---@return string
 function Matrix4:__tostring() end
 
+--- The element at a row and a column, as Get
+---@param row integer
+---@param column integer
+---@return number
+function Matrix4:__call(row, column) end
+
 --- Returns true if the matrix is identity
 ---@return boolean
 function Matrix4:IsIdentity() end

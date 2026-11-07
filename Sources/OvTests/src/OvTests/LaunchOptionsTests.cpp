@@ -25,6 +25,7 @@ TEST_SUITE("OvGame command line")
 		CHECK_FALSE(result.options->screenshot);
 		CHECK_FALSE(result.options->hiddenWindow);
 		CHECK_FALSE(result.options->failOnError);
+		CHECK_FALSE(result.options->dumpLuaApi);
 	}
 
 	TEST_CASE("help stops the parsing")
@@ -47,7 +48,8 @@ TEST_SUITE("OvGame command line")
 			"--frames", "120",
 			"--screenshot", (folder.GetPath() / "shot.png").string(),
 			"--hidden-window",
-			"--fail-on-error"
+			"--fail-on-error",
+			"--dump-lua-api"
 		});
 
 		REQUIRE_MESSAGE(result.options, result.error);
@@ -58,6 +60,7 @@ TEST_SUITE("OvGame command line")
 		CHECK(result.options->screenshot->filename() == "shot.png");
 		CHECK(result.options->hiddenWindow);
 		CHECK(result.options->failOnError);
+		CHECK(result.options->dumpLuaApi);
 	}
 
 	TEST_CASE("a project is a .ovproject file or the folder that holds exactly one")

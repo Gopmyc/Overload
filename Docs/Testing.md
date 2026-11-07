@@ -27,9 +27,16 @@ It covers:
 | Project settings | Layer names and ignored pairs, the save folder's name, the runtime limits and their ranges |
 | Physics layers, queries, engine | Layers by name, bodies that go through each other, casts and overlaps on a column of boxes, a second engine |
 | Scene | GUIDs, destroyed actors and their children freed at garbage collection |
+| Lua API | The bindings and the definitions of `Resources/Engine/Lua` hold the same names, inherited members included |
+| Lua modules | `require` from the project and the engine's resources, its cache shared with `Resources.GetScript`, and the error for each failure |
 
 doctest's options pick what runs: `--test-suite="Physics*"`, `--test-case="*limits*"`, `--success` to list every
 check, `--help` for the rest.
+
+A binding added to the engine needs its definition in `Resources/Engine/Lua`, and the reverse: the "Lua API" suite
+fails otherwise, naming what is missing on either side. A definition that describes what a script implements rather
+than what the engine binds (`Behaviour`) is listed in the test; a class with no global (`RagdollPart`) describes a
+value's shape and is not compared.
 
 A new test goes into the source file of its subject in `Sources/OvTests/src/OvTests/`, or a new file there: the
 project takes every `.cpp` of the folder. `OvTests/TestUtils.h` gives a temporary folder that removes itself, and a
@@ -60,7 +67,7 @@ A new check is a scene of `Tests/GameChecks/Assets/Scenes`, named after it, whos
 `Scripts/Checks/Check.lua`:
 
 ```lua
-local Check = Resources.GetScript("Scripts/Checks/Check.lua")
+local Check = require("Scripts/Checks/Check")
 
 local MyCheck = {}
 local oCheck = Check.New("MyCheck") -- the scene's name

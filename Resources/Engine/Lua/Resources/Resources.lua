@@ -50,3 +50,12 @@ function Resources.CreateModel(path, geometry, materialName) end
 ---@param path string
 ---@return any
 function Resources.GetScript(path) end
+
+--- Loads (if not already loaded) and returns the value returned by the script at the path, as Resources.GetScript
+--- does, but raises an error that says why when the script cannot be loaded. The path is relative to the project's
+--- assets, or to the engine's with ":" in front ("Scripts/Core/Signal", ":Libraries/UI/Init.lua"); ".lua" may be
+--- left out. Nothing outside the assets folders can be loaded, and a module that requires itself, directly or not,
+--- is an error.
+---@param path string
+---@return any
+function require(path) end

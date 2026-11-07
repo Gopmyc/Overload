@@ -12,3 +12,7 @@
 ---@field VignetteIntensity number How much the corners darken, 0 to 1
 ---@field VignetteSmoothness number How far towards the centre the darkening reaches, 0 to 1
 TonemappingSettings = {}
+
+--- Creates settings with their default values
+---@return TonemappingSettings
+function TonemappingSettings.new() end

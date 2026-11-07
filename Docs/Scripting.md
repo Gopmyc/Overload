@@ -4,17 +4,39 @@
 
 - Lua 5.4, with the `base`, `math`, `string`, `table`, `coroutine` and `utf8` libraries. There is no `io`, `os` or
   `package`: files go through `Storage`, in the save folder only (see [Saving](Saving.md)).
-- There is no `require`. A module is loaded with `Resources.GetScript(path)`:
-  - the path is relative to the project's `Assets` (`"Scripts/Core/Signal.lua"`);
-  - a leading colon resolves in the engine's resources (`":Libraries/UI/Init.lua"`);
-  - the module's table is cached, so every caller shares one instance: module-level tables are process-wide;
-  - it returns `nil` for a module that is still loading, so a circular dependency fails; it does not cache a failure.
-    Load such a dependency lazily and remember the outcome.
+- A module is loaded with `require(path)`, or with `Resources.GetScript(path)`:
+  - the path is relative to the project's `Assets` (`"Scripts/Core/Signal"`), `.lua` optional for `require`;
+  - a leading colon resolves in the engine's resources (`":Libraries/UI/Init"`);
+  - nothing outside the two assets folders can be loaded, and `load`, `loadfile` and `dofile` do not exist;
+  - the module's value is cached, so every caller shares one instance, whichever function loaded it: module-level
+    tables are process-wide;
+  - a module that cannot be loaded (missing, outside the assets, a syntax or runtime error, no `return`, or still
+    loading because the dependency is circular) makes `require` raise an error that says why, where it was called,
+    and `Resources.GetScript` log that error and return `nil`. Neither caches a failure: a circular dependency is
+    loaded lazily, and its outcome remembered.
 - Modules outlive a scene change: `Scenes.Load(path)` replaces the actors at the next frame and keeps the Lua state, so
   what a module holds carries into the next scene. A registry of actors must drop the entries it can no longer reach
   (`IsAlive`). The editor rebuilds the state when play starts and stops.
 - The engine's functions are `userdata` to Lua: `type(Inputs.GetKeyName)` is `"userdata"`, never `"function"`, so a
   `type(...) == "function"` check silently skips them.
+
+## API version and deprecation
+
+The API the engine gives to scripts, the names of `Resources/Engine/Lua`, carries a version of its own, which
+`Application.GetApiVersion()` returns as two integers, major and minor:
+
+- **A name added** (a table, a function, a field, an enum value) raises the minor version.
+- **A name deprecated** keeps working, with its definition marked `---@deprecated` and the replacement it points to,
+  and the `CHANGELOG.md` lists it under "Deprecated". It stays for the rest of the major version.
+- **A name removed or changing meaning** only happens to a deprecated name, and raises the major version.
+
+A script made for API 1.2 thus runs on any 1.x from 1.2 on; it checks the version it needs with
+`local nMajor, nMinor = Application.GetApiVersion()`.
+
+`OvGame --dump-lua-api` prints the API, one name per line (see [Command line](CommandLine.md)): comparing the output of
+two engine versions shows what changed. The engine's tests check that this API and the definitions of
+`Resources/Engine/Lua` hold the same names, so a binding never ships undocumented, nor a definition without its
+binding.
 
 ## Behaviours
 

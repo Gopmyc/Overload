@@ -8,25 +8,19 @@
 
 #include <filesystem>
 #include <format>
+#include <stdexcept>
 #include <fstream>
 #include <sol/sol.hpp>
 #include <tracy/Tracy.hpp>
 
 #include <OvDebug/Logger.h>
 #include <OvDebug/Assertion.h>
+#include <OvCore/Scripting/Lua/LuaApi.h>
 #include <OvCore/Scripting/ScriptEngine.h>
 #include <OvCore/ECS/Components/Behaviour.h>
 #include <OvCore/ECS/Actor.h>
 #include <OvTools/Utils/PathParser.h>
 #include <OvTools/Utils/String.h>
-
-void BindLuaActor(sol::state& p_state);
-void BindLuaComponents(sol::state& p_state);
-void BindLuaGlobal(sol::state& p_state);
-void BindLuaMath(sol::state& p_state);
-void BindLuaProfiler(sol::state& p_state);
-void BindLuaStorage(sol::state& p_state);
-void BindLuaJson(sol::state& p_state);
 
 namespace
 {
@@ -398,29 +392,17 @@ void OvCore::Scripting::LuaScriptEngine::CreateContext()
 	OVASSERT(m_context.luaState == nullptr, "A Lua context already exists!");
 
 	m_context.luaState = std::make_unique<sol::state>();
-	// The pure libraries only: nothing reaching the files, the system or the interpreter's internals. A coroutine runs
-	// within one callback: it cannot be suspended across a call back into the engine.
-	m_context.luaState->open_libraries(sol::lib::base, sol::lib::math, sol::lib::string, sol::lib::table, sol::lib::coroutine, sol::lib::utf8);
+	LuaApi::OpenLibraries(*m_context.luaState);
 
 	// Scripts allocate mostly short-lived values every frame (vectors, temporary tables): the
 	// generational collector reclaims them for less than the incremental one
 	lua_gc(m_context.luaState->lua_state(), LUA_GCGEN, 0, 0);
 
-	(*m_context.luaState)["dofile"] = sol::nil;
-	(*m_context.luaState)["loadfile"] = sol::nil;
-	(*m_context.luaState)["load"] = sol::nil;
-
 	m_context.luaState->registry()[kLoadedScriptsKey] = m_context.luaState->create_table();
 	m_context.luaState->registry()[kLoadingScriptsKey] = m_context.luaState->create_table();
 	m_context.luaState->registry()[kCompiledBehavioursKey] = m_context.luaState->create_table();
 
-	BindLuaActor(*m_context.luaState);
-	BindLuaComponents(*m_context.luaState);
-	BindLuaGlobal(*m_context.luaState);
-	BindLuaMath(*m_context.luaState);
-	BindLuaProfiler(*m_context.luaState);
-	BindLuaStorage(*m_context.luaState);
-	BindLuaJson(*m_context.luaState);
+	LuaApi::Bind(*m_context.luaState);
 
 	m_context.errorCount = 0;
 
@@ -457,26 +439,61 @@ void OvCore::Scripting::LuaScriptEngine::DestroyContext()
 
 sol::object OvCore::Scripting::LuaScriptEngine::GetScript(const std::string& p_path)
 {
+	std::string error;
+	sol::object script = LoadModule(p_path, error);
+
+	if (!error.empty())
+	{
+		OVLOG_ERROR(error);
+	}
+
+	return script;
+}
+
+sol::object OvCore::Scripting::LuaScriptEngine::RequireScript(const std::string& p_path)
+{
+	std::string error;
+	sol::object script = LoadModule(p_path, error);
+
+	// sol turns the exception into a Lua error, raised where require was called
+	if (!error.empty())
+	{
+		throw std::runtime_error("require: " + error);
+	}
+
+	return script;
+}
+
+sol::object OvCore::Scripting::LuaScriptEngine::LoadModule(const std::string& p_path, std::string& p_error)
+{
 	OVASSERT(m_context.luaState != nullptr, "No valid Lua context");
 
 	auto& luaState = *m_context.luaState;
+	const auto nil = sol::make_object(luaState, sol::lua_nil);
+
+	// require names a module with or without its extension
+	std::string path = p_path;
+	if (!std::filesystem::path(path).has_extension())
+	{
+		path += GetDefaultExtension();
+	}
 
 	const auto realPath = OvTools::Utils::PathParser::GetRealPath(
-		p_path,
+		path,
 		m_context.engineAssetsPath,
 		m_context.projectAssetsPath
 	);
 
 	if (!IsWithinRoot(realPath, m_context.engineAssetsPath) && !IsWithinRoot(realPath, m_context.projectAssetsPath))
 	{
-		OVLOG_ERROR("'" + p_path + "' is outside of the assets folders");
-		return sol::make_object(luaState, sol::lua_nil);
+		p_error = "'" + p_path + "' is outside of the assets folders";
+		return nil;
 	}
 
 	if (!GetValidExtensions().contains(realPath.extension().string()))
 	{
-		OVLOG_ERROR("'" + p_path + "' isn't a script");
-		return sol::make_object(luaState, sol::lua_nil);
+		p_error = "'" + p_path + "' isn't a script";
+		return nil;
 	}
 
 	const auto key = realPath.generic_string();
@@ -487,12 +504,18 @@ sol::object OvCore::Scripting::LuaScriptEngine::GetScript(const std::string& p_p
 		return loaded;
 	}
 
+	if (std::error_code error; !std::filesystem::is_regular_file(realPath, error))
+	{
+		p_error = "'" + p_path + "' not found";
+		return nil;
+	}
+
 	sol::table loadingScripts = luaState.registry()[kLoadingScriptsKey];
 
 	if (loadingScripts[key].valid())
 	{
-		OVLOG_ERROR("'" + p_path + "' is part of a circular script dependency");
-		return sol::make_object(luaState, sol::lua_nil);
+		p_error = "'" + p_path + "' is part of a circular script dependency";
+		return nil;
 	}
 
 	loadingScripts[key] = true;
@@ -502,14 +525,14 @@ sol::object OvCore::Scripting::LuaScriptEngine::GetScript(const std::string& p_p
 	if (!result.valid())
 	{
 		sol::error err = result;
-		OVLOG_ERROR(err.what());
-		return sol::make_object(luaState, sol::lua_nil);
+		p_error = err.what();
+		return nil;
 	}
 
 	if (result.return_count() == 0)
 	{
-		OVLOG_ERROR("'" + p_path + "' missing return expression");
-		return sol::make_object(luaState, sol::lua_nil);
+		p_error = "'" + p_path + "' missing return expression";
+		return nil;
 	}
 
 	const sol::object script = result[0];

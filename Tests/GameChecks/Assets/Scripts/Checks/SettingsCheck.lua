@@ -1,5 +1,5 @@
 -- The project file's settings reach the game: layers, Json and storage limits, the longest frame step
-local Check = Resources.GetScript("Scripts/Checks/Check.lua")
+local Check = require("Scripts/Checks/Check")
 
 local SettingsCheck = {}
 local oCheck = Check.New("Settings")

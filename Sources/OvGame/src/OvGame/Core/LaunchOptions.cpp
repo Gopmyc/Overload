@@ -83,6 +83,10 @@ OvGame::Core::LaunchOptions::ParseResult OvGame::Core::LaunchOptions::Parse(cons
 		{
 			options.failOnError = true;
 		}
+		else if (argument == "--dump-lua-api")
+		{
+			options.dumpLuaApi = true;
+		}
 		else if (argument == "--project" || argument == "--engine" || argument == "--scene" || argument == "--frames" || argument == "--screenshot")
 		{
 			const auto value = next();
@@ -155,6 +159,7 @@ std::string OvGame::Core::LaunchOptions::GetUsage()
 		"  --screenshot <file.png>     write the last frame to a PNG image (with --frames)\n"
 		"  --hidden-window             do not show the window\n"
 		"  --fail-on-error             end with exit code 2 if an error was logged\n"
+		"  --dump-lua-api              print the engine's Lua API, one name per line, and quit\n"
 		"Exit codes: 0 on success, 1 for bad options or a scene that cannot be loaded, 2 for logged errors\n"
 		"(with --fail-on-error), 3 when the screenshot was not written.\n";
 }
