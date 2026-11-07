@@ -1,0 +1,16 @@
+executable_name=GameChecks
+project_id=AdventurerGameChecks
+start_scene=Scenes/Destroy.ovscene
+x_resolution=320
+y_resolution=180
+fullscreen=false
+resizable=false
+vsync=false
+multisampling=false
+samples=4
+gravity=-9.810000
+physics_layer_names=Default,Player,Enemy,Floor
+physics_ignored_layer_pairs=Player:Enemy
+storage_max_file_mib=1
+json_max_depth=8
+max_frame_delta=0.05

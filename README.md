@@ -104,8 +104,12 @@ make -j$(nproc) # build the project using all available CPU cores
 > Officially supported actions for `gen_proj.sh` are: `gmake` (default), `codelite`.<br/>
 > Refer to [premake's website](https://premake.github.io/docs/Using-Premake) for more information.
 
+### Testing
+The build also makes `OvTests`, the engine's tests, and `Tests/run_game_checks.sh` runs the in-game checks with a built
+`OvGame`. The CI runs both: see [Docs/Testing.md](Docs/Testing.md).
+
 # Architecture
-Overload is divided into 11 modules: 9 libraries (SDK), and 2 executables (Applications).
+Overload is divided into 11 modules: 9 libraries (SDK), and 2 executables (Applications). A 12th, `OvTests`, tests them.
 
 ## Overload SDK
 The Overload SDK is the core of the engine. It is a set of libraries used by our applications: `OvGame` and `OvEditor`.
@@ -136,6 +140,7 @@ Overload depends on a few third-party libraries:
 - [SoLoud](https://github.com/jarikomppa/soloud) (Audio)
 - [Tinyxml2](https://github.com/leethomason/tinyxml2) (XML serializer)
 - [Sol3](https://github.com/ThePhD/sol2) (Lua binding)
+- [doctest](https://github.com/doctest/doctest) (Tests)
 - [ImGui](https://github.com/ocornut/imgui) (GUI)
 - [Premake5](https://github.com/premake/premake-core) (Project generation)
 

@@ -188,6 +188,8 @@ namespace OvPhysics::Core
 		std::unique_ptr<JPH::PhysicsSystem> m_physicsSystem;
 		float m_accumulatedTime = 0.0f;
 		uint32_t m_ragdollCount = 0;
+		OvTools::Eventing::ListenerID m_createdListener = 0;
+		OvTools::Eventing::ListenerID m_destroyedListener = 0;
 		Settings::PhysicsSettings m_settings;
 
 		static std::map<std::pair<Entities::PhysicalObject*, Entities::PhysicalObject*>, bool> m_collisionEvents;

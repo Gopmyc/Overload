@@ -38,3 +38,7 @@ jobs:
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: msbuild /m /p:Configuration=${{ matrix.configuration }} ${{env.SOLUTION_FILE_PATH}} /p:Platform=x64 /p:PreferredToolArchitecture=x64
+
+    # The in-game checks need OpenGL 4.5, which a Windows runner lacks: they run on Linux only
+    - name: Run the engine tests
+      run: .\Bin\${{ matrix.configuration }}\OvTests\OvTests.exe

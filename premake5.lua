@@ -73,6 +73,7 @@ group ""
 group "Dependencies/Prebuilt"
 	include "Dependencies/stb_image"
 	include "Dependencies/sol"
+	include "Dependencies/doctest"
 group ""
 
 group "Overload SDK"
@@ -90,6 +91,10 @@ group ""
 group "Overload Apps"
 	include "Sources/OvEditor"
 	include "Sources/OvGame"
+group ""
+
+group "Overload Tests"
+	include "Sources/OvTests"
 group ""
 
 include "Resources"

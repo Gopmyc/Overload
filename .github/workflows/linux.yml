@@ -27,7 +27,7 @@ jobs:
     - uses: actions/checkout@v6
 
     - name: Install Dependencies
-      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev
+      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev xvfb libgl1-mesa-dri
 
     - name: Generate premake5 solution
       working-directory: ${{env.SOLUTION_FILE_PATH}}
@@ -38,3 +38,10 @@ jobs:
       run: |
         CONFIG_LOWER=$(echo "${{ matrix.configuration }}" | tr '[:upper:]' '[:lower:]')
         make -j$(nproc) config=${CONFIG_LOWER}_x64
+
+    - name: Run the engine tests
+      run: Bin/${{ matrix.configuration }}/OvTests/OvTests
+
+    # The game draws with Mesa's software renderer under a virtual display
+    - name: Run the in-game checks
+      run: xvfb-run -a -s "-screen 0 1280x720x24" Tests/run_game_checks.sh Bin/${{ matrix.configuration }}/OvGame/OvGame
