@@ -13,6 +13,10 @@ later version of the same major version.
   `collision_layer` in a file, a list in the inspector). The project names them (`physics_layer_names`) and lists the
   pairs that go through each other (`physics_ignored_layer_pairs`); Lua reads and changes them at run time
   (`Physics.GetLayerIndex`, `GetLayerName`, `DoLayersCollide`, `SetLayersCollide`). See [Docs/Physics.md](Docs/Physics.md).
+- **Physics queries**: `Physics.CastRay` and `Physics.CastSphere` return the objects met, nearest first, with the
+  point, the normal and the distance; `Physics.OverlapSphere` and `Physics.OverlapBox` return the objects a shape
+  overlaps. Each takes a layer mask (`Physics.GetLayerMask`) and leaves triggers out unless asked. `Physics.Raycast`
+  is unchanged.
 
 ### Changed
 

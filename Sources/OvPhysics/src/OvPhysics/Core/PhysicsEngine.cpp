@@ -5,8 +5,10 @@
 */
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <mutex>
+#include <unordered_set>
 #include <utility>
 
 #include <Jolt/Jolt.h>
@@ -17,15 +19,20 @@
 #include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Body/BodyInterface.h>
+#include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayerInterfaceTable.h>
 #include <Jolt/Physics/Collision/BroadPhase/ObjectVsBroadPhaseLayerFilterTable.h>
 #include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/ContactListener.h>
 #include <Jolt/Physics/Collision/NarrowPhaseQuery.h>
 #include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/Collision/ObjectLayerPairFilterTable.h>
 #include <Jolt/Physics/Collision/RayCast.h>
+#include <Jolt/Physics/Collision/ShapeCast.h>
+#include <Jolt/Physics/Collision/Shape/BoxShape.h>
+#include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/PhysicsSettings.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/RegisterTypes.h>
@@ -88,20 +95,125 @@ namespace
 	};
 
 	/**
-	* Only physical objects: a ragdoll's bodies carry no physical object
+	* A ragdoll's bodies carry no physical object
 	*/
-	class PhysicalObjectBodyFilter final : public JPH::BodyFilter
-	{
-	public:
-		bool ShouldCollideLocked(const JPH::Body& p_body) const override
-		{
-			return p_body.GetUserData() != 0;
-		}
-	};
-
 	bool IsRagdollBody(const JPH::Body& p_body)
 	{
 		return p_body.GetUserData() == 0;
+	}
+
+	/**
+	* A query only reports physical objects, and triggers only when asked
+	*/
+	class QueryBodyFilter final : public JPH::BodyFilter
+	{
+	public:
+		explicit QueryBodyFilter(bool p_includeTriggers) :
+			m_includeTriggers(p_includeTriggers)
+		{
+		}
+
+		bool ShouldCollideLocked(const JPH::Body& p_body) const override
+		{
+			return !IsRagdollBody(p_body) && (m_includeTriggers || !p_body.IsSensor());
+		}
+
+	private:
+		const bool m_includeTriggers;
+	};
+
+	/**
+	* A query only sees the layers of its mask
+	*/
+	class LayerMaskFilter final : public JPH::ObjectLayerFilter
+	{
+	public:
+		explicit LayerMaskFilter(uint16_t p_layerMask) :
+			m_layerMask(p_layerMask)
+		{
+		}
+
+		bool ShouldCollide(JPH::ObjectLayer p_layer) const override
+		{
+			return p_layer < OvPhysics::Settings::PhysicsSettings::kLayerCount && (m_layerMask >> p_layer & 1) != 0;
+		}
+
+	private:
+		const uint16_t m_layerMask;
+	};
+
+	OvPhysics::Entities::PhysicalObject* ToPhysicalObject(uint64_t p_userData)
+	{
+		return reinterpret_cast<OvPhysics::Entities::PhysicalObject*>(p_userData);
+	}
+
+	/**
+	* Keeps each object's nearest hit, nearest object first
+	*/
+	std::vector<OvPhysics::Entities::PhysicsHit> KeepNearestPerObject(std::vector<OvPhysics::Entities::PhysicsHit> p_hits)
+	{
+		std::stable_sort(p_hits.begin(), p_hits.end(), [](const auto& p_left, const auto& p_right)
+		{
+			return p_left.distance < p_right.distance;
+		});
+
+		std::vector<OvPhysics::Entities::PhysicsHit> nearest;
+		std::unordered_set<OvPhysics::Entities::PhysicalObject*> seen;
+
+		for (const auto& hit : p_hits)
+		{
+			if (hit.object && seen.insert(hit.object).second)
+			{
+				nearest.push_back(hit);
+			}
+		}
+
+		return nearest;
+	}
+
+	std::vector<OvPhysics::Entities::PhysicalObject*> CollideShape(
+		const JPH::PhysicsSystem& p_physicsSystem,
+		const JPH::Shape& p_shape,
+		JPH::RMat44Arg p_transform,
+		const OvPhysics::Settings::QuerySettings& p_settings)
+	{
+		JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector;
+
+		p_physicsSystem.GetNarrowPhaseQuery().CollideShape(
+			&p_shape,
+			JPH::Vec3::sOne(),
+			p_transform,
+			JPH::CollideShapeSettings(),
+			JPH::RVec3::sZero(),
+			collector,
+			{},
+			LayerMaskFilter(p_settings.layerMask),
+			QueryBodyFilter(p_settings.includeTriggers)
+		);
+
+		const JPH::BodyInterface& bodyInterface = p_physicsSystem.GetBodyInterface();
+
+		std::vector<OvPhysics::Entities::PhysicalObject*> objects;
+		std::unordered_set<OvPhysics::Entities::PhysicalObject*> seen;
+
+		for (const JPH::CollideShapeResult& hit : collector.mHits)
+		{
+			if (auto* object = ToPhysicalObject(bodyInterface.GetUserData(hit.mBodyID2)); object && seen.insert(object).second)
+			{
+				objects.push_back(object);
+			}
+		}
+
+		return objects;
+	}
+
+	/**
+	* A direction made of finite numbers and not too short to normalize
+	*/
+	bool IsUsableDirection(const JPH::Vec3& p_direction)
+	{
+		const float lengthSquared = p_direction.LengthSq();
+		return std::isfinite(lengthSquared) && lengthSquared > 1e-12f;
 	}
 }
 
@@ -278,8 +390,8 @@ std::optional<RaycastHit> OvPhysics::Core::PhysicsEngine::Raycast(OvMaths::FVect
 	const JPH::NarrowPhaseQuery& narrowPhaseQuery = m_physicsSystem->GetNarrowPhaseQuery();
 	const JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
 
-	// Only physical objects are reported: a ragdoll's bodies are none
-	const PhysicalObjectBodyFilter bodyFilter;
+	// Only physical objects are reported, triggers included: a ragdoll's bodies are none
+	const QueryBodyFilter bodyFilter(true);
 
 	RaycastHit resultHit;
 
@@ -303,6 +415,142 @@ std::optional<RaycastHit> OvPhysics::Core::PhysicsEngine::Raycast(OvMaths::FVect
 	}
 	else
 		return {};
+}
+
+std::vector<OvPhysics::Entities::PhysicsHit> OvPhysics::Core::PhysicsEngine::CastRay(const OvMaths::FVector3& p_origin, const OvMaths::FVector3& p_direction, float p_distance, const Settings::QuerySettings& p_settings) const
+{
+	const JPH::Vec3 direction = Conversion::ToJoltVector3(p_direction);
+
+	if (!(p_distance > 0.0f) || !std::isfinite(p_distance) || !IsUsableDirection(direction))
+	{
+		return {};
+	}
+
+	const JPH::RRayCast ray(Conversion::ToJoltVector3(p_origin), direction.Normalized() * p_distance);
+
+	// A convex body is solid: a ray that starts inside it meets it at once
+	JPH::AllHitCollisionCollector<JPH::CastRayCollector> collector;
+	m_physicsSystem->GetNarrowPhaseQuery().CastRay(
+		ray,
+		JPH::RayCastSettings(),
+		collector,
+		{},
+		LayerMaskFilter(p_settings.layerMask),
+		QueryBodyFilter(p_settings.includeTriggers)
+	);
+
+	std::vector<Entities::PhysicsHit> hits;
+	hits.reserve(collector.mHits.size());
+
+	for (const JPH::RayCastResult& hit : collector.mHits)
+	{
+		JPH::BodyLockRead lock(m_physicsSystem->GetBodyLockInterface(), hit.mBodyID);
+
+		if (lock.Succeeded())
+		{
+			const JPH::Body& body = lock.GetBody();
+			const JPH::RVec3 point = ray.GetPointOnRay(hit.mFraction);
+
+			hits.push_back({
+				ToPhysicalObject(body.GetUserData()),
+				Conversion::ToOvVector3(point),
+				Conversion::ToOvVector3(body.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, point)),
+				hit.mFraction * p_distance
+			});
+		}
+	}
+
+	return KeepNearestPerObject(std::move(hits));
+}
+
+std::vector<OvPhysics::Entities::PhysicsHit> OvPhysics::Core::PhysicsEngine::CastSphere(const OvMaths::FVector3& p_origin, float p_radius, const OvMaths::FVector3& p_direction, float p_distance, const Settings::QuerySettings& p_settings) const
+{
+	const JPH::Vec3 direction = Conversion::ToJoltVector3(p_direction);
+
+	if (!(p_radius > 0.0f) || !std::isfinite(p_radius) || !(p_distance > 0.0f) || !std::isfinite(p_distance) || !IsUsableDirection(direction))
+	{
+		return {};
+	}
+
+	const JPH::Vec3 unitDirection = direction.Normalized();
+
+	JPH::SphereShape sphere(p_radius);
+	sphere.SetEmbedded();
+
+	const JPH::RShapeCast cast = JPH::RShapeCast::sFromWorldTransform(
+		&sphere,
+		JPH::Vec3::sOne(),
+		JPH::RMat44::sTranslation(Conversion::ToJoltVector3(p_origin)),
+		unitDirection * p_distance
+	);
+
+	// An object the sphere starts in is met at once, at its deepest point
+	JPH::ShapeCastSettings castSettings;
+	castSettings.mReturnDeepestPoint = true;
+
+	JPH::AllHitCollisionCollector<JPH::CastShapeCollector> collector;
+	m_physicsSystem->GetNarrowPhaseQuery().CastShape(
+		cast,
+		castSettings,
+		JPH::RVec3::sZero(),
+		collector,
+		{},
+		LayerMaskFilter(p_settings.layerMask),
+		QueryBodyFilter(p_settings.includeTriggers)
+	);
+
+	const JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+
+	std::vector<Entities::PhysicsHit> hits;
+	hits.reserve(collector.mHits.size());
+
+	for (const JPH::ShapeCastResult& hit : collector.mHits)
+	{
+		// The penetration axis points into the object met
+		const JPH::Vec3 normal = IsUsableDirection(hit.mPenetrationAxis) ? -hit.mPenetrationAxis.Normalized() : -unitDirection;
+
+		hits.push_back({
+			ToPhysicalObject(bodyInterface.GetUserData(hit.mBodyID2)),
+			Conversion::ToOvVector3(hit.mContactPointOn2),
+			Conversion::ToOvVector3(normal),
+			hit.mFraction * p_distance
+		});
+	}
+
+	return KeepNearestPerObject(std::move(hits));
+}
+
+std::vector<OvPhysics::Entities::PhysicalObject*> OvPhysics::Core::PhysicsEngine::OverlapSphere(const OvMaths::FVector3& p_center, float p_radius, const Settings::QuerySettings& p_settings) const
+{
+	if (!(p_radius > 0.0f) || !std::isfinite(p_radius))
+	{
+		return {};
+	}
+
+	JPH::SphereShape sphere(p_radius);
+	sphere.SetEmbedded();
+
+	return CollideShape(*m_physicsSystem, sphere, JPH::RMat44::sTranslation(Conversion::ToJoltVector3(p_center)), p_settings);
+}
+
+std::vector<OvPhysics::Entities::PhysicalObject*> OvPhysics::Core::PhysicsEngine::OverlapBox(const OvMaths::FVector3& p_center, const OvMaths::FVector3& p_halfExtents, const OvMaths::FQuaternion& p_rotation, const Settings::QuerySettings& p_settings) const
+{
+	constexpr float kMinHalfExtent = 1e-4f;
+
+	const JPH::Vec3 halfExtents = Conversion::ToJoltVector3(p_halfExtents).Abs();
+	if (!std::isfinite(halfExtents.ReduceMax()))
+	{
+		return {};
+	}
+
+	JPH::BoxShape box(JPH::Vec3::sMax(halfExtents, JPH::Vec3::sReplicate(kMinHalfExtent)));
+	box.SetEmbedded();
+
+	const JPH::Quat rotation = Conversion::ToJoltQuaternion(p_rotation);
+	const float rotationLength = rotation.Length();
+	const JPH::Quat unitRotation = std::isfinite(rotationLength) && rotationLength > 1e-6f ? rotation / rotationLength : JPH::Quat::sIdentity();
+
+	return CollideShape(*m_physicsSystem, box, JPH::RMat44::sRotationTranslation(unitRotation, Conversion::ToJoltVector3(p_center)), p_settings);
 }
 
 void OvPhysics::Core::PhysicsEngine::SetGravity(const OvMaths::FVector3 & p_gravity)
