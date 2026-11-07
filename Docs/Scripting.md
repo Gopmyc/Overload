@@ -46,8 +46,9 @@
   plain Lua tables.
 - An actor property saved in a prefab does not survive instantiation: every instantiated actor gets a new GUID, and the
   script receives `nil`. Resolve such a reference through the hierarchy (`FindChild(name, true)`) or by tag.
-- A built game (`OvGame`) never frees destroyed actors: only the editor collects them, so in a built game an actor stays
-  active and drawn after `Destroy()`. Switch it off with `SetActive(false)` first.
+- `Destroy()` marks an actor and its children; the engine frees them at the end of the frame, in a built game as in the
+  editor's play mode. Until then the actor is still there: switch it off with `SetActive(false)` first if it must vanish
+  at once. Its handles then fail (`IsAlive()` is `false`).
 - A prefab spawned under an inactive parent starts once the parent is switched on: its `OnAwake` and `OnStart` wait.
 - An actor switched off receives no callback until it is switched on again.
 - Instantiating a prefab from Lua:
