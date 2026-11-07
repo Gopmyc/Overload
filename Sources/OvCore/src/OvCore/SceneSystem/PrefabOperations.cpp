@@ -4,8 +4,11 @@
 * @licence: MIT
 */
 
+#include <charconv>
 #include <cstdint>
+#include <cstring>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -37,6 +40,35 @@ namespace
 		for (auto* child : p_actor.GetChildren())
 		{
 			NormalizePrefabSourcesRecursively(*child, nextInheritedPrefabSource);
+		}
+	}
+
+	/**
+	* Points every actor reference under the element (a Behaviour property of type "actor") that names an actor of the
+	* prefab at that actor's instance, by the GUIDs the prefab file gave its actors
+	*/
+	void RemapActorReferences(tinyxml2::XMLElement& p_element, const std::unordered_map<uint64_t, uint64_t>& p_instanceGUIDs)
+	{
+		for (auto* child = p_element.FirstChildElement(); child; child = child->NextSiblingElement())
+		{
+			const char* type = child->Attribute("type");
+			const char* text = child->GetText();
+
+			if (type && text && std::string_view(type) == "actor")
+			{
+				uint64_t guid = 0;
+				const auto [end, error] = std::from_chars(text, text + std::strlen(text), guid);
+
+				if (error == std::errc{})
+				{
+					if (auto found = p_instanceGUIDs.find(guid); found != p_instanceGUIDs.end())
+					{
+						child->SetText(std::to_string(found->second).c_str());
+					}
+				}
+			}
+
+			RemapActorReferences(*child, p_instanceGUIDs);
 		}
 	}
 
@@ -123,26 +155,47 @@ OvCore::ECS::Actor* OvCore::SceneSystem::PrefabOperations::InstantiateFromFile(
 		int64_t sourceParentID = 0;
 	};
 
+	struct PendingActor
+	{
+		tinyxml2::XMLElement* node = nullptr;
+		OvCore::ECS::Actor* actor = nullptr;
+		uint64_t sourceGUID = 0;
+	};
+
+	std::vector<PendingActor> pendingActors;
 	std::vector<PendingAttachment> pendingAttachments;
 	std::unordered_map<int64_t, OvCore::ECS::Actor*> sourceToInstance;
+	std::unordered_map<uint64_t, uint64_t> instanceGUIDs;
 
+	// First, an actor for every node, so that the GUID each actor had in the file is known before any is read
 	for (auto* currentActor = actorsNode->FirstChildElement("actor");
 		currentActor;
 		currentActor = currentActor->NextSiblingElement("actor"))
 	{
 		auto& newActor = p_createActor();
-		const int64_t generatedID = newActor.GetID();
 
 		// The instance keeps its own GUID, written over the source's so that no other actor ever shares it
 		uint64_t sourceGUID = newActor.GetGUID();
 		if (auto* guidNode = currentActor->FirstChildElement("guid"))
 		{
 			OvCore::Helpers::Serializer::DeserializeUInt64(doc, currentActor, "guid", sourceGUID);
+			instanceGUIDs[sourceGUID] = newActor.GetGUID();
 			guidNode->SetText(std::to_string(newActor.GetGUID()).c_str());
 		}
 
-		newActor.OnDeserialize(doc, currentActor);
-		const uint64_t prefabNodeGUID = newActor.HasPrefabNodeGUID() ? newActor.GetPrefabNodeGUID() : sourceGUID;
+		pendingActors.push_back({ currentActor, &newActor, sourceGUID });
+	}
+
+	// A reference from one of the prefab's actors to another now names that actor's instance
+	RemapActorReferences(*actorsNode, instanceGUIDs);
+
+	for (auto& pending : pendingActors)
+	{
+		auto& newActor = *pending.actor;
+		const int64_t generatedID = newActor.GetID();
+
+		newActor.OnDeserialize(doc, pending.node);
+		const uint64_t prefabNodeGUID = newActor.HasPrefabNodeGUID() ? newActor.GetPrefabNodeGUID() : pending.sourceGUID;
 		newActor.SetPrefabNodeGUID(prefabNodeGUID);
 
 		pendingAttachments.push_back({

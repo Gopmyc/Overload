@@ -11,6 +11,8 @@ later version of the same major version.
 
 - **Destroyed actors are freed in a built game**: `OvGame` collects the actors destroyed during a frame at its end, as
   the editor's play mode always did. Before, a destroyed actor stayed active and drawn in a built game.
+- **Actor references inside a prefab survive instantiation**: an actor property that names another actor of the same
+  prefab now names that actor's instance. Before, every instance got new GUIDs and such a property came out `nil`.
 
 ## [0.1.0] - 2026-11-07
 
