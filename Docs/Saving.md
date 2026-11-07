@@ -2,10 +2,15 @@
 
 ## The save folder
 
-- Each project has one save folder in the player's data folder, named after the project's `executable_name`:
-  `%APPDATA%\<name>\Saves` on Windows, `$XDG_DATA_HOME/<name>/Saves` or `~/.local/share/<name>/Saves` on Linux.
-  The editor's play mode shares it with the built game. It is made at the first write.
-- Renaming `executable_name` moves the folder: the saves of the old name stay behind.
+- Each project has one save folder in the player's data folder, named after the project's `project_id`, or its
+  `executable_name` while `project_id` is empty: `%APPDATA%\<name>\Saves` on Windows, `$XDG_DATA_HOME/<name>/Saves` or
+  `~/.local/share/<name>/Saves` on Linux. The editor's play mode shares it with the built game. It is made at the first
+  write.
+- The name keeps letters, digits, `_`, `-` and single spaces; a name left empty, or one Windows keeps for a device,
+  becomes `Game`.
+- Changing the name moves the folder: the saves of the old name stay behind. A project sets `project_id` once, so
+  that renaming the game keeps its saves. To keep the saves of a project that had none, set it to the current
+  `executable_name`.
 
 ## `Storage`
 

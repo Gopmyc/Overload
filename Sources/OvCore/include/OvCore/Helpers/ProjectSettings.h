@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <string>
+
 #include <OvPhysics/Settings/PhysicsSettings.h>
 #include <OvTools/Filesystem/IniFile.h>
 
@@ -23,4 +25,11 @@ namespace OvCore::Helpers::ProjectSettings
 	* @param p_projectSettings
 	*/
 	OvPhysics::Settings::PhysicsSettings ReadPhysicsSettings(const OvTools::Filesystem::IniFile& p_projectSettings);
+
+	/**
+	* Returns the name that identifies the project's saves: its project_id, or its executable_name when it has none,
+	* or "Game"
+	* @param p_projectSettings
+	*/
+	std::string GetSaveName(const OvTools::Filesystem::IniFile& p_projectSettings);
 }

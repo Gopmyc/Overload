@@ -168,7 +168,7 @@ OvGame::Core::Context::Context() :
 	);
 
 	saveStorage = std::make_unique<OvTools::Filesystem::SaveStorage>(
-		OvTools::Filesystem::SaveStorage::GetDefaultRoot(projectSettings.GetOrDefault<std::string>("executable_name", "Game"))
+		OvTools::Filesystem::SaveStorage::GetDefaultRoot(OvCore::Helpers::ProjectSettings::GetSaveName(projectSettings))
 	);
 
 	/* Service Locator providing */

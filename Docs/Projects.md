@@ -5,7 +5,8 @@ the editor and the built game read.
 
 | Key | Default | What it sets |
 | --- | --- | --- |
-| `executable_name` | `Game` | The built game's name and window title. It also names the save folder (see [Saving](Saving.md)) |
+| `executable_name` | `Game` | The built game's name and window title. It names the save folder when `project_id` is empty |
+| `project_id` | empty | The name of the save folder (see [Saving](Saving.md)): set it once, and renaming the game keeps its saves |
 | `start_scene` | empty | The scene a built game opens, relative to `Assets` |
 | `x_resolution`, `y_resolution` | 1280, 720 | The window's size |
 | `fullscreen` | `false` | A full-screen window |
