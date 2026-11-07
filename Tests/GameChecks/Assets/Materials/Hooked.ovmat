@@ -1,0 +1,24 @@
+<root>
+    <shader>Shaders/Hooked.ovfx</shader>
+    <settings>
+        <cast_shadows>true</cast_shadows>
+        <receive_shadows>true</receive_shadows>
+        <blendable>false</blendable>
+        <backface_culling>true</backface_culling>
+        <depth_test>true</depth_test>
+        <depth_writing>true</depth_writing>
+        <color_writing>true</color_writing>
+        <gpu_instances>1</gpu_instances>
+        <draw_order>1000</draw_order>
+    </settings>
+    <uniforms>
+        <uniform><name>u_Albedo</name><value><x>1</x><y>1</y><z>1</z><w>1</w></value></uniform>
+        <uniform><name>u_Roughness</name><value>0.5</value></uniform>
+        <uniform><name>u_Metallic</name><value>0</value></uniform>
+        <uniform><name>u_Tint</name><value><x>0.2</x><y>0.8</y><z>0.3</z></value></uniform>
+        <uniform><name>u_RimIntensity</name><value>2</value></uniform>
+        <uniform><name>u_RimColor</name><value><x>1</x><y>0.6</y><z>0.1</z></value></uniform>
+        <uniform><name>u_Swell</name><value>0.15</value></uniform>
+        <uniform><name>u_Fade</name><value>0.35</value></uniform>
+    </uniforms>
+</root>

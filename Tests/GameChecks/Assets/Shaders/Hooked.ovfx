@@ -1,0 +1,59 @@
+#pass SHADOW_PASS
+#pass REFLECTION_PASS
+
+#feature NORMAL_MAPPING
+#engine_feature SKINNING
+
+// A shader built on the engine's Standard through its four extension points: the in-game checks compile it, and
+// Docs/Shaders.md shows it as the example
+
+#shader vertex
+#version 450 core
+
+#define STANDARD_VERTEX
+#include ":Shaders/Standard/StandardVertex.ovfxh"
+
+uniform float u_Swell = 0.0;
+
+void StandardVertex(inout vec3 worldPosition, inout vec3 worldNormal, vec2 texCoords)
+{
+    worldPosition += worldNormal * u_Swell;
+}
+
+#shader fragment
+#version 450 core
+
+#define STANDARD_CLIP
+#define STANDARD_SURFACE
+#define STANDARD_LIGHTING
+#include ":Shaders/Standard/StandardFragment.ovfxh"
+
+#if SHADER_API_VERSION_MAJOR != 1
+#error "made for the engine's shader API 1.x"
+#endif
+
+uniform float u_Fade = 0.0;
+uniform vec3 u_Tint = vec3(1.0);
+uniform vec3 u_RimColor = vec3(1.0);
+uniform float u_RimIntensity = 0.0;
+uniform float u_RimPower = 3.0;
+
+void StandardClip(vec3 fragPos, vec2 texCoords)
+{
+    // Dithered, so a fading object keeps its depth, its shadow fading with it
+    if (u_Fade > 0.0 && Dithering(1.0 - u_Fade, gl_FragCoord.xy) < 0)
+    {
+        discard;
+    }
+}
+
+void StandardSurface(inout StandardSurfaceData surface, vec3 fragPos, vec2 texCoords)
+{
+    surface.albedo.rgb *= u_Tint;
+}
+
+vec3 StandardLighting(vec3 color, StandardSurfaceData surface, vec3 fragPos)
+{
+    const float edge = 1.0 - max(dot(surface.normal, normalize(ubo_ViewPos - fragPos)), 0.0);
+    return color + u_RimColor * u_RimIntensity * pow(edge, u_RimPower);
+}

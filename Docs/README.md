@@ -9,7 +9,8 @@ on it. Each page states the behaviour of the current version; [`CHANGELOG.md`](.
 | [Command line](CommandLine.md) | Running a project with `OvGame`: options, captures, exit codes |
 | [Scripting](Scripting.md) | The Lua sandbox, modules, Behaviours and their lifecycle, actors and references, update order, time |
 | [Physics](Physics.md) | Bodies, triggers, queries, Jolt specifics, static bodies, height fields, ragdolls |
-| [Rendering](Rendering.md) | Materials and per-renderer values, the post process stack and fog, custom shaders, instancing, culling |
+| [Rendering](Rendering.md) | Materials and per-renderer values, the post process stack and fog, culling |
+| [Shaders](Shaders.md) | The shader API and its version, public includes, `Standard`'s extension points, the fog option, custom shaders |
 | [Animation](Animation.md) | Bones, layers and masks, clips on other rigs, extra bones, attachments |
 | [Saving](Saving.md) | The save folder, `Storage` and `Json` |
 | [Input](Input.md) | Keys, mouse, the editor's focus rules |
