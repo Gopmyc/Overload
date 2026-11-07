@@ -14,6 +14,7 @@
 
 #ifdef _WIN32
 #include <io.h>
+#include <share.h>
 #else
 #include <fcntl.h>
 #include <unistd.h>
@@ -41,7 +42,8 @@ namespace
 	FILE* OpenFile(const std::filesystem::path& p_path, bool p_write)
 	{
 #ifdef _WIN32
-		return _wfopen(p_path.c_str(), p_write ? L"wb" : L"rb");
+		// _wfsopen shares the file as _wfopen does, without the deprecation MSVC turns into an error
+		return _wfsopen(p_path.c_str(), p_write ? L"wb" : L"rb", _SH_DENYNO);
 #else
 		return std::fopen(p_path.c_str(), p_write ? "wb" : "rb");
 #endif
