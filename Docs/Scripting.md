@@ -44,8 +44,9 @@
   actor is destroyed must not be used.
 - `FindChild` and `GetParent` return `nil` when there is none. `GetChildren` and `Scene:FindActorsByName/ByTag` return
   plain Lua tables.
-- An actor property saved in a prefab does not survive instantiation: every instantiated actor gets a new GUID, and the
-  script receives `nil`. Resolve such a reference through the hierarchy (`FindChild(name, true)`) or by tag.
+- Every instantiated actor gets a new GUID. An actor property that names another actor of the same prefab follows it:
+  the instance's property names that actor's instance. One that names an actor outside the prefab keeps its GUID, and
+  the script receives `nil` when no actor of the scene has it.
 - `Destroy()` marks an actor and its children; the engine frees them at the end of the frame, in a built game as in the
   editor's play mode. Until then the actor is still there: switch it off with `SetActive(false)` first if it must vanish
   at once. Its handles then fail (`IsAlive()` is `false`).
