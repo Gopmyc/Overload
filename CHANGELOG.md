@@ -5,6 +5,20 @@ first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 [Semantic Versioning](https://semver.org/): a script, a shader or a project made for one version keeps working with any
 later version of the same major version.
 
+## [Unreleased]
+
+### Added
+
+- **More Behaviour property types**: vectors (`Vector2`, `Vector3`, `Vector4` defaults), colours (`Color(r, g, b, a)`,
+  a `Vector4` to the script), enumerations (`Enum({ ... }, default)`, the chosen string) and lists
+  (`List("number" | "string" | "bool", { ... })`, a plain table), each with its inspector widget and its type in
+  prefab and scene files.
+
+### Changed
+
+- **Unreadable properties are reported**: a property written in a file with an unknown type (`type="boolean"`) is
+  logged as an error, and one whose type the script no longer declares as a warning. Both were ignored silently.
+
 ## [0.1.0] - 2026-11-07
 
 Adventurer's first version: Overload 1.9 and the changes below.

@@ -4,6 +4,10 @@
 * @licence: MIT
 */
 
+#include <charconv>
+#include <optional>
+#include <string>
+
 #include <sol/sol.hpp>
 
 #include <OvDebug/Logger.h>
@@ -18,6 +22,28 @@
 #include <OvCore/ResourceManagement/TextureManager.h>
 #include <OvCore/SceneSystem/SceneManager.h>
 #include <OvCore/Scripting/Lua/LuaScript.h>
+
+namespace
+{
+	/**
+	* The property a userdata stands for: an asset or actor reference, a vector, or a declared colour, enumeration or
+	* list
+	*/
+	std::optional<OvCore::Scripting::ScriptPropertyValue> ReadUserdataProperty(const sol::object& p_value)
+	{
+		using namespace OvCore::Scripting;
+
+		if (p_value.is<AssetRef>()) return p_value.as<AssetRef>();
+		if (p_value.is<ActorRef>()) return p_value.as<ActorRef>();
+		if (p_value.is<OvMaths::FVector2>()) return p_value.as<OvMaths::FVector2>();
+		if (p_value.is<OvMaths::FVector3>()) return p_value.as<OvMaths::FVector3>();
+		if (p_value.is<OvMaths::FVector4>()) return p_value.as<OvMaths::FVector4>();
+		if (p_value.is<ColorValue>()) return p_value.as<ColorValue>();
+		if (p_value.is<EnumValue>()) return p_value.as<EnumValue>();
+		if (p_value.is<ListValue>()) return p_value.as<ListValue>();
+		return std::nullopt;
+	}
+}
 
 template<>
 OvCore::Scripting::LuaScriptBase::TScript() = default;
@@ -59,8 +85,8 @@ std::map<std::string, OvCore::Scripting::ScriptPropertyValue> OvCore::Scripting:
 			case sol::type::number:   properties[keyStr] = value.as<double>();      break;
 			case sol::type::string:   properties[keyStr] = value.as<std::string>(); break;
 			case sol::type::userdata:
-				if (value.is<AssetRef>()) properties[keyStr] = value.as<AssetRef>();
-				else if (value.is<ActorRef>()) properties[keyStr] = value.as<ActorRef>();
+				if (auto property = ReadUserdataProperty(value))
+					properties[keyStr] = std::move(*property);
 				break;
 			default: break;
 		}
@@ -82,9 +108,7 @@ std::optional<OvCore::Scripting::ScriptPropertyValue> OvCore::Scripting::LuaScri
 		case sol::type::number:   return obj.as<double>();
 		case sol::type::string:   return obj.as<std::string>();
 		case sol::type::userdata:
-			if (obj.is<AssetRef>()) return obj.as<AssetRef>();
-			if (obj.is<ActorRef>()) return obj.as<ActorRef>();
-			return std::nullopt;
+			return ReadUserdataProperty(obj);
 		default:                  return std::nullopt;
 	}
 }
@@ -134,6 +158,40 @@ void OvCore::Scripting::LuaScriptBase::SetProperty(const std::string& p_key, con
 				else
 					(*m_context.table)[p_key] = sol::nil;
 			}
+		}
+		else if constexpr (std::is_same_v<T, ColorValue>)
+		{
+			(*m_context.table)[p_key] = v.rgba;
+		}
+		else if constexpr (std::is_same_v<T, EnumValue>)
+		{
+			(*m_context.table)[p_key] = v.value;
+		}
+		else if constexpr (std::is_same_v<T, ListValue>)
+		{
+			// A fresh table for each Behaviour, of numbers, strings or booleans as the list declares
+			sol::state_view lua(m_context.table->lua_state());
+			sol::table items = lua.create_table(static_cast<int>(v.items.size()), 0);
+
+			for (size_t index = 0; index < v.items.size(); ++index)
+			{
+				const std::string& item = v.items[index];
+
+				switch (v.itemType)
+				{
+				case ListValue::EItemType::NUMBER:
+				{
+					double number = 0.0;
+					std::from_chars(item.data(), item.data() + item.size(), number);
+					items[index + 1] = number;
+					break;
+				}
+				case ListValue::EItemType::BOOL: items[index + 1] = item == "true"; break;
+				case ListValue::EItemType::STRING: items[index + 1] = item; break;
+				}
+			}
+
+			(*m_context.table)[p_key] = items;
 		}
 		else
 		{

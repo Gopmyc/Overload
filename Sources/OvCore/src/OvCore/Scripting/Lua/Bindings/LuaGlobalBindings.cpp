@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <stdexcept>
 #include <limits>
 #include <optional>
 #include <string>
@@ -276,6 +277,61 @@ void BindLuaGlobal(sol::state& p_luaState)
 	p_luaState["Material"] = []() { return AssetRef{EFT::MATERIAL, ""}; };
 	p_luaState["Sound"]    = []() { return AssetRef{EFT::SOUND,    ""}; };
 	p_luaState["Prefab"]   = []() { return AssetRef{EFT::PREFAB,   ""}; };
+
+	// Colours, enumerations and lists are declared the same way: Color(r, g, b[, a]), Enum({ "A", "B" }[, "A"]) and
+	// List("number" | "string" | "bool"[, { ... }]). The script receives a Vector4, the chosen name and a plain table
+	p_luaState.new_usertype<ColorValue>("ColorProperty", sol::no_constructor);
+	p_luaState.new_usertype<EnumValue>("EnumProperty", sol::no_constructor);
+	p_luaState.new_usertype<ListValue>("ListProperty", sol::no_constructor);
+
+	p_luaState["Color"] = [](sol::optional<float> p_r, sol::optional<float> p_g, sol::optional<float> p_b, sol::optional<float> p_a)
+	{
+		return ColorValue{ { p_r.value_or(1.0f), p_g.value_or(1.0f), p_b.value_or(1.0f), p_a.value_or(1.0f) } };
+	};
+
+	p_luaState["Enum"] = [](sol::table p_choices, sol::optional<std::string> p_default)
+	{
+		EnumValue property;
+
+		for (size_t index = 1; index <= p_choices.size(); ++index)
+		{
+			if (const auto choice = p_choices.get<sol::optional<std::string>>(index))
+				property.choices.push_back(*choice);
+		}
+
+		if (property.choices.empty())
+			throw std::runtime_error("Enum: give at least one choice, as a list of strings");
+
+		const bool knownDefault = p_default && std::find(property.choices.begin(), property.choices.end(), *p_default) != property.choices.end();
+		if (p_default && !knownDefault)
+			throw std::runtime_error(std::format("Enum: \"{}\" is not one of the choices", *p_default));
+
+		property.value = knownDefault ? *p_default : property.choices.front();
+		return property;
+	};
+
+	p_luaState["List"] = [](const std::string& p_itemType, sol::optional<sol::table> p_items)
+	{
+		const auto itemType = ListValue::ParseItemType(p_itemType);
+		if (!itemType)
+			throw std::runtime_error(std::format("List: \"{}\" is no item type (number, string or bool)", p_itemType));
+
+		ListValue property{ *itemType, {} };
+
+		for (size_t index = 1; p_items && index <= p_items->size(); ++index)
+		{
+			const sol::object item = (*p_items)[index];
+			const std::string text = item.is<bool>() ? (item.as<bool>() ? "true" : "false") : item.is<double>() ? std::format("{}", item.as<double>()) : item.is<std::string>() ? item.as<std::string>() : std::string{};
+
+			const auto normalized = ListValue::NormalizeItem(*itemType, text);
+			if (!normalized || (item.get_type() == sol::type::boolean) != (*itemType == ListValue::EItemType::BOOL))
+				throw std::runtime_error(std::format("List: item {} is not a {}", index, p_itemType));
+
+			property.items.push_back(*normalized);
+		}
+
+		return property;
+	};
 
 	p_luaState.new_usertype<Scene>("Scene",
 		"FindActorByName", [](Scene& s, const std::string& name) -> std::optional<ActorRef> {
