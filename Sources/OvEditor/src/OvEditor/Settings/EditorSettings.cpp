@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <algorithm>
 #include <filesystem>
 
 #include <OvEditor/Settings/EditorSettings.h>
@@ -49,6 +50,8 @@ void OvEditor::Settings::EditorSettings::Save()
 	iniFile.Add("console_max_logs", ConsoleMaxLogs.Get());
 	iniFile.Add("code_editor_command", CodeEditorCommand.Get());
 	iniFile.Add("always_regenerate_scripting_symbols", RegenerateScriptingProjectFilesOnStartup.Get());
+	iniFile.Add("play_key", PlayKey.Get());
+	iniFile.Add("stop_key", StopKey.Get());
 	iniFile.Rewrite();
 }
 
@@ -71,4 +74,44 @@ void OvEditor::Settings::EditorSettings::Load()
 	LoadIniEntry<int>(iniFile, "console_max_logs", ConsoleMaxLogs);
 	LoadIniEntry<std::string>(iniFile, "code_editor_command", CodeEditorCommand);
 	LoadIniEntry<bool>(iniFile, "always_regenerate_scripting_symbols", RegenerateScriptingProjectFilesOnStartup);
+	LoadIniEntry<int>(iniFile, "play_key", PlayKey);
+	LoadIniEntry<int>(iniFile, "stop_key", StopKey);
+
+	// A key the editor does not offer goes back to F5
+	const auto isOffered = [](int p_key)
+	{
+		const auto& keys = GetPlayShortcutKeys();
+		return std::any_of(keys.begin(), keys.end(), [p_key](const auto& p_entry) { return p_entry.first == p_key; });
+	};
+
+	for (auto* key : { &PlayKey, &StopKey })
+	{
+		if (!isOffered(key->Get()))
+		{
+			*key = static_cast<int>(OvWindowing::Inputs::EKey::KEY_F5);
+		}
+	}
+}
+
+const std::vector<std::pair<int, std::string>>& OvEditor::Settings::EditorSettings::GetPlayShortcutKeys()
+{
+	using OvWindowing::Inputs::EKey;
+
+	static const std::vector<std::pair<int, std::string>> keys = []
+	{
+		std::vector<std::pair<int, std::string>> result = {
+			{ static_cast<int>(EKey::KEY_UNKNOWN), "None" },
+			{ static_cast<int>(EKey::KEY_ESCAPE), "Escape" },
+			{ static_cast<int>(EKey::KEY_PAUSE), "Pause" },
+		};
+
+		for (int index = 0; index < 12; ++index)
+		{
+			result.emplace_back(static_cast<int>(EKey::KEY_F1) + index, "F" + std::to_string(index + 1));
+		}
+
+		return result;
+	}();
+
+	return keys;
 }

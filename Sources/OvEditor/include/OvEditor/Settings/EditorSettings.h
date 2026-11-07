@@ -7,9 +7,12 @@
 #pragma once
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <OvTools/Eventing/Event.h>
 #include <OvUI/Styling/EStyle.h>
+#include <OvWindowing/Inputs/EKey.h>
 
 namespace OvEditor::Settings
 {
@@ -86,6 +89,11 @@ namespace OvEditor::Settings
 		*/
 		static void Load();
 
+		/**
+		* The keys that can start or stop playing, with their names: KEY_UNKNOWN stands for no key
+		*/
+		static const std::vector<std::pair<int, std::string>>& GetPlayShortcutKeys();
+
 		inline static Property<bool> ShowGeometryBounds = { false };
 		inline static Property<bool> ShowLightBounds = { false };
 		inline static Property<bool> EditorFrustumGeometryCulling = { true };
@@ -102,5 +110,9 @@ namespace OvEditor::Settings
 		inline static Property<bool> BetaDpiAwarenessDialogPresented = { false };
 		inline static Property<std::string> CodeEditorCommand = { "code {workdir} --goto {path}" };
 		inline static Property<bool> RegenerateScriptingProjectFilesOnStartup = { true };
+
+		// The keys that start and stop playing (one of GetPlayShortcutKeys): a game may want the stop key for itself
+		inline static Property<int> PlayKey = { static_cast<int>(OvWindowing::Inputs::EKey::KEY_F5) };
+		inline static Property<int> StopKey = { static_cast<int>(OvWindowing::Inputs::EKey::KEY_F5) };
 	};
 }
