@@ -370,15 +370,23 @@ void OvEditor::Core::Editor::UpdatePlayMode(float p_deltaTime)
 	if (m_editorActions.GetCurrentEditorMode() == EditorActions::EEditorMode::FRAME_BY_FRAME)
 		m_editorActions.PauseGame();
 
-	// Escape belongs to the game (its own menus): F5 stops playing, as it starts
-	if (m_context.inputManager->IsKeyPressed(OvWindowing::Inputs::EKey::KEY_F5))
+	// The stop key is the editor's setting (F5 by default, as it starts), so that a game may keep Escape for itself
+	if (const int stopKey = Settings::EditorSettings::StopKey.Get();
+		stopKey != static_cast<int>(OvWindowing::Inputs::EKey::KEY_UNKNOWN) &&
+		m_context.inputManager->IsKeyPressed(static_cast<OvWindowing::Inputs::EKey>(stopKey)))
+	{
 		m_editorActions.StopPlaying();
+	}
 }
 
 void OvEditor::Core::Editor::UpdateEditMode(float p_deltaTime)
 {
-	if (m_context.inputManager->IsKeyPressed(OvWindowing::Inputs::EKey::KEY_F5))
+	if (const int playKey = Settings::EditorSettings::PlayKey.Get();
+		playKey != static_cast<int>(OvWindowing::Inputs::EKey::KEY_UNKNOWN) &&
+		m_context.inputManager->IsKeyPressed(static_cast<OvWindowing::Inputs::EKey>(playKey)))
+	{
 		m_editorActions.StartPlaying();
+	}
 }
 
 void OvEditor::Core::Editor::UpdateEditorPanels(float p_deltaTime)

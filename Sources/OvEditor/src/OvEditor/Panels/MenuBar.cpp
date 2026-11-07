@@ -187,6 +187,20 @@ void OvEditor::Panels::MenuBar::InitializeSettingsMenu()
 	debuggingMenu.CreateWidget<MenuItem>("Editor Frustum Geometry Culling", "", true, Settings::EditorSettings::EditorFrustumGeometryCulling).ValueChangedEvent += [this](bool p_value) { Settings::EditorSettings::EditorFrustumGeometryCulling = p_value; };
 	debuggingMenu.CreateWidget<MenuItem>("Editor Frustum Light Culling", "", true, Settings::EditorSettings::EditorFrustumLightCulling).ValueChangedEvent += [this](bool p_value) { Settings::EditorSettings::EditorFrustumLightCulling = p_value; };
 	
+	auto& playShortcutsMenu = m_settingsMenu->CreateWidget<MenuList>("Play Shortcuts");
+	const auto createKeyChoice = [&playShortcutsMenu](const std::string& p_label, Settings::EditorSettings::Property<int>& p_setting)
+	{
+		playShortcutsMenu.CreateWidget<Texts::Text>(p_label);
+		auto& keyChoice = playShortcutsMenu.CreateWidget<Selection::ComboBox>(p_setting.Get());
+		for (const auto& [key, name] : Settings::EditorSettings::GetPlayShortcutKeys())
+		{
+			keyChoice.choices.emplace(key, name);
+		}
+		keyChoice.ValueChangedEvent += [&p_setting](int p_key) { p_setting = p_key; };
+	};
+	createKeyChoice("Start playing", Settings::EditorSettings::PlayKey);
+	createKeyChoice("Stop playing (the game receives the key too)", Settings::EditorSettings::StopKey);
+
 	auto& scriptingMenu = m_settingsMenu->CreateWidget<MenuList>("Scripting");
 	scriptingMenu.CreateWidget<MenuItem>("Regenerate Scripting Project Files On Startup", "", true, Settings::EditorSettings::RegenerateScriptingProjectFilesOnStartup).ValueChangedEvent += [this](bool p_value) { Settings::EditorSettings::RegenerateScriptingProjectFilesOnStartup = p_value; };
 

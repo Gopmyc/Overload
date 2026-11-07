@@ -9,4 +9,6 @@
   UI holds the focus before reading input (see the UI library's `EngineLimitations.md`).
 - In the editor, the Game View's focus decides: the game reads keys, clicks, scroll and the mouse lock only while the
   Game View has the focus. Elsewhere it sees nothing, a key held is released for it, its cursor is freed and play goes
-  on. The click that gives the focus is not seen by the game. F5 starts and stops play; Escape belongs to the game.
+  on. The click that gives the focus is not seen by the game.
+- F5 starts and stops play by default. Settings > Play Shortcuts sets either key to F1 to F12, Pause, Escape or none.
+  The stop key also reaches the game, so Escape is best left to it.

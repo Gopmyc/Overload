@@ -23,6 +23,8 @@ later version of the same major version.
   `storage_max_entries`), `Json`'s (`json_max_mib`, `json_max_depth`) and the longest frame step (`max_frame_delta`)
   are optional project keys; their defaults are the former fixed values. In C++, `SaveStorageLimits`,
   `Clock::SetMaxDeltaTime` and `OvCore::Scripting::SetJsonLimits`.
+- **Play shortcuts**: the editor's keys that start and stop playing are set in Settings > Play Shortcuts (F5 for
+  both by default, as before).
 
 ### Changed
 
