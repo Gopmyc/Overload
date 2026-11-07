@@ -535,6 +535,7 @@ void BindLuaGlobal(sol::state& p_luaState)
 	);
 
 	p_luaState.create_named_table("Application",
-		"Quit", []() { OvCore::Global::QuitRequest::RequestedEvent.Invoke(); }
+		"Quit", []() { OvCore::Global::QuitRequest::RequestedEvent.Invoke(); },
+		"GetEngineVersion", []() { return std::string(ADVENTURER_VERSION); }
 	);
 }
