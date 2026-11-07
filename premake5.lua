@@ -1,4 +1,4 @@
--- Function to read the version number from VERSION.txt
+-- Function to read the version number from VERSION.txt: Adventurer's own version
 local function readVersion()
 	local versionFile = io.open("VERSION.txt", "r")
 	if versionFile then
@@ -12,13 +12,17 @@ end
 
 local version = readVersion()
 
+-- The version of Overload the engine is based on
+local overloadVersion = "1.9"
+
 workspace "Overload"
 	configurations { "Debug", "Release", "Publish" }
 	platforms { "x64" }
 	startproject "OvEditor"
 	defines {
 		"LUA_SCRIPTING",
-		"OVERLOAD_VERSION=\"" .. version .. "\"",
+		"ADVENTURER_VERSION=\"" .. version .. "\"",
+		"OVERLOAD_VERSION=\"" .. overloadVersion .. "\"",
 		"SOL_NO_LUA_HPP"
 	}
 
