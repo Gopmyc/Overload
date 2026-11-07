@@ -4,14 +4,19 @@
 * @licence: MIT
 */
 
+#include <algorithm>
 #include <cstdint>
+#include <string>
 
 #include <OvCore/ECS/Actor.h>
 #include <OvCore/ECS/Components/CPhysicalObject.h>
+#include <OvCore/Global/ServiceLocator.h>
 
 #include <OvDebug/Logger.h>
 
+#include <OvPhysics/Core/PhysicsEngine.h>
 #include <OvPhysics/Entities/PhysicalObject.h>
+#include <OvPhysics/Settings/PhysicsSettings.h>
 
 #include <OvUI/Widgets/Drags/DragFloat.h>
 #include <OvUI/Widgets/Selection/ComboBox.h>
@@ -96,6 +101,11 @@ bool OvCore::ECS::Components::CPhysicalObject::IsStatic() const
 	return m_physicalObject->IsStatic();
 }
 
+uint16_t OvCore::ECS::Components::CPhysicalObject::GetCollisionLayer() const
+{
+	return m_physicalObject->GetLayer();
+}
+
 void OvCore::ECS::Components::CPhysicalObject::SetMass(float p_mass)
 {
 	m_physicalObject->SetMass(p_mass);
@@ -146,6 +156,11 @@ void OvCore::ECS::Components::CPhysicalObject::SetStatic(bool p_static)
 	m_physicalObject->SetStatic(p_static);
 }
 
+void OvCore::ECS::Components::CPhysicalObject::SetCollisionLayer(uint16_t p_layer)
+{
+	m_physicalObject->SetLayer(p_layer);
+}
+
 void OvCore::ECS::Components::CPhysicalObject::OnSerialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node)
 {
 	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "is_trigger", IsTrigger());
@@ -157,6 +172,7 @@ void OvCore::ECS::Components::CPhysicalObject::OnSerialize(tinyxml2::XMLDocument
 	Helpers::Serializer::SerializeVec3(p_doc, p_node, "linear_factor", GetLinearFactor());
 	Helpers::Serializer::SerializeVec3(p_doc, p_node, "angular_factor", GetAngularFactor());
 	Helpers::Serializer::SerializeInt(p_doc, p_node, "collision_mode", static_cast<int>(GetCollisionDetectionMode()));
+	Helpers::Serializer::SerializeInt(p_doc, p_node, "collision_layer", static_cast<int>(GetCollisionLayer()));
 }
 
 void OvCore::ECS::Components::CPhysicalObject::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node)
@@ -170,6 +186,10 @@ void OvCore::ECS::Components::CPhysicalObject::OnDeserialize(tinyxml2::XMLDocume
 	SetLinearFactor(Helpers::Serializer::DeserializeVec3(p_doc, p_node, "linear_factor"));
 	SetAngularFactor(Helpers::Serializer::DeserializeVec3(p_doc, p_node, "angular_factor"));
 	SetCollisionDetectionMode(static_cast<OvPhysics::Entities::PhysicalObject::ECollisionDetectionMode>(Helpers::Serializer::DeserializeInt(p_doc, p_node, "collision_mode")));
+
+	// A file written before collision layers puts the object on the default layer
+	const int layer = Helpers::Serializer::DeserializeInt(p_doc, p_node, "collision_layer");
+	SetCollisionLayer(static_cast<uint16_t>(std::clamp(layer, 0, OvPhysics::Settings::PhysicsSettings::kLayerCount - 1)));
 }
 
 void OvCore::ECS::Components::CPhysicalObject::OnInspector(OvUI::Internal::WidgetContainer & p_root)
@@ -190,6 +210,21 @@ void OvCore::ECS::Components::CPhysicalObject::OnInspector(OvUI::Internal::Widge
 	collisionMode.ValueChangedEvent += [this](int p_choice)
 	{
 		SetCollisionDetectionMode(static_cast<OvPhysics::Entities::PhysicalObject::ECollisionDetectionMode>(p_choice));
+	};
+
+	// The layers are listed by index and by the name the project gives them
+	const auto& physicsEngine = OVSERVICE(OvPhysics::Core::PhysicsEngine);
+
+	Helpers::GUIDrawer::CreateTitle(p_root, "Collision Layer");
+	auto& collisionLayer = p_root.CreateWidget<OvUI::Widgets::Selection::ComboBox>(static_cast<int>(GetCollisionLayer()));
+	for (uint16_t layer = 0; layer < OvPhysics::Settings::PhysicsSettings::kLayerCount; ++layer)
+	{
+		const std::string& name = physicsEngine.GetLayerName(layer);
+		collisionLayer.choices.emplace(layer, name.empty() ? std::to_string(layer) : std::to_string(layer) + " - " + name);
+	}
+	collisionLayer.ValueChangedEvent += [this](int p_choice)
+	{
+		SetCollisionLayer(static_cast<uint16_t>(p_choice));
 	};
 }
 

@@ -7,6 +7,19 @@ later version of the same major version.
 
 ## [Unreleased]
 
+### Added
+
+- **Collision layers**: 16 layers, one per physical object (`SetCollisionLayer`, `GetCollisionLayer`,
+  `collision_layer` in a file, a list in the inspector). The project names them (`physics_layer_names`) and lists the
+  pairs that go through each other (`physics_ignored_layer_pairs`); Lua reads and changes them at run time
+  (`Physics.GetLayerIndex`, `GetLayerName`, `DoLayersCollide`, `SetLayersCollide`). See [Docs/Physics.md](Docs/Physics.md).
+
+### Changed
+
+- **Ragdolls collide by their layer**: their bodies are on `physics_ragdoll_layer` (15 by default). Going through
+  dynamic bodies is now the project option `physics_ragdoll_ignores_dynamic_bodies`, off by default. A project that
+  relied on it sets it to `true`.
+
 ### Fixed
 
 - **Destroyed actors are freed in a built game**: `OvGame` collects the actors destroyed during a frame at its end, as

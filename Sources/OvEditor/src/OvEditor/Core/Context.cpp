@@ -7,6 +7,7 @@
 #include <filesystem>
 
 #include <OvCore/Global/ServiceLocator.h>
+#include <OvCore/Helpers/ProjectSettings.h>
 #include <OvCore/Scripting/ScriptEngine.h>
 #include <OvDebug/Assertion.h>
 #include <OvEditor/Core/Context.h>
@@ -195,7 +196,7 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	editorResources = std::make_unique<OvEditor::Core::EditorResources>(editorAssetsPath.string());
 
 	/* Physics engine */
-	physicsEngine = std::make_unique<OvPhysics::Core::PhysicsEngine>(OvPhysics::Settings::PhysicsSettings{ {0.0f, -9.81f, 0.0f } });
+	physicsEngine = std::make_unique<OvPhysics::Core::PhysicsEngine>(OvCore::Helpers::ProjectSettings::ReadPhysicsSettings(projectSettings));
 
 	/* Scripting */
 	scriptEngine = std::make_unique<OvCore::Scripting::ScriptEngine>(
@@ -272,5 +273,7 @@ bool OvEditor::Core::Context::CompleteProjectSettings()
 
 void OvEditor::Core::Context::ApplyProjectSettings()
 {
-	physicsEngine->SetGravity({ 0.0f, projectSettings.Get<float>("gravity"), 0.0f });
+	const auto physicsSettings = OvCore::Helpers::ProjectSettings::ReadPhysicsSettings(projectSettings);
+	physicsEngine->SetGravity(physicsSettings.gravity);
+	physicsEngine->ApplyLayerSettings(physicsSettings);
 }

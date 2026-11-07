@@ -1013,6 +1013,7 @@ void OvEditor::Core::EditorActions::StopPlaying()
 		OvCore::Helpers::InputHelpers::UpdateGameInputGate(false, true); // The game's lock and cursor shape leave with it
 		OvCore::Helpers::InputHelpers::ResetGameInputGate();
 		m_context.clock.SetTimeScale(1.0f);
+		m_context.ApplyProjectSettings(); // A script may have changed which layers collide
 		SetEditorMode(EEditorMode::EDIT);
 		bool loadedFromDisk = m_context.sceneManager.IsCurrentSceneLoadedFromDisk();
 		std::string sceneSourcePath = m_context.sceneManager.GetCurrentSceneSourcePath();

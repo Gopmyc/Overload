@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <OvPhysics/Entities/PhysicalObject.h>
@@ -25,7 +26,7 @@ namespace JPH
 	class Factory;
 	class JobSystem;
 	class ObjectLayerPairFilterTable;
-	class ObjectVsBroadPhaseLayerFilterTable;
+	class ObjectVsBroadPhaseLayerFilter;
 	class PhysicsSystem;
 	class TempAllocator;
 }
@@ -77,8 +78,42 @@ namespace OvPhysics::Core
 		OvMaths::FVector3 GetGravity() const;
 
 		/**
-		* Creates a ragdoll in the simulation, or returns nullptr when it cannot be made. Its parts fall on everything
-		* but the dynamic bodies, which they go through, and raycasts never see them
+		* Replaces the layer names, the collision matrix and the ragdoll rules with those of the settings (the gravity
+		* is left as it is), from the next simulation step. The ragdolls already made keep their layer
+		* @param p_settings
+		*/
+		void ApplyLayerSettings(const Settings::PhysicsSettings& p_settings);
+
+		/**
+		* Returns true if the bodies of the two layers collide
+		* @param p_layer1
+		* @param p_layer2
+		*/
+		bool DoLayersCollide(uint16_t p_layer1, uint16_t p_layer2) const;
+
+		/**
+		* Makes the bodies of the two layers collide or go through each other, from the next simulation step
+		* @param p_layer1
+		* @param p_layer2
+		* @param p_collide
+		*/
+		void SetLayersCollide(uint16_t p_layer1, uint16_t p_layer2, bool p_collide);
+
+		/**
+		* Returns the index of the layer of the given name, if any
+		* @param p_name
+		*/
+		std::optional<uint16_t> FindLayer(const std::string& p_name) const;
+
+		/**
+		* Returns the name of the layer (empty when it has none or when the index is out of range)
+		* @param p_layer
+		*/
+		const std::string& GetLayerName(uint16_t p_layer) const;
+
+		/**
+		* Creates a ragdoll in the simulation, or returns nullptr when it cannot be made. Its parts are on the settings'
+		* ragdoll layer, and raycasts never see them. When the settings ask it, they go through the dynamic bodies
 		* @param p_parts (a parent always comes before its children)
 		* @param p_linearVelocity
 		*/
@@ -107,11 +142,12 @@ namespace OvPhysics::Core
 		std::unique_ptr<JPH::JobSystem> m_jobSystem;
 		std::unique_ptr<JPH::BroadPhaseLayerInterfaceTable> m_broadPhaseLayerInterface;
 		std::unique_ptr<JPH::ObjectLayerPairFilterTable> m_objectLayerPairFilter;
-		std::unique_ptr<JPH::ObjectVsBroadPhaseLayerFilterTable> m_objectVsBroadPhaseLayerFilter;
+		std::unique_ptr<JPH::ObjectVsBroadPhaseLayerFilter> m_objectVsBroadPhaseLayerFilter;
 		std::unique_ptr<ContactListener> m_contactListener;
 		std::unique_ptr<JPH::PhysicsSystem> m_physicsSystem;
 		float m_accumulatedTime = 0.0f;
 		uint32_t m_ragdollCount = 0;
+		Settings::PhysicsSettings m_settings;
 
 		static std::map<std::pair<Entities::PhysicalObject*, Entities::PhysicalObject*>, bool> m_collisionEvents;
 		std::vector<std::reference_wrapper<Entities::PhysicalObject>> m_physicalObjects;

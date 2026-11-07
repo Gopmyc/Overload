@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <algorithm>
 #include <cmath>
 #include <format>
 #include <optional>
@@ -40,6 +41,7 @@
 #include <OvCore/ECS/Components/UI/CText.h>
 #include <OvCore/ECS/Components/UI/CVerticalLayout.h>
 #include <OvCore/Scripting/Common/ScriptPropertyValue.h>
+#include <OvPhysics/Settings/PhysicsSettings.h>
 
 namespace
 {
@@ -326,7 +328,13 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetCollisionMode", &CPhysicalObject::GetCollisionDetectionMode,
 		"SetKinematic", &CPhysicalObject::SetKinematic,
 		"IsStatic", &CPhysicalObject::IsStatic,
-		"SetStatic", &CPhysicalObject::SetStatic
+		"SetStatic", &CPhysicalObject::SetStatic,
+		"GetCollisionLayer", [](CPhysicalObject& p_this) { return static_cast<int>(p_this.GetCollisionLayer()); },
+		"SetCollisionLayer", [](CPhysicalObject& p_this, int p_layer)
+		{
+			constexpr int kLastLayer = OvPhysics::Settings::PhysicsSettings::kLayerCount - 1;
+			p_this.SetCollisionLayer(static_cast<uint16_t>(std::clamp(p_layer, 0, kLastLayer)));
+		}
 	);
 
 	p_luaState.new_usertype<CPhysicalBox>("PhysicalBox",
