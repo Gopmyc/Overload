@@ -112,9 +112,9 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	sceneManager(projectAssetsPath.string(), engineAssetsPath.string()),
 	projectSettings(projectFile.string())
 {
-	if (!IsProjectSettingsIntegrityVerified())
+	// A project made with an older version lacks the settings added since: they get their default, the others stay
+	if (CompleteProjectSettings())
 	{
-		ResetProjectSettings();
 		projectSettings.Rewrite();
 	}
 
@@ -249,35 +249,25 @@ OvEditor::Core::Context::~Context()
 void OvEditor::Core::Context::ResetProjectSettings()
 {
 	projectSettings.RemoveAll();
-	projectSettings.Add<float>("gravity", -9.81f);
-	projectSettings.Add<int>("x_resolution", 1280);
-	projectSettings.Add<int>("y_resolution", 720);
-	projectSettings.Add<bool>("fullscreen", false);
-	projectSettings.Add<bool>("resizable", false);
-	projectSettings.Add<std::string>("executable_name", "Game");
-	projectSettings.Add<std::string>("start_scene", "");
-	projectSettings.Add<bool>("vsync", true);
-	projectSettings.Add<bool>("multisampling", false);
-	projectSettings.Add<int>("samples", 4);
-	projectSettings.Add<int>("build_type", static_cast<int>(FindDefaultBuildType()));
-	projectSettings.Add<std::string>("window_icon", "");
+	CompleteProjectSettings();
 }
 
-bool OvEditor::Core::Context::IsProjectSettingsIntegrityVerified()
+bool OvEditor::Core::Context::CompleteProjectSettings()
 {
-	return
-		projectSettings.IsKeyExisting("gravity") &&
-		projectSettings.IsKeyExisting("x_resolution") &&
-		projectSettings.IsKeyExisting("y_resolution") &&
-		projectSettings.IsKeyExisting("fullscreen") &&
-		projectSettings.IsKeyExisting("resizable") &&
-		projectSettings.IsKeyExisting("executable_name") &&
-		projectSettings.IsKeyExisting("start_scene") &&
-		projectSettings.IsKeyExisting("vsync") &&
-		projectSettings.IsKeyExisting("multisampling") &&
-		projectSettings.IsKeyExisting("samples") &&
-		projectSettings.IsKeyExisting("build_type") &&
-		projectSettings.IsKeyExisting("window_icon");
+	bool added = false;
+	added |= projectSettings.Add<float>("gravity", -9.81f);
+	added |= projectSettings.Add<int>("x_resolution", 1280);
+	added |= projectSettings.Add<int>("y_resolution", 720);
+	added |= projectSettings.Add<bool>("fullscreen", false);
+	added |= projectSettings.Add<bool>("resizable", false);
+	added |= projectSettings.Add<std::string>("executable_name", "Game");
+	added |= projectSettings.Add<std::string>("start_scene", "");
+	added |= projectSettings.Add<bool>("vsync", true);
+	added |= projectSettings.Add<bool>("multisampling", false);
+	added |= projectSettings.Add<int>("samples", 4);
+	added |= projectSettings.Add<int>("build_type", static_cast<int>(FindDefaultBuildType()));
+	added |= projectSettings.Add<std::string>("window_icon", "");
+	return added;
 }
 
 void OvEditor::Core::Context::ApplyProjectSettings()

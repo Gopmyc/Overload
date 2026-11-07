@@ -64,10 +64,10 @@ namespace OvEditor::Core
 		void ResetProjectSettings();
 
 		/**
-		* Verify that project settings are complete (No missing key).
-		* Returns true if the integrity is verified
+		* Adds every project setting the file lacks, with its default value, and leaves the others as they are.
+		* Returns true if a setting was added
 		*/
-		bool IsProjectSettingsIntegrityVerified();
+		bool CompleteProjectSettings();
 
 		/**
 		* Apply project settings to the ini file
