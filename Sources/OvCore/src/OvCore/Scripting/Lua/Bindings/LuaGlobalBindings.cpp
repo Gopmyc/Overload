@@ -36,7 +36,9 @@
 #include "OvCore/Scripting/Common/ScriptPropertyValue.h"
 #include "OvCore/Scripting/ScriptEngine.h"
 
+#include <OvPhysics/Core/PhysicsEngine.h>
 #include <OvPhysics/Entities/PhysicalObject.h>
+#include <OvPhysics/Settings/PhysicsSettings.h>
 
 #include <OvRendering/Geometry/Vertex.h>
 #include <OvRendering/Resources/Mesh.h>
@@ -523,8 +525,42 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"ResultObjects", &PhysicsWrapper::RaycastHit::ResultObjects
 	);
 
+	// A layer from Lua is an index (0 to PhysicsSettings::kLayerCount - 1), as in the files and the project settings
+	const auto isLayer = [](int p_layer)
+	{
+		return p_layer >= 0 && p_layer < OvPhysics::Settings::PhysicsSettings::kLayerCount;
+	};
+
 	p_luaState.create_named_table("Physics",
-		"Raycast", [](const OvMaths::FVector3& p_origin, const OvMaths::FVector3& p_direction, float p_distance) { return PhysicsWrapper::Raycast(p_origin, p_direction, p_distance); }
+		"Raycast", [](const OvMaths::FVector3& p_origin, const OvMaths::FVector3& p_direction, float p_distance) { return PhysicsWrapper::Raycast(p_origin, p_direction, p_distance); },
+		"GetLayerIndex", [](const std::string& p_name) -> std::optional<int>
+		{
+			if (const auto layer = OVSERVICE(OvPhysics::Core::PhysicsEngine).FindLayer(p_name))
+			{
+				return static_cast<int>(*layer);
+			}
+
+			return std::nullopt;
+		},
+		"GetLayerName", [isLayer](int p_layer) -> std::string
+		{
+			return isLayer(p_layer) ? OVSERVICE(OvPhysics::Core::PhysicsEngine).GetLayerName(static_cast<uint16_t>(p_layer)) : std::string{};
+		},
+		"DoLayersCollide", [isLayer](int p_layer1, int p_layer2)
+		{
+			return isLayer(p_layer1) && isLayer(p_layer2) &&
+				OVSERVICE(OvPhysics::Core::PhysicsEngine).DoLayersCollide(static_cast<uint16_t>(p_layer1), static_cast<uint16_t>(p_layer2));
+		},
+		"SetLayersCollide", [isLayer](int p_layer1, int p_layer2, bool p_collide)
+		{
+			if (!isLayer(p_layer1) || !isLayer(p_layer2))
+			{
+				OVLOG_WARNING(std::format("Physics.SetLayersCollide: no layer {} or {}", p_layer1, p_layer2));
+				return;
+			}
+
+			OVSERVICE(OvPhysics::Core::PhysicsEngine).SetLayersCollide(static_cast<uint16_t>(p_layer1), static_cast<uint16_t>(p_layer2), p_collide);
+		}
 	);
 
 	p_luaState.create_named_table("Time",

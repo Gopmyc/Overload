@@ -99,6 +99,11 @@ namespace OvCore::ECS::Components
 		bool IsStatic() const;
 
 		/**
+		* Returns the collision layer of the physical object (0 to OvPhysics::Settings::PhysicsSettings::kLayerCount - 1)
+		*/
+		uint16_t GetCollisionLayer() const;
+
+		/**
 		* Defines a new mass for the physical object
 		* @param p_mass
 		*/
@@ -163,6 +168,13 @@ namespace OvCore::ECS::Components
 		* @param p_static
 		*/
 		void SetStatic(bool p_static);
+
+		/**
+		* Puts the physical object on a collision layer: which layers collide is set by the project's physics settings.
+		* Out of range, the layer is clamped
+		* @param p_layer
+		*/
+		void SetCollisionLayer(uint16_t p_layer);
 
 		/**
 		* Serialize the component

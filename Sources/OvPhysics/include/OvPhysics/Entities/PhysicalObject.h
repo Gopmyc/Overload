@@ -204,6 +204,18 @@ namespace OvPhysics::Entities
 		void SetStatic(bool p_static);
 
 		/**
+		* Puts the physical object on a collision layer (0 to PhysicsSettings::kLayerCount - 1): which layers collide
+		* is set by the physics engine's settings. Out of range, the layer is clamped
+		* @param p_layer
+		*/
+		void SetLayer(uint16_t p_layer);
+
+		/**
+		* Returns the collision layer of the physical object
+		*/
+		uint16_t GetLayer() const;
+
+		/**
 		* Defines if the physical object should be enabled or not
 		* @param p_enabled
 		*/
@@ -263,8 +275,6 @@ namespace OvPhysics::Entities
 		OvTools::Eventing::Event<PhysicalObject&>			TriggerStopEvent;
 
 	private:
-		static constexpr uint16_t kObjectLayer = 0;
-
 		/* Transform stuff */
 		OvMaths::FTransform* const		m_transform;
 		const bool						m_internalTransform;
@@ -273,6 +283,7 @@ namespace OvPhysics::Entities
 		float					m_mass = 1.f;
 		bool					m_kinematic = false;
 		bool					m_static = false;
+		uint16_t				m_layer = 0;
 		bool					m_trigger = false;
 		bool					m_enabled = true;
 		bool					m_considered = false;

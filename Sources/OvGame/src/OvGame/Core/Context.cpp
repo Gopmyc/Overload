@@ -7,6 +7,7 @@
 #include <filesystem>
 
 #include <OvCore/Global/ServiceLocator.h>
+#include <OvCore/Helpers/ProjectSettings.h>
 #include <OvCore/Rendering/FramebufferUtil.h>
 #include <OvCore/Scripting/ScriptEngine.h>
 
@@ -158,7 +159,7 @@ OvGame::Core::Context::Context() :
 	audioEngine = std::make_unique<OvAudio::Core::AudioEngine>();
 
 	/* Physics engine */
-	physicsEngine = std::make_unique<OvPhysics::Core::PhysicsEngine>(OvPhysics::Settings::PhysicsSettings{ {0.0f, projectSettings.Get<float>("gravity"), 0.0f } });
+	physicsEngine = std::make_unique<OvPhysics::Core::PhysicsEngine>(OvCore::Helpers::ProjectSettings::ReadPhysicsSettings(projectSettings));
 
 	/* Scripting */
 	scriptEngine = std::make_unique<OvCore::Scripting::ScriptEngine>(

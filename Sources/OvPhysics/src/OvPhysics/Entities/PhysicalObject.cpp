@@ -16,6 +16,7 @@
 #include <OvDebug/Assertion.h>
 #include <OvDebug/Logger.h>
 #include <OvPhysics/Entities/PhysicalObject.h>
+#include <OvPhysics/Settings/PhysicsSettings.h>
 #include <OvPhysics/Tools/Conversion.h>
 
 using namespace OvPhysics::Tools;
@@ -285,6 +286,21 @@ void OvPhysics::Entities::PhysicalObject::SetStatic(bool p_static)
 	}
 }
 
+void OvPhysics::Entities::PhysicalObject::SetLayer(uint16_t p_layer)
+{
+	m_layer = std::min(p_layer, static_cast<uint16_t>(Settings::PhysicsSettings::kLayerCount - 1));
+
+	if (m_body)
+	{
+		m_bodyInterface->SetObjectLayer(m_body->GetID(), m_layer);
+	}
+}
+
+uint16_t OvPhysics::Entities::PhysicalObject::GetLayer() const
+{
+	return m_layer;
+}
+
 void OvPhysics::Entities::PhysicalObject::SetEnabled(bool p_enabled)
 {
 	m_enabled = p_enabled;
@@ -394,7 +410,7 @@ void OvPhysics::Entities::PhysicalObject::CreateBody(const Settings::BodySetting
 		Conversion::ToJoltVector3(m_bodyPosition),
 		Conversion::ToJoltQuaternion(m_bodyRotation),
 		isStatic ? JPH::EMotionType::Static : isDynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Kinematic,
-		kObjectLayer
+		m_layer
 	);
 
 	bodyCreationSettings.mAllowedDOFs = isDynamic ? allowedDOFs : JPH::EAllowedDOFs::All;

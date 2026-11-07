@@ -15,6 +15,7 @@
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/Body.h>
+#include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Body/BodyInterface.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayerInterfaceTable.h>
 #include <Jolt/Physics/Collision/BroadPhase/ObjectVsBroadPhaseLayerFilterTable.h>
@@ -49,8 +50,7 @@ namespace
 	constexpr uint32_t kBodyMutexCount = 0; // 0 lets Jolt pick a default value
 	constexpr uint32_t kMaxBodyPairs = 65536;
 	constexpr uint32_t kMaxContactConstraints = 20480;
-	constexpr uint32_t kObjectLayerCount = 2;
-	constexpr uint16_t kRagdollLayer = 1;
+	constexpr uint32_t kObjectLayerCount = OvPhysics::Settings::PhysicsSettings::kLayerCount;
 	constexpr uint32_t kBroadPhaseLayerCount = 1;
 	constexpr size_t kTempAllocatorSize = 10 * 1024 * 1024;
 
@@ -72,6 +72,39 @@ namespace
 	}
 }
 
+namespace
+{
+	/**
+	* Every layer is in the one broad phase layer: which layers collide is decided by the pair filter alone, so that it
+	* can change at run time
+	*/
+	class SingleBroadPhaseLayerFilter final : public JPH::ObjectVsBroadPhaseLayerFilter
+	{
+	public:
+		bool ShouldCollide(JPH::ObjectLayer, JPH::BroadPhaseLayer) const override
+		{
+			return true;
+		}
+	};
+
+	/**
+	* Only physical objects: a ragdoll's bodies carry no physical object
+	*/
+	class PhysicalObjectBodyFilter final : public JPH::BodyFilter
+	{
+	public:
+		bool ShouldCollideLocked(const JPH::Body& p_body) const override
+		{
+			return p_body.GetUserData() != 0;
+		}
+	};
+
+	bool IsRagdollBody(const JPH::Body& p_body)
+	{
+		return p_body.GetUserData() == 0;
+	}
+}
+
 /**
 * Collects the pairs of bodies in contact during the simulation (called from the simulation threads)
 */
@@ -79,16 +112,29 @@ class OvPhysics::Core::PhysicsEngine::ContactListener final : public JPH::Contac
 {
 public:
 	/**
-	* A ragdoll falls on the world but goes through the dynamic bodies: it never pushes nor trips the living
+	* Only called between two simulation steps
+	* @param p_ignore
+	*/
+	void SetRagdollIgnoresDynamicBodies(bool p_ignore)
+	{
+		m_ragdollIgnoresDynamicBodies = p_ignore;
+	}
+
+	/**
+	* When the settings ask it, a ragdoll falls on the world but goes through the dynamic bodies: it never pushes nor
+	* trips a living body
 	*/
 	JPH::ValidateResult OnContactValidate(const JPH::Body& p_body1, const JPH::Body& p_body2, JPH::RVec3Arg, const JPH::CollideShapeResult&) override
 	{
-		const bool isRagdoll1 = p_body1.GetObjectLayer() == kRagdollLayer;
-		const bool isRagdoll2 = p_body2.GetObjectLayer() == kRagdollLayer;
-
-		if (isRagdoll1 != isRagdoll2 && (isRagdoll1 ? p_body2 : p_body1).IsDynamic())
+		if (m_ragdollIgnoresDynamicBodies)
 		{
-			return JPH::ValidateResult::RejectAllContactsForThisBodyPair;
+			const bool isRagdoll1 = IsRagdollBody(p_body1);
+			const bool isRagdoll2 = IsRagdollBody(p_body2);
+
+			if (isRagdoll1 != isRagdoll2 && (isRagdoll1 ? p_body2 : p_body1).IsDynamic())
+			{
+				return JPH::ValidateResult::RejectAllContactsForThisBodyPair;
+			}
 		}
 
 		return JPH::ValidateResult::AcceptAllContactsForThisBodyPair;
@@ -127,6 +173,7 @@ private:
 	}
 
 private:
+	bool m_ragdollIgnoresDynamicBodies = false;
 	std::mutex m_mutex;
 	std::vector<std::pair<JPH::BodyID, JPH::BodyID>> m_contacts;
 };
@@ -143,17 +190,16 @@ OvPhysics::Core::PhysicsEngine::PhysicsEngine(const Settings::PhysicsSettings & 
 	m_jobSystem = std::make_unique<JPH::JobSystemThreadPool>(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers);
 
 	m_broadPhaseLayerInterface = std::make_unique<JPH::BroadPhaseLayerInterfaceTable>(kObjectLayerCount, kBroadPhaseLayerCount);
-	m_broadPhaseLayerInterface->MapObjectToBroadPhaseLayer(PhysicalObject::kObjectLayer, JPH::BroadPhaseLayer(0));
-	m_broadPhaseLayerInterface->MapObjectToBroadPhaseLayer(kRagdollLayer, JPH::BroadPhaseLayer(0));
+	for (uint16_t layer = 0; layer < kObjectLayerCount; ++layer)
+	{
+		m_broadPhaseLayerInterface->MapObjectToBroadPhaseLayer(layer, JPH::BroadPhaseLayer(0));
+	}
 
 	m_objectLayerPairFilter = std::make_unique<JPH::ObjectLayerPairFilterTable>(kObjectLayerCount);
-	m_objectLayerPairFilter->EnableCollision(PhysicalObject::kObjectLayer, PhysicalObject::kObjectLayer);
-	m_objectLayerPairFilter->EnableCollision(PhysicalObject::kObjectLayer, kRagdollLayer);
-	m_objectLayerPairFilter->EnableCollision(kRagdollLayer, kRagdollLayer);
-
-	m_objectVsBroadPhaseLayerFilter = std::make_unique<JPH::ObjectVsBroadPhaseLayerFilterTable>(*m_broadPhaseLayerInterface, kBroadPhaseLayerCount, *m_objectLayerPairFilter, kObjectLayerCount);
-
+	m_objectVsBroadPhaseLayerFilter = std::make_unique<SingleBroadPhaseLayerFilter>();
 	m_contactListener = std::make_unique<ContactListener>();
+
+	ApplyLayerSettings(p_settings);
 
 	m_physicsSystem = std::make_unique<JPH::PhysicsSystem>();
 	m_physicsSystem->Init(kMaxBodies, kBodyMutexCount, kMaxBodyPairs, kMaxContactConstraints, *m_broadPhaseLayerInterface, *m_objectVsBroadPhaseLayerFilter, *m_objectLayerPairFilter);
@@ -233,21 +279,21 @@ std::optional<RaycastHit> OvPhysics::Core::PhysicsEngine::Raycast(OvMaths::FVect
 	const JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
 
 	// Only physical objects are reported: a ragdoll's bodies are none
-	const JPH::SpecifiedObjectLayerFilter objectLayerFilter(PhysicalObject::kObjectLayer);
+	const PhysicalObjectBodyFilter bodyFilter;
 
 	RaycastHit resultHit;
 
 	// Try to get First Hit
 	JPH::RayCastResult closestHit;
 
-	if (narrowPhaseQuery.CastRay(ray, closestHit, {}, objectLayerFilter))
+	if (narrowPhaseQuery.CastRay(ray, closestHit, {}, {}, bodyFilter))
 	{
 		// Get First Hit
 		resultHit.FirstResultObject = reinterpret_cast<OvPhysics::Entities::PhysicalObject*>(bodyInterface.GetUserData(closestHit.mBodyID));
 
 		// Try to get all Hit
 		JPH::AllHitCollisionCollector<JPH::CastRayCollector> allHitsCollector;
-		narrowPhaseQuery.CastRay(ray, JPH::RayCastSettings(), allHitsCollector, {}, objectLayerFilter);
+		narrowPhaseQuery.CastRay(ray, JPH::RayCastSettings(), allHitsCollector, {}, {}, bodyFilter);
 
 		// Get all Hit
 		for (const JPH::RayCastResult& hit : allHitsCollector.mHits)
@@ -269,10 +315,84 @@ OvMaths::FVector3 OvPhysics::Core::PhysicsEngine::GetGravity() const
 	return Conversion::ToOvVector3(m_physicsSystem->GetGravity());
 }
 
+void OvPhysics::Core::PhysicsEngine::ApplyLayerSettings(const Settings::PhysicsSettings& p_settings)
+{
+	m_settings.layerNames = p_settings.layerNames;
+	m_settings.collisionMasks = p_settings.collisionMasks;
+	m_settings.ragdollLayer = std::min(p_settings.ragdollLayer, static_cast<uint16_t>(kObjectLayerCount - 1));
+	m_settings.ragdollIgnoresDynamicBodies = p_settings.ragdollIgnoresDynamicBodies;
+
+	// Two layers collide only if each one's mask names the other
+	for (uint16_t layer = 0; layer < kObjectLayerCount; ++layer)
+	{
+		for (uint16_t other = layer; other < kObjectLayerCount; ++other)
+		{
+			const bool collide =
+				(m_settings.collisionMasks[layer] >> other & 1) != 0 &&
+				(m_settings.collisionMasks[other] >> layer & 1) != 0;
+
+			SetLayersCollide(layer, other, collide);
+		}
+	}
+
+	m_contactListener->SetRagdollIgnoresDynamicBodies(m_settings.ragdollIgnoresDynamicBodies);
+}
+
+bool OvPhysics::Core::PhysicsEngine::DoLayersCollide(uint16_t p_layer1, uint16_t p_layer2) const
+{
+	if (p_layer1 >= kObjectLayerCount || p_layer2 >= kObjectLayerCount)
+	{
+		return false;
+	}
+
+	return m_objectLayerPairFilter->ShouldCollide(p_layer1, p_layer2);
+}
+
+void OvPhysics::Core::PhysicsEngine::SetLayersCollide(uint16_t p_layer1, uint16_t p_layer2, bool p_collide)
+{
+	if (p_layer1 >= kObjectLayerCount || p_layer2 >= kObjectLayerCount)
+	{
+		return;
+	}
+
+	if (p_collide)
+	{
+		m_objectLayerPairFilter->EnableCollision(p_layer1, p_layer2);
+	}
+	else
+	{
+		m_objectLayerPairFilter->DisableCollision(p_layer1, p_layer2);
+	}
+}
+
+std::optional<uint16_t> OvPhysics::Core::PhysicsEngine::FindLayer(const std::string& p_name) const
+{
+	if (p_name.empty())
+	{
+		return std::nullopt;
+	}
+
+	for (uint16_t layer = 0; layer < kObjectLayerCount; ++layer)
+	{
+		if (m_settings.layerNames[layer] == p_name)
+		{
+			return layer;
+		}
+	}
+
+	return std::nullopt;
+}
+
+const std::string& OvPhysics::Core::PhysicsEngine::GetLayerName(uint16_t p_layer) const
+{
+	static const std::string kNoName;
+	return p_layer < kObjectLayerCount ? m_settings.layerNames[p_layer] : kNoName;
+}
+
 std::unique_ptr<Ragdoll> OvPhysics::Core::PhysicsEngine::CreateRagdoll(const std::vector<Settings::RagdollPartSettings>& p_parts, const OvMaths::FVector3& p_linearVelocity)
 {
 	// Each ragdoll has a collision group of its own, within which its parts only collide where they do not touch
-	auto ragdoll = std::make_unique<Ragdoll>(*m_physicsSystem, p_parts, p_linearVelocity, kRagdollLayer, ++m_ragdollCount);
+	auto ragdoll = std::make_unique<Ragdoll>(*m_physicsSystem, p_parts, p_linearVelocity, m_settings.ragdollLayer, ++m_ragdollCount);
 	return ragdoll->IsValid() ? std::move(ragdoll) : nullptr;
 }
 

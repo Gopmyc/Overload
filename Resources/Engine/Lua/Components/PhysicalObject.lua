@@ -103,3 +103,12 @@ function PhysicalObject:IsStatic() end
 --- Defines if the physical object should be static or not (a static object ignores the kinematic setting)
 ---@param static boolean
 function PhysicalObject:SetStatic(static) end
+
+--- Returns the collision layer of the physical object (0 to 15)
+---@return integer
+function PhysicalObject:GetCollisionLayer() end
+
+--- Puts the physical object on a collision layer (0 to 15, clamped): which layers collide is set by the project
+--- (`physics_ignored_layer_pairs`) and by `Physics.SetLayersCollide`
+---@param layer integer
+function PhysicalObject:SetCollisionLayer(layer) end
