@@ -206,7 +206,7 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 
 	// Play mode keeps its saves where the built game will: they are the same game's
 	saveStorage = std::make_unique<OvTools::Filesystem::SaveStorage>(
-		OvTools::Filesystem::SaveStorage::GetDefaultRoot(projectSettings.GetOrDefault<std::string>("executable_name", "Game"))
+		OvTools::Filesystem::SaveStorage::GetDefaultRoot(OvCore::Helpers::ProjectSettings::GetSaveName(projectSettings))
 	);
 
 	// Ensures lua project files are up-to-date. This is necessary for Lua's LSP to function properly.
@@ -262,6 +262,7 @@ bool OvEditor::Core::Context::CompleteProjectSettings()
 	added |= projectSettings.Add<bool>("fullscreen", false);
 	added |= projectSettings.Add<bool>("resizable", false);
 	added |= projectSettings.Add<std::string>("executable_name", "Game");
+	added |= projectSettings.Add<std::string>("project_id", "");
 	added |= projectSettings.Add<std::string>("start_scene", "");
 	added |= projectSettings.Add<bool>("vsync", true);
 	added |= projectSettings.Add<bool>("multisampling", false);

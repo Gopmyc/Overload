@@ -17,6 +17,8 @@ later version of the same major version.
   point, the normal and the distance; `Physics.OverlapSphere` and `Physics.OverlapBox` return the objects a shape
   overlaps. Each takes a layer mask (`Physics.GetLayerMask`) and leaves triggers out unless asked. `Physics.Raycast`
   is unchanged.
+- **Project ID**: the save folder follows the project's `project_id`, or `executable_name` while it is empty, so that
+  a game renamed keeps its saves. The editor shows it beside the executable name.
 
 ### Changed
 

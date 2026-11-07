@@ -157,3 +157,19 @@ OvPhysics::Settings::PhysicsSettings OvCore::Helpers::ProjectSettings::ReadPhysi
 
 	return settings;
 }
+
+std::string OvCore::Helpers::ProjectSettings::GetSaveName(const OvTools::Filesystem::IniFile& p_projectSettings)
+{
+	// The project's identity outlives its executable's name, so that renaming the game keeps its saves
+	for (const char* key : { "project_id", "executable_name" })
+	{
+		const std::string value = p_projectSettings.GetOrDefault<std::string>(key, {});
+
+		if (const std::string_view name = Trim(value); !name.empty())
+		{
+			return std::string(name);
+		}
+	}
+
+	return "Game";
+}
