@@ -18,13 +18,19 @@
 
 ## Behaviours
 
-- A Behaviour is a script returning a table. Its fields with default values become inspector properties: number,
-  string, boolean, an asset, or `Actor()` for an actor reference. A colour, a vector or a list stays a constant of the
-  script, or a string the script parses.
+- A Behaviour is a script returning a table. Its fields with default values become inspector properties:
+  - a number, a string, a boolean, a `Vector2`, a `Vector3` or a `Vector4`;
+  - an asset (`Model()`, `Texture()`, `Material()`…) or `Actor()` for an actor reference;
+  - `Color(r, g, b[, a])`, a colour picker, which the script receives as a `Vector4`;
+  - `Enum({ "Walk", "Run" }[, "Run"])`, a list of choices, which the script receives as the chosen string;
+  - `List("number" | "string" | "bool"[, { ... }])`, edited as one comma-separated line, which the script receives
+    as a plain table.
+  Any other table stays a field of the script, out of the inspector.
 - Values set in a prefab or a scene are saved as `script_properties` and override the script defaults: the value in
   play is the prefab's or the scene's.
-- In a prefab or a scene file, the property types are `number`, `string`, `bool`, `actor` and `asset`. A property
-  written `type="boolean"` is not read at all, and the script default silently wins.
+- In a prefab or a scene file, the property types are `bool`, `number`, `string`, `asset`, `actor`, `vector2`,
+  `vector3`, `vector4`, `color` (`r g b a`), `enum` and `list` (with `itemType` and one `<item>` per item). Any other
+  type is logged as an error, and a type the script no longer declares as a warning; the script's default is kept.
 - `self.owner` is the actor the Behaviour sits on.
 - Callbacks: `OnAwake`, `OnStart`; `OnEnable`, `OnDisable`, `OnDestroy`; `OnUpdate(dt)`, `OnFixedUpdate(dt)`,
   `OnLateUpdate(dt)`; `OnCollisionEnter/Stay/Exit`, `OnTriggerEnter/Stay/Exit`.
