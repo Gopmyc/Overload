@@ -5,6 +5,7 @@ on it. Each page states the behaviour of the current version; [`CHANGELOG.md`](.
 
 | Page | What it covers |
 | --- | --- |
+| [Projects](Projects.md) | The project file and its settings |
 | [Scripting](Scripting.md) | The Lua sandbox, modules, Behaviours and their lifecycle, actors and references, update order, time |
 | [Physics](Physics.md) | Bodies, triggers, queries, Jolt specifics, static bodies, height fields, ragdolls |
 | [Rendering](Rendering.md) | Materials and per-renderer values, the post process stack and fog, custom shaders, instancing, culling |

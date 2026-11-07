@@ -13,6 +13,9 @@ later version of the same major version.
   the editor's play mode always did. Before, a destroyed actor stayed active and drawn in a built game.
 - **Actor references inside a prefab survive instantiation**: an actor property that names another actor of the same
   prefab now names that actor's instance. Before, every instance got new GUIDs and such a property came out `nil`.
+- **The editor completes a project file instead of resetting it**: a project file lacking a setting gets that setting's
+  default and keeps all its other values. Before, one missing key reset every setting (`start_scene` emptied,
+  `executable_name` back to `Game`, which also moved the save folder).
 
 ## [0.1.0] - 2026-11-07
 
