@@ -19,6 +19,10 @@ later version of the same major version.
   is unchanged.
 - **Project ID**: the save folder follows the project's `project_id`, or `executable_name` while it is empty, so that
   a game renamed keeps its saves. The editor shows it beside the executable name.
+- **Runtime limits in the project**: the save folder's limits (`storage_max_file_mib`, `storage_max_total_mib`,
+  `storage_max_entries`), `Json`'s (`json_max_mib`, `json_max_depth`) and the longest frame step (`max_frame_delta`)
+  are optional project keys; their defaults are the former fixed values. In C++, `SaveStorageLimits`,
+  `Clock::SetMaxDeltaTime` and `OvCore::Scripting::SetJsonLimits`.
 
 ### Changed
 

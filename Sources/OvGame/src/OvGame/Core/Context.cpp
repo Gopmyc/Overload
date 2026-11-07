@@ -167,9 +167,16 @@ OvGame::Core::Context::Context() :
 		engineAssetsPath
 	);
 
+	/* What the scripts may do: their saves, their Json and the longest frame step */
+	const auto runtimeLimits = OvCore::Helpers::ProjectSettings::ReadRuntimeLimits(projectSettings);
+
 	saveStorage = std::make_unique<OvTools::Filesystem::SaveStorage>(
-		OvTools::Filesystem::SaveStorage::GetDefaultRoot(OvCore::Helpers::ProjectSettings::GetSaveName(projectSettings))
+		OvTools::Filesystem::SaveStorage::GetDefaultRoot(OvCore::Helpers::ProjectSettings::GetSaveName(projectSettings)),
+		runtimeLimits.storage
 	);
+
+	OvCore::Scripting::SetJsonLimits(runtimeLimits.json);
+	clock.SetMaxDeltaTime(runtimeLimits.maxFrameDelta);
 
 	/* Service Locator providing */
 	ServiceLocator::Provide<OvPhysics::Core::PhysicsEngine>(*physicsEngine);

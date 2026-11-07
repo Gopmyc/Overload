@@ -21,7 +21,8 @@
 - Names: 1 to 4 names joined by `/`, 255 bytes at most; each name 64 bytes at most of lower-case letters, digits, `_`
   and `-`, in parts joined by single dots (`settings.json`, `slots/1.json`). No `..`, no leading or trailing dot, no
   capital, no name Windows keeps for a device (`con`, `nul.json`, `com1`…).
-- Limits: 4 MiB a file; 64 MiB and 1024 files and folders in all.
+- Limits: 4 MiB a file; 64 MiB and 1024 files and folders in all. A project changes them with
+  `storage_max_file_mib`, `storage_max_total_mib` and `storage_max_entries` (see [Projects](Projects.md)).
 - What a script cannot do: read, write, list or delete anything outside the folder (every part of a path that exists
   must be a plain folder or a plain file, so a link or a junction is refused); fill the disk; run what it reads; leave
   half a file (a write goes to a temporary file, flushed, then renamed over the old one). The files stay the player's,
@@ -34,5 +35,6 @@
 - A table with the keys 1 to n is a list, one with string keys an object, its keys sorted; an empty table is `[]`.
   Integers stay integers, and a float keeps a `.0`.
 - Refused: keys of both kinds, holes, functions, infinite numbers, invalid UTF-8, nesting past 64, text past 4 MiB.
+  A project changes the last two with `json_max_depth` and `json_max_mib`.
 - Decoding is strict JSON: a `null` member of an object is left out; a `null` in a list, a repeated key, a byte order
   mark or anything after the value is refused.

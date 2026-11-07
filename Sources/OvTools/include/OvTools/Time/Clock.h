@@ -60,6 +60,18 @@ namespace OvTools::Time
 		*/
 		void SetTimeScale(float p_timeScale);
 
+		/**
+		* Defines the longest step a frame may report (0.1 s by default): a longer frame, a hitch or a breakpoint,
+		* reports this much, so that what is driven by the delta time never leaps
+		* @param p_maxDeltaTime (seconds, above 0)
+		*/
+		void SetMaxDeltaTime(float p_maxDeltaTime);
+
+		/**
+		* Returns the longest step a frame may report
+		*/
+		float GetMaxDeltaTime() const;
+
 	private:
 		void Initialize();
 
@@ -72,5 +84,6 @@ namespace OvTools::Time
 		float	__TIME_SCALE = 1.0f;
 		float	__DELTA_TIME = 0.0f;
 		float	__TIME_SINCE_START = 0.0f;
+		float	__MAX_DELTA_TIME = 0.1f;
 	};
 }

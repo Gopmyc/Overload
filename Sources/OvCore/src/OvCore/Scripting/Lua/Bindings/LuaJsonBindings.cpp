@@ -15,11 +15,11 @@
 
 #include <sol/sol.hpp>
 
+#include <OvCore/Scripting/JsonLimits.h>
+
 namespace
 {
-	// The same ceiling as a saved file, and a depth no data worth saving reaches but a cycle always does
-	constexpr size_t kMaxSize = 4 * 1024 * 1024;
-	constexpr int kMaxDepth = 64;
+	OvCore::Scripting::JsonLimits g_limits;
 
 	bool IsValidUtf8(std::string_view p_text)
 	{
@@ -141,7 +141,7 @@ namespace
 
 		bool Value(int p_index, int p_depth)
 		{
-			if (m_text.size() > kMaxSize)
+			if (m_text.size() > g_limits.maxSize)
 			{
 				return Fail("too large");
 			}
@@ -239,7 +239,7 @@ namespace
 
 		bool Table(int p_index, int p_depth)
 		{
-			if (p_depth >= kMaxDepth || !lua_checkstack(m_state, 4))
+			if (p_depth >= g_limits.maxDepth || !lua_checkstack(m_state, 4))
 			{
 				return Fail("nested too deep");
 			}
@@ -382,7 +382,7 @@ namespace
 
 		bool Decode()
 		{
-			if (m_text.size() > kMaxSize)
+			if (m_text.size() > g_limits.maxSize)
 			{
 				return Fail("too large");
 			}
@@ -472,7 +472,7 @@ namespace
 
 		bool Enter(int p_depth)
 		{
-			if (p_depth >= kMaxDepth || !lua_checkstack(m_state, 4))
+			if (p_depth >= g_limits.maxDepth || !lua_checkstack(m_state, 4))
 			{
 				return Fail("nested too deep");
 			}
@@ -845,7 +845,7 @@ namespace
 			return Failure(p_state, top, encoder.GetError());
 		}
 
-		if (encoder.GetText().size() > kMaxSize)
+		if (encoder.GetText().size() > g_limits.maxSize)
 		{
 			return Failure(p_state, top, "json: too large");
 		}
@@ -875,6 +875,16 @@ namespace
 
 		return 1;
 	}
+}
+
+void OvCore::Scripting::SetJsonLimits(const JsonLimits& p_limits)
+{
+	g_limits = p_limits;
+}
+
+const OvCore::Scripting::JsonLimits& OvCore::Scripting::GetJsonLimits()
+{
+	return g_limits;
 }
 
 void BindLuaJson(sol::state& p_luaState)

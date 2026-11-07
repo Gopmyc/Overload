@@ -16,6 +16,16 @@
 namespace OvTools::Filesystem
 {
 	/**
+	* How much a save folder may hold
+	*/
+	struct SaveStorageLimits
+	{
+		size_t maxFileSize = 4 * 1024 * 1024;
+		size_t maxTotalSize = 64 * 1024 * 1024;
+		size_t maxEntryCount = 1024;
+	};
+
+	/**
 	* The one folder where the scripts keep what must outlive a session (saved games, settings), behind a sandbox.
 	* A script names a file by a relative path such as "slots/1.json", and nothing else:
 	* - a path has 1 to 4 names separated by "/", 255 bytes at most; a name is 1 to 64 lower case letters, digits,
@@ -23,7 +33,8 @@ namespace OvTools::Filesystem
 	*   "com1"...). So no "..", no absolute path, no drive, no backslash: a path can only lead inside the folder;
 	* - every name already on the disk along the way must be a plain folder or a plain file: a symbolic link or a
 	*   Windows junction planted in the folder is refused, so nothing leads out of it either;
-	* - a file holds 4 MiB at most, and the folder 64 MiB and 1024 entries, so a script cannot fill the disk;
+	* - a file holds 4 MiB at most, and the folder 64 MiB and 1024 entries (by default: see SaveStorageLimits), so a
+	*   script cannot fill the disk;
 	* - a file is written whole or not at all: to a temporary file first, flushed to the disk, then renamed over the
 	*   old one, so a crash in the middle leaves the previous version;
 	* - what is read is handed back as bytes, never run.
@@ -34,9 +45,6 @@ namespace OvTools::Filesystem
 	class SaveStorage final
 	{
 	public:
-		static constexpr size_t kMaxFileSize = 4 * 1024 * 1024;
-		static constexpr size_t kMaxTotalSize = 64 * 1024 * 1024;
-		static constexpr size_t kMaxEntryCount = 1024;
 		static constexpr size_t kMaxDepth = 4;
 		static constexpr size_t kMaxNameLength = 64;
 		static constexpr size_t kMaxPathLength = 255;
@@ -44,13 +52,19 @@ namespace OvTools::Filesystem
 		/**
 		* A storage over the given folder, which need not exist yet
 		* @param p_root
+		* @param p_limits
 		*/
-		explicit SaveStorage(std::filesystem::path p_root);
+		explicit SaveStorage(std::filesystem::path p_root, SaveStorageLimits p_limits = {});
 
 		/**
 		* The folder the storage keeps its files in
 		*/
 		const std::filesystem::path& GetRoot() const;
+
+		/**
+		* How much the folder may hold
+		*/
+		const SaveStorageLimits& GetLimits() const;
 
 		/**
 		* The relative path a script's path names, or nothing when a script may not name it
@@ -114,6 +128,7 @@ namespace OvTools::Filesystem
 
 	private:
 		std::filesystem::path m_root;
+		SaveStorageLimits m_limits;
 		bool m_temporaryFilesRemoved = false;
 	};
 }
