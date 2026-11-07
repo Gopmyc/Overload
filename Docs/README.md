@@ -14,6 +14,7 @@ on it. Each page states the behaviour of the current version; [`CHANGELOG.md`](.
 | [Saving](Saving.md) | The save folder, `Storage` and `Json` |
 | [Input](Input.md) | Keys, mouse, the editor's focus rules |
 | [Coordinates](Coordinates.md) | Axes, angles and rotation order |
+| [Testing](Testing.md) | The engine's tests (`OvTests`) and the in-game checks, how to run them and add one |
 
 The Lua API reference is in [`Resources/Engine/Lua/`](../Resources/Engine/Lua), one definition file per type, to point a
 Lua language server at. The UI library documents itself in

@@ -334,6 +334,10 @@ OvPhysics::Core::PhysicsEngine::PhysicsEngine(const Settings::PhysicsSettings & 
 
 OvPhysics::Core::PhysicsEngine::~PhysicsEngine()
 {
+	// A body made or destroyed after this engine is gone must not reach it
+	PhysicalObject::CreatedEvent -= m_createdListener;
+	PhysicalObject::DestroyedEvent -= m_destroyedListener;
+
 	m_physicsSystem.reset();
 
 	JPH::UnregisterTypes();
@@ -646,8 +650,8 @@ std::unique_ptr<Ragdoll> OvPhysics::Core::PhysicsEngine::CreateRagdoll(const std
 
 void OvPhysics::Core::PhysicsEngine::ListenToPhysicalObjects()
 {
-	PhysicalObject::CreatedEvent += std::bind(static_cast<void(PhysicsEngine::*)(PhysicalObject&)>(&PhysicsEngine::Consider), this, std::placeholders::_1);
-	PhysicalObject::DestroyedEvent += std::bind(static_cast<void(PhysicsEngine::*)(PhysicalObject&)>(&PhysicsEngine::Unconsider), this, std::placeholders::_1);
+	m_createdListener = PhysicalObject::CreatedEvent += std::bind(static_cast<void(PhysicsEngine::*)(PhysicalObject&)>(&PhysicsEngine::Consider), this, std::placeholders::_1);
+	m_destroyedListener = PhysicalObject::DestroyedEvent += std::bind(static_cast<void(PhysicsEngine::*)(PhysicalObject&)>(&PhysicsEngine::Unconsider), this, std::placeholders::_1);
 }
 
 void OvPhysics::Core::PhysicsEngine::Consider(PhysicalObject& p_toConsider)
