@@ -1,0 +1,68 @@
+// The vertex stage of the engine's Standard shader (shader API 1.0, see the engine's Docs/Shaders.md). Standard.ovfx is
+// this stage and StandardFragment.ovfxh; a shader built on Standard includes both, after "#version 450 core".
+//
+// Extension point: a shader that defines STANDARD_VERTEX before including this file implements, after it,
+//     void StandardVertex(inout vec3 worldPosition, inout vec3 worldNormal, vec2 texCoords)
+// which may move the vertex and turn its normal once they are in world space (wind, waves, a swelling).
+
+#include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+#include ":Shaders/Common/Instancing.ovfxh"
+#include ":Shaders/Common/Skinning.ovfxh"
+#include ":Shaders/Common/Utils.ovfxh"
+
+layout (location = 0) in vec3 geo_Pos;
+layout (location = 1) in vec2 geo_TexCoords;
+layout (location = 2) in vec3 geo_Normal;
+layout (location = 3) in vec3 geo_Tangent;
+layout (location = 4) in vec3 geo_Bitangent;
+#if defined(SKINNING)
+layout (location = 5) in uvec4 geo_BoneIDs;
+layout (location = 6) in vec4 geo_BoneWeights;
+#endif
+
+out VS_OUT
+{
+    vec3 FragPos;
+    vec2 TexCoords;
+    vec3 Normal;
+    mat3 TBN;
+#if defined(PARALLAX_MAPPING)
+    vec3 TangentViewPos;
+    vec3 TangentFragPos;
+#endif
+} vs_out;
+
+#if defined(STANDARD_VERTEX)
+void StandardVertex(inout vec3 worldPosition, inout vec3 worldNormal, vec2 texCoords);
+#endif
+
+void main()
+{
+#if defined(SKINNING)
+    const mat4 modelMatrix = InstanceModelMatrix(gl_InstanceID) * ComputeSkinningMatrix(geo_BoneIDs, geo_BoneWeights);
+    const mat3 normalMatrix = mat3(transpose(inverse(modelMatrix)));
+#else
+    const mat4 modelMatrix = InstanceModelMatrix(gl_InstanceID);
+    const mat3 normalMatrix = mat3(InstanceNormalMatrix(gl_InstanceID)); // Precomputed on the CPU
+#endif
+
+    vec3 worldPosition = vec3(modelMatrix * vec4(geo_Pos, 1.0));
+    vec3 worldNormal = normalize(normalMatrix * geo_Normal);
+
+#if defined(STANDARD_VERTEX)
+    StandardVertex(worldPosition, worldNormal, geo_TexCoords);
+#endif
+
+    vs_out.FragPos = worldPosition;
+    vs_out.TexCoords = geo_TexCoords;
+    vs_out.Normal = worldNormal;
+    vs_out.TBN = ConstructTBN(modelMatrix, geo_Normal, geo_Tangent, geo_Bitangent);
+
+#if defined(PARALLAX_MAPPING)
+    const mat3 TBNi = transpose(vs_out.TBN);
+    vs_out.TangentViewPos = TBNi * ubo_ViewPos;
+    vs_out.TangentFragPos = TBNi * vs_out.FragPos;
+#endif
+
+    gl_Position = ubo_ViewProjection * vec4(vs_out.FragPos, 1.0);
+}

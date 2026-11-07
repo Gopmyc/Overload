@@ -41,6 +41,7 @@ void main()
 #version 450 core
 
 #include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+#include ":Shaders/Common/Fog.ovfxh"
 #include ":Shaders/Common/Utils.ovfxh"
 
 in VS_OUT
@@ -58,6 +59,9 @@ uniform vec2 u_TextureOffset = vec2(0.0);
 uniform float u_AlphaClippingThreshold = 0.1f;
 #endif
 
+// Whether the scene's distance fog covers the material (off by default: an unlit surface often shows through the haze)
+uniform bool u_Fog = false;
+
 out vec4 FRAGMENT_COLOR;
 
 void main()
@@ -73,6 +77,6 @@ void main()
         discard;
     }
 #endif
-    FRAGMENT_COLOR = diffuseColor;
+    FRAGMENT_COLOR = u_Fog ? vec4(ApplyFog(diffuseColor.rgb, fs_in.FragPos), diffuseColor.a) : diffuseColor;
 #endif
 }

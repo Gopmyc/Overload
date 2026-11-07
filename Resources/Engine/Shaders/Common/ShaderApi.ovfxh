@@ -1,0 +1,12 @@
+// The version of the engine's public shader API: its includes, their functions and uniforms, the engine buffer, and
+// Standard's stages and extension points (see the engine's Docs/Shaders.md). The minor version grows when the API gains
+// names, the major version when one deprecated earlier is removed or changes meaning: a shader made for 1.2 builds
+// on any 1.x from 1.2 on. Buffers/EngineUBO.ovfxh includes it, so every shader can test it:
+//     #if SHADER_API_VERSION_MAJOR != 1 || SHADER_API_VERSION_MINOR < 2
+//     #error "made for the engine's shader API 1.2"
+//     #endif
+
+#ifndef SHADER_API_VERSION_MAJOR
+#define SHADER_API_VERSION_MAJOR 1
+#define SHADER_API_VERSION_MINOR 0
+#endif

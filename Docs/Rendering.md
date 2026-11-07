@@ -26,24 +26,8 @@
 
 ## Custom shaders
 
-- The engine's shader includes are under `:Shaders/Common/` and `:Shaders/Lighting/`: `Buffers/EngineUBO.ovfxh` (the
-  engine buffer: `ubo_Model`, `ubo_View`, `ubo_Projection`, `ubo_ViewPos`, `ubo_UserMatrix`, `ubo_GameTime`,
-  `ubo_FogColor`…), `Fog.ovfxh`, `Lighting/PBR.ovfxh` (`PBRLightingModel`), `Instancing.ovfxh`, `Skinning.ovfxh`,
-  `Utils.ovfxh`. A shader that copies `Standard` must be kept in step with it when the engine changes.
-- The fog is not a post process pass: every shader applies it. Include `:Shaders/Common/Fog.ovfxh` after the engine
-  buffer and call `ApplyFog(color, FragPos)` on a surface's final colour, or `FogFade(alpha, FragPos)` on a blended
-  effect's opacity. A shader that forgets it shows as a sharp shape against the haze.
-- A lit custom shader that receives shadows declares `#pass SHADOW_PASS` and discards below
-  `u_ShadowClippingThreshold` there, and declares `_ShadowMap`, `_LightSpaceMatrix` and `_EnvironmentMap`, which the
-  engine binds to a material that receives shadows and reflections.
-- Identical meshes are drawn as one instanced draw when their shader declares `#engine_capability INSTANCING` and reads
-  its matrices through `:Shaders/Common/Instancing.ovfxh` (`InstanceModelMatrix`, `InstanceNormalMatrix`,
-  `InstanceUserMatrix(gl_InstanceID)`): the opaque ones of one material and mesh, and blended ones of one material side
-  by side in the drawing order. A value passed from the vertex to the fragment stage per instance is `flat`.
-- A material may ask for many instances of its model (`gpu_instances`), which its vertex shader places from
-  `gl_InstanceID`: a cloud of particles in one draw.
-- A sky drawn after the opaque geometry pushes its depth just short of the far plane (0.99999); any closer to 1 and the
-  depth buffer's rounding drops whole triangles.
+The shader API, its version, the public includes, `Standard`'s extension points, the fog's material option and the
+rules of a custom shader are in [Shaders](Shaders.md).
 
 ## Models built from Lua
 

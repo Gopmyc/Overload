@@ -38,6 +38,15 @@ later version of the same major version.
   [Docs/Scripting.md](Docs/Scripting.md). `OvGame --dump-lua-api` prints the API, and the engine's tests check it
   against the definitions of `Resources/Engine/Lua`, which now cover every binding (`AssetRef`, the settings'
   constructors, the matrices' call, Tracy's stack-capturing zones).
+- **Shader API**: the public includes, their functions and uniforms, the engine buffer and `Standard`'s stages are
+  declared in [Docs/Shaders.md](Docs/Shaders.md) and versioned (`SHADER_API_VERSION_MAJOR`/`MINOR`, 1.0, in every
+  shader through the engine buffer); the engine's tests check the declaration against the includes.
+- **Standard's extension points**: `Standard` is two public includes (`Standard/StandardVertex.ovfxh`,
+  `Standard/StandardFragment.ovfxh`) that a shader includes and extends through `STANDARD_VERTEX`, `STANDARD_CLIP`,
+  `STANDARD_SURFACE` and `STANDARD_LIGHTING`, instead of copying `Standard` and falling behind it. `Standard` draws as
+  before, pixel for pixel.
+- **Fog as a material option**: `u_Fog` on `Standard` (on by default) and `Unlit` (off by default, now able to take the
+  fog), as both behaved before.
 
 ### Changed
 

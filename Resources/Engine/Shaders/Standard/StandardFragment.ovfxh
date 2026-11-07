@@ -1,0 +1,241 @@
+// The fragment stage of the engine's Standard shader (shader API 1.0, see the engine's Docs/Shaders.md). Standard.ovfx is
+// StandardVertex.ovfxh and this stage; a shader built on Standard includes both, after "#version 450 core".
+//
+// Extension points: a shader that defines one of these before including this file implements its function after it.
+// - STANDARD_CLIP: void StandardClip(vec3 fragPos, vec2 texCoords)
+//   Called first, in every pass (the shadows' too), with the tiled texture coordinates: it may discard (a fade, a cut).
+// - STANDARD_SURFACE: void StandardSurface(inout StandardSurfaceData surface, vec3 fragPos, vec2 texCoords)
+//   Changes the surface once the material's maps are read, before it is lit. It runs after the alpha tests, so the
+//   alpha it sets only reaches the output's alpha (clip with STANDARD_CLIP).
+// - STANDARD_LIGHTING: vec3 StandardLighting(vec3 color, StandardSurfaceData surface, vec3 fragPos)
+//   Changes the lit colour, emission included, before the fog (a rim light, a tint).
+
+#if defined(REFLECTION_PASS)
+// Disable IBL for the reflection capture pass, otherwise reflective objects will
+// bounce infinitely, causing some artifacts. This define must be set before the PBR
+// shader is included, so it must be defined here.
+#define DISABLE_IMAGE_BASED_LIGHTING
+#endif
+
+#include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+#include ":Shaders/Common/Fog.ovfxh"
+#include ":Shaders/Lighting/PBR.ovfxh"
+
+in VS_OUT
+{
+    vec3 FragPos;
+    vec2 TexCoords;
+    vec3 Normal;
+    mat3 TBN;
+#if defined(PARALLAX_MAPPING)
+    vec3 TangentViewPos;
+    vec3 TangentFragPos;
+#endif
+} fs_in;
+
+uniform sampler2D u_AlbedoMap;
+uniform vec4 u_Albedo = vec4(1.0);
+
+uniform sampler2D u_AmbientOcclusionMap;
+uniform sampler2D u_MaskMap;
+
+uniform sampler2D u_EmissiveMap;
+uniform vec3 u_EmissiveColor = vec3(1.0, 1.0, 1.0);
+uniform float u_EmissiveIntensity = 0.0;
+
+#if defined(SPECULAR_WORKFLOW)
+uniform sampler2D u_SpecularMap;
+uniform float u_Specular = 1.0;
+uniform sampler2D u_GlossinessMap;
+uniform float u_Glossiness = 1.0;
+#else
+uniform sampler2D u_MetallicMap;
+uniform float u_Metallic = 1.0;
+uniform sampler2D u_RoughnessMap;
+uniform float u_Roughness = 1.0;
+#endif
+
+uniform float u_RefractionIndex = 1.5; // 1.0 = air, 1.33 = water, 1.5 = glass, etc.
+uniform float u_Transmission = 0.0; // 0.0 = opaque, 1.0 = fully transmissive
+
+#if defined(NORMAL_MAPPING)
+uniform sampler2D u_NormalMap;
+#endif
+
+#if defined(PARALLAX_MAPPING)
+uniform sampler2D u_HeightMap;
+uniform float u_HeightScale = 0.05;
+uniform bool u_ParallaxClipEdges = false;
+uniform int u_MinLayers = 8;
+uniform int u_MaxLayers = 64;
+#endif
+
+#if defined(SHADOW_PASS)
+#undef PARALLAX_MAPPING // Disable parallax mapping in shadow pass
+uniform float u_ShadowClippingThreshold = 0.5;
+#endif
+
+#if defined(DISTANCE_FADE)
+uniform float u_DistanceFadeStart = 100.0;
+uniform float u_DistanceFadeLength = 10.0;
+#endif
+
+uniform vec2 u_TextureTiling = vec2(1.0, 1.0);
+uniform vec2 u_TextureOffset = vec2(0.0, 0.0);
+
+uniform float u_AlphaClippingThreshold = 0.0;
+uniform bool u_AlphaDithering = false;
+
+// Useful when no post-processing is applied.
+uniform bool u_BuiltInToneMapping = false;
+uniform bool u_BuiltInGammaCorrection = false;
+
+// Whether the scene's distance fog covers the material (off for what must stay sharp in the haze: a sky, a marker)
+uniform bool u_Fog = true;
+
+uniform sampler2D _ShadowMap;
+uniform mat4 _LightSpaceMatrix;
+uniform samplerCube _EnvironmentMap;
+
+// What the lighting reads, as STANDARD_SURFACE and STANDARD_LIGHTING see it
+struct StandardSurfaceData
+{
+    vec4 albedo;    // rgb lit, a output
+    vec3 normal;    // world space, unit length
+    float metallic;
+    float roughness;
+    float ao;
+    vec3 emissive;  // added to the lit colour
+};
+
+#if defined(STANDARD_CLIP)
+void StandardClip(vec3 fragPos, vec2 texCoords);
+#endif
+
+#if defined(STANDARD_SURFACE)
+void StandardSurface(inout StandardSurfaceData surface, vec3 fragPos, vec2 texCoords);
+#endif
+
+#if defined(STANDARD_LIGHTING)
+vec3 StandardLighting(vec3 color, StandardSurfaceData surface, vec3 fragPos);
+#endif
+
+out vec4 FRAGMENT_COLOR;
+
+void main()
+{
+#if defined(DISTANCE_FADE)
+    const float distanceAlpha = DistanceFadeAlpha(fs_in.FragPos, ubo_ViewPos, u_DistanceFadeStart, u_DistanceFadeLength);
+    const float ditheredDistanceAlpha = Dithering(distanceAlpha, gl_FragCoord.xy);
+    if (ditheredDistanceAlpha < 0)
+    {
+        discard;
+    }
+#endif
+
+    vec2 texCoords = TileAndOffsetTexCoords(fs_in.TexCoords, u_TextureTiling, u_TextureOffset);
+
+#if defined(PARALLAX_MAPPING)
+    texCoords = ApplyParallaxOcclusionMapping(texCoords, u_HeightMap, fs_in.TangentViewPos, fs_in.TangentFragPos, u_HeightScale, u_MinLayers, u_MaxLayers);
+    if (u_ParallaxClipEdges && IsParallaxOutOfBounds(texCoords, u_TextureTiling, u_TextureOffset, ubo_Projection))
+    {
+        discard;
+    }
+#endif
+
+#if defined(STANDARD_CLIP)
+    StandardClip(fs_in.FragPos, texCoords);
+#endif
+
+    vec4 albedo = texture(u_AlbedoMap, texCoords) * u_Albedo;
+    albedo.a *= texture(u_MaskMap, texCoords).r;
+
+#if defined(SHADOW_PASS)
+    // [PERF-P5] The shadow pass always alpha tests (2 texture fetches + discard), even for fully opaque materials.
+    // Making alpha testing opt-in (e.g. a #feature, like Unlit's ALPHA_CLIPPING) would change existing materials.
+    if (albedo.a < u_ShadowClippingThreshold)
+    {
+        discard;
+    }
+#else
+
+    if (albedo.a < u_AlphaClippingThreshold)
+    {
+        discard;
+    }
+
+    if (u_AlphaDithering && Dithering(albedo.a, gl_FragCoord.xy) < 0)
+    {
+        discard;
+    }
+
+    // Depth pre-pass: only the depth (and the alpha testing above) matters
+    if (ubo_DepthOnly != 0)
+    {
+        FRAGMENT_COLOR = vec4(0.0);
+        return;
+    }
+
+    StandardSurfaceData surface;
+    surface.albedo = albedo;
+
+#if defined(NORMAL_MAPPING)
+    surface.normal = ComputeNormal(texCoords, fs_in.Normal, u_NormalMap, fs_in.TBN);
+#else
+    surface.normal = normalize(fs_in.Normal);
+#endif
+
+#if defined(SPECULAR_WORKFLOW)
+    const float specular = texture(u_SpecularMap, texCoords).r * u_Specular;
+    const float glossiness = texture(u_GlossinessMap, texCoords).r * u_Glossiness;
+    surface.metallic = 1.0 - specular;
+    surface.roughness = 1.0 - glossiness;
+#else
+    surface.metallic = texture(u_MetallicMap, texCoords).r * u_Metallic;
+    surface.roughness = texture(u_RoughnessMap, texCoords).r * u_Roughness;
+#endif
+
+    surface.ao = texture(u_AmbientOcclusionMap, texCoords).r;
+    surface.emissive = texture(u_EmissiveMap, texCoords).rgb * u_EmissiveColor * u_EmissiveIntensity;
+
+#if defined(STANDARD_SURFACE)
+    StandardSurface(surface, fs_in.FragPos, texCoords);
+#endif
+
+    vec3 pbr = PBRLightingModel(
+        surface.albedo.rgb,
+        surface.metallic,
+        surface.roughness,
+        surface.ao,
+        surface.normal,
+        ubo_ViewPos,
+        fs_in.FragPos,
+        _ShadowMap,
+        _LightSpaceMatrix,
+        _EnvironmentMap,
+        u_Transmission,
+        u_RefractionIndex
+    );
+
+    // Simple built-in tonemapping (Reinhard) and gamma correction for elements
+    // not affected by post-processing (e.g. debug, UI, etc.), but still aiming
+    // to approximate the final PBR look.
+    if (u_BuiltInToneMapping)
+    {
+        pbr = pbr / (pbr + vec3(1.0));
+    }
+
+    if (u_BuiltInGammaCorrection)
+    {
+        pbr = pow(pbr, vec3(1.0 / 2.2));
+    }
+
+    pbr += surface.emissive;
+
+#if defined(STANDARD_LIGHTING)
+    pbr = StandardLighting(pbr, surface, fs_in.FragPos);
+#endif
+
+    FRAGMENT_COLOR = vec4(u_Fog ? ApplyFog(pbr, fs_in.FragPos) : pbr, surface.albedo.a);
+#endif
+}
