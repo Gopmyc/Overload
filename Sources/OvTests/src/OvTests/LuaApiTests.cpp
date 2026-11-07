@@ -218,11 +218,11 @@ TEST_SUITE("Lua modules")
 			return results
 		)");
 
+		// The engine makes its Lua state when built, and closes it when destroyed
 		OvCore::Scripting::ScriptEngine engine(project.GetPath(), engineAssets.GetPath());
 		OvCore::Global::ServiceLocator::Provide(engine);
-		engine.CreateContext();
 
-		// The references to Lua values go before the state they belong to
+		// The references to Lua values go before the state they belong to, which the engine closes when destroyed
 		{
 			const sol::object loaded = engine.GetScript("Scripts/Main.lua");
 			REQUIRE(loaded.get_type() == sol::type::table);
@@ -246,7 +246,5 @@ TEST_SUITE("Lua modules")
 			CHECK(results.get<int>("minor") == OvCore::Scripting::LuaApi::kVersionMinor);
 
 		}
-
-		engine.DestroyContext();
 	}
 }
