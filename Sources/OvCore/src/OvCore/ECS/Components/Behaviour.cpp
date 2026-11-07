@@ -4,8 +4,13 @@
 * @licence: MIT
 */
 
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <cstring>
 #include <format>
 #include <limits>
+#include <optional>
 #include <utility>
 
 #include <tinyxml2.h>
@@ -25,6 +30,7 @@
 
 #include <OvUI/Plugins/DataDispatcher.h>
 #include <OvUI/Plugins/DDTarget.h>
+#include <OvUI/Widgets/Drags/DragMultipleScalars.h>
 #include <OvUI/Widgets/Drags/DragSingleScalar.h>
 #include <OvUI/Widgets/InputFields/ActorField.h>
 #include <OvUI/Widgets/InputFields/AssetField.h>
@@ -33,6 +39,8 @@
 #include <OvUI/Widgets/Layout/Group.h>
 #include <OvUI/Widgets/Layout/TreeNode.h>
 #include <OvUI/Widgets/Selection/CheckBox.h>
+#include <OvUI/Widgets/Selection/ColorEdit.h>
+#include <OvUI/Widgets/Selection/ComboBox.h>
 #include <OvUI/Widgets/Texts/TextColored.h>
 
 #include <OvUI/Styling/Style.h>
@@ -51,6 +59,60 @@ OvCore::ECS::Components::Behaviour::~Behaviour()
 std::string OvCore::ECS::Components::Behaviour::GetName()
 {
 	return "Behaviour";
+}
+
+namespace
+{
+	/**
+	* N numbers separated by spaces, as a vector or a colour is written in a file
+	*/
+	template<size_t N>
+	std::optional<std::array<float, N>> ParseFloats(const char* p_text)
+	{
+		std::array<float, N> values{};
+		const std::string_view text = p_text ? p_text : "";
+		size_t position = 0;
+
+		for (size_t index = 0; index < N; ++index)
+		{
+			position = text.find_first_not_of(' ', position);
+			if (position == std::string_view::npos)
+				return std::nullopt;
+
+			const auto [end, error] = std::from_chars(text.data() + position, text.data() + text.size(), values[index]);
+			if (error != std::errc{})
+				return std::nullopt;
+
+			position = static_cast<size_t>(end - text.data());
+		}
+
+		return values;
+	}
+
+	/**
+	* The value a script now declares, keeping what the user had set when it still fits: an enumeration takes the new
+	* choices and keeps its value only if it is still one of them, a list keeps its items only for the same item type
+	*/
+	std::optional<OvCore::Scripting::ScriptPropertyValue> KeepUserValue(const OvCore::Scripting::ScriptPropertyValue& p_user, const OvCore::Scripting::ScriptPropertyValue& p_default)
+	{
+		using namespace OvCore::Scripting;
+
+		if (p_user.index() != p_default.index())
+			return std::nullopt;
+
+		if (const auto* user = std::get_if<EnumValue>(&p_user))
+		{
+			const auto& choices = std::get<EnumValue>(p_default).choices;
+			if (std::find(choices.begin(), choices.end(), user->value) == choices.end())
+				return std::nullopt;
+			return EnumValue{ choices, user->value };
+		}
+
+		if (const auto* user = std::get_if<ListValue>(&p_user); user && user->itemType != std::get<ListValue>(p_default).itemType)
+			return std::nullopt;
+
+		return p_user;
+	}
 }
 
 std::string OvCore::ECS::Components::Behaviour::GetTypeName()
@@ -77,9 +139,9 @@ void OvCore::ECS::Components::Behaviour::SetScript(std::unique_ptr<Scripting::Sc
 	{
 		const bool wasUnlocked = oldUnlocked.contains(key);
 		auto it = old.find(key);
-		const bool canPreserve = wasUnlocked && it != old.end() && it->second.index() == defaultVal.index();
+		const auto kept = wasUnlocked && it != old.end() ? KeepUserValue(it->second, defaultVal) : std::nullopt;
 
-		m_scriptProperties[key] = canPreserve ? std::move(it->second) : defaultVal;
+		m_scriptProperties[key] = kept ? *kept : defaultVal;
 
 		if (wasUnlocked)
 			m_unlockedProperties.insert(key);
@@ -208,6 +270,27 @@ void OvCore::ECS::Components::Behaviour::OnSerialize(tinyxml2::XMLDocument & p_d
 				{ elem->SetAttribute("type", "asset"); elem->SetAttribute("assetType", OvTools::Utils::PathParser::FileTypeToString(v.fileType).c_str()); elem->SetText(v.path.c_str()); }
 			else if constexpr (std::is_same_v<T, OvCore::Scripting::ActorRef>)
 				{ elem->SetAttribute("type", "actor"); elem->SetText(std::to_string(v.guid).c_str()); }
+			else if constexpr (std::is_same_v<T, OvMaths::FVector2>)
+				{ elem->SetAttribute("type", "vector2"); elem->SetText(std::format("{} {}", v.x, v.y).c_str()); }
+			else if constexpr (std::is_same_v<T, OvMaths::FVector3>)
+				{ elem->SetAttribute("type", "vector3"); elem->SetText(std::format("{} {} {}", v.x, v.y, v.z).c_str()); }
+			else if constexpr (std::is_same_v<T, OvMaths::FVector4>)
+				{ elem->SetAttribute("type", "vector4"); elem->SetText(std::format("{} {} {} {}", v.x, v.y, v.z, v.w).c_str()); }
+			else if constexpr (std::is_same_v<T, OvCore::Scripting::ColorValue>)
+				{ elem->SetAttribute("type", "color"); elem->SetText(std::format("{} {} {} {}", v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w).c_str()); }
+			else if constexpr (std::is_same_v<T, OvCore::Scripting::EnumValue>)
+				{ elem->SetAttribute("type", "enum"); elem->SetText(v.value.c_str()); }
+			else if constexpr (std::is_same_v<T, OvCore::Scripting::ListValue>)
+			{
+				elem->SetAttribute("type", "list");
+				elem->SetAttribute("itemType", std::string(OvCore::Scripting::ListValue::GetItemTypeName(v.itemType)).c_str());
+				for (const auto& item : v.items)
+				{
+					auto* itemElem = elem->GetDocument()->NewElement("item");
+					itemElem->SetText(item.c_str());
+					elem->InsertEndChild(itemElem);
+				}
+			}
 			else
 				{ elem->SetAttribute("type", "string"); elem->SetText(v.c_str()); }
 		}, fieldValue);
@@ -233,38 +316,106 @@ void OvCore::ECS::Components::Behaviour::OnDeserialize(tinyxml2::XMLDocument & p
 		const std::string_view typeStr{type};
 		auto& val = it->second;
 
-		if (typeStr == "bool" && std::holds_alternative<bool>(val))
+		static constexpr std::array<std::string_view, 11> kTypes = {
+			"bool", "number", "string", "asset", "actor", "vector2", "vector3", "vector4", "color", "enum", "list"
+		};
+
+		if (std::find(kTypes.begin(), kTypes.end(), typeStr) == kTypes.end())
 		{
-			bool v = false;
-			elem->QueryBoolText(&v);
-			val = v;
+			OVLOG_ERROR(std::format("{}: the property \"{}\" has the type \"{}\", which is none of bool, number, string, asset, actor, vector2, vector3, vector4, color, enum or list: the script's default is kept", this->name, name, typeStr));
+			continue;
 		}
-		else if (typeStr == "number" && std::holds_alternative<double>(val))
+
+		// The value read, or nothing when the file and the script disagree on the property
+		const auto read = [&]() -> std::optional<OvCore::Scripting::ScriptPropertyValue>
 		{
-			double v = 0.0;
-			elem->QueryDoubleText(&v);
-			val = v;
-		}
-		else if (typeStr == "string" && std::holds_alternative<std::string>(val))
-			val = elem->GetText() ? elem->GetText() : "";
-		else if (typeStr == "asset" && std::holds_alternative<OvCore::Scripting::AssetRef>(val))
+			using namespace OvCore::Scripting;
+
+			if (typeStr == "bool" && std::holds_alternative<bool>(val))
+			{
+				bool v = false;
+				elem->QueryBoolText(&v);
+				return v;
+			}
+
+			if (typeStr == "number" && std::holds_alternative<double>(val))
+			{
+				double v = 0.0;
+				elem->QueryDoubleText(&v);
+				return v;
+			}
+
+			if (typeStr == "string" && std::holds_alternative<std::string>(val))
+				return std::string(elem->GetText() ? elem->GetText() : "");
+
+			if (typeStr == "asset" && std::holds_alternative<AssetRef>(val))
+			{
+				const char* assetTypeStr = elem->Attribute("assetType");
+				return AssetRef{
+					assetTypeStr ? OvTools::Utils::PathParser::StringToFileType(assetTypeStr) : std::get<AssetRef>(val).fileType,
+					elem->GetText() ? elem->GetText() : ""
+				};
+			}
+
+			if (typeStr == "actor" && std::holds_alternative<ActorRef>(val))
+			{
+				uint64_t guid = 0;
+				if (const char* text = elem->GetText())
+					std::from_chars(text, text + std::strlen(text), guid);
+				return ActorRef{ guid };
+			}
+
+			if (typeStr == "vector2" && std::holds_alternative<OvMaths::FVector2>(val))
+				if (const auto v = ParseFloats<2>(elem->GetText()))
+					return OvMaths::FVector2{ (*v)[0], (*v)[1] };
+
+			if (typeStr == "vector3" && std::holds_alternative<OvMaths::FVector3>(val))
+				if (const auto v = ParseFloats<3>(elem->GetText()))
+					return OvMaths::FVector3{ (*v)[0], (*v)[1], (*v)[2] };
+
+			if (typeStr == "vector4" && std::holds_alternative<OvMaths::FVector4>(val))
+				if (const auto v = ParseFloats<4>(elem->GetText()))
+					return OvMaths::FVector4{ (*v)[0], (*v)[1], (*v)[2], (*v)[3] };
+
+			if (typeStr == "color" && std::holds_alternative<ColorValue>(val))
+				if (const auto v = ParseFloats<4>(elem->GetText()))
+					return ColorValue{ { (*v)[0], (*v)[1], (*v)[2], (*v)[3] } };
+
+			if (typeStr == "enum" && std::holds_alternative<EnumValue>(val))
+			{
+				const auto& choices = std::get<EnumValue>(val).choices;
+				const std::string value = elem->GetText() ? elem->GetText() : "";
+				if (std::find(choices.begin(), choices.end(), value) != choices.end())
+					return EnumValue{ choices, value };
+			}
+
+			if (typeStr == "list" && std::holds_alternative<ListValue>(val))
+			{
+				const auto& declared = std::get<ListValue>(val);
+				const char* itemType = elem->Attribute("itemType");
+
+				if (itemType && ListValue::ParseItemType(itemType) == declared.itemType)
+				{
+					ListValue list{ declared.itemType, {} };
+					for (auto* item = elem->FirstChildElement("item"); item; item = item->NextSiblingElement("item"))
+						if (auto normalized = ListValue::NormalizeItem(list.itemType, item->GetText() ? item->GetText() : ""))
+							list.items.push_back(std::move(*normalized));
+					return list;
+				}
+			}
+
+			return std::nullopt;
+		};
+
+		if (auto value = read())
 		{
-			const char* assetTypeStr = elem->Attribute("assetType");
-			val = OvCore::Scripting::AssetRef{
-				assetTypeStr ? OvTools::Utils::PathParser::StringToFileType(assetTypeStr)
-				             : std::get<OvCore::Scripting::AssetRef>(val).fileType,
-				elem->GetText() ? elem->GetText() : ""
-			};
-		}
-		else if (typeStr == "actor" && std::holds_alternative<OvCore::Scripting::ActorRef>(val))
-		{
-			uint64_t guid = 0;
-			if (const char* text = elem->GetText())
-				guid = std::stoull(text);
-			val = OvCore::Scripting::ActorRef{guid};
+			val = std::move(*value);
 		}
 		else
+		{
+			OVLOG_WARNING(std::format("{}: the property \"{}\" written as {} does not fit what the script declares: the script's default is kept", this->name, name, typeStr));
 			continue;
+		}
 
 		m_unlockedProperties.insert(name);
 
@@ -465,6 +616,62 @@ void OvCore::ECS::Components::Behaviour::OnInspector(OvUI::Internal::WidgetConta
 						OvCore::Helpers::GUIHelpers::OpenPicker(std::move(items), "Select Actor");
 					};
 
+					inputPtr = &w;
+				}
+				else if constexpr (std::is_same_v<T, OvMaths::FVector2> || std::is_same_v<T, OvMaths::FVector3> || std::is_same_v<T, OvMaths::FVector4>)
+				{
+					constexpr size_t kSize = sizeof(T) / sizeof(float);
+					auto& w = p_root.CreateWidget<OvUI::Widgets::Drags::DragMultipleScalars<float, kSize>>(
+						GUIDrawer::GetDataType<float>(), GUIDrawer::_MIN_FLOAT, GUIDrawer::_MAX_FLOAT, 0.0f, 0.1f, "", GUIDrawer::GetFormat<float>()
+					);
+					auto& d = w.template AddPlugin<OvUI::Plugins::DataDispatcher<std::array<float, kSize>>>();
+					d.RegisterGatherer([getter]() { const T v = getter(); return reinterpret_cast<const std::array<float, kSize>&>(v); });
+					d.RegisterProvider([setter](std::array<float, kSize> v) { setter(reinterpret_cast<const T&>(v)); });
+					inputPtr = &w;
+				}
+				else if constexpr (std::is_same_v<T, OvCore::Scripting::ColorValue>)
+				{
+					auto& w = p_root.CreateWidget<OvUI::Widgets::Selection::ColorEdit>(true);
+					auto& d = w.template AddPlugin<OvUI::Plugins::DataDispatcher<OvUI::Types::Color>>();
+					d.RegisterGatherer([getter]() {
+						const auto rgba = getter().rgba;
+						return OvUI::Types::Color{ rgba.x, rgba.y, rgba.z, rgba.w };
+					});
+					d.RegisterProvider([setter](OvUI::Types::Color c) { setter(OvCore::Scripting::ColorValue{ { c.r, c.g, c.b, c.a } }); });
+					inputPtr = &w;
+				}
+				else if constexpr (std::is_same_v<T, OvCore::Scripting::EnumValue>)
+				{
+					// The choices are the script's: an index stands for each
+					const auto choices = getter().choices;
+					const auto indexOf = [choices](const std::string& p_value) {
+						const auto found = std::find(choices.begin(), choices.end(), p_value);
+						return found != choices.end() ? static_cast<int>(found - choices.begin()) : 0;
+					};
+
+					auto& w = p_root.CreateWidget<OvUI::Widgets::Selection::ComboBox>(indexOf(getter().value));
+					for (size_t index = 0; index < choices.size(); ++index)
+						w.choices.emplace(static_cast<int>(index), choices[index]);
+
+					auto& d = w.template AddPlugin<OvUI::Plugins::DataDispatcher<int>>();
+					d.RegisterGatherer([getter, indexOf]() { return indexOf(getter().value); });
+					d.RegisterProvider([setter, choices](int p_index) {
+						if (p_index >= 0 && static_cast<size_t>(p_index) < choices.size())
+							setter(OvCore::Scripting::EnumValue{ choices, choices[p_index] });
+					});
+					inputPtr = &w;
+				}
+				else if constexpr (std::is_same_v<T, OvCore::Scripting::ListValue>)
+				{
+					// Edited as one line and read when Enter is pressed, so that a half-typed item is not dropped
+					auto& w = p_root.CreateWidget<OvUI::Widgets::InputFields::InputText>(getter().Join());
+					auto* widget = &w;
+					w.EnterPressedEvent += [getter, setter, widget](std::string p_text) {
+						auto list = getter();
+						list.Split(p_text);
+						widget->content = list.Join();
+						setter(std::move(list));
+					};
 					inputPtr = &w;
 				}
 				else
