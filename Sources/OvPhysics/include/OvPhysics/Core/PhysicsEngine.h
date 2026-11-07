@@ -13,10 +13,13 @@
 #include <string>
 #include <vector>
 
+#include <OvMaths/FQuaternion.h>
 #include <OvPhysics/Entities/PhysicalObject.h>
+#include <OvPhysics/Entities/PhysicsHit.h>
 #include <OvPhysics/Entities/Ragdoll.h>
 #include <OvPhysics/Entities/RaycastHit.h>
 #include <OvPhysics/Settings/PhysicsSettings.h>
+#include <OvPhysics/Settings/QuerySettings.h>
 #include <OvPhysics/Settings/RagdollPartSettings.h>
 
 namespace JPH
@@ -65,6 +68,44 @@ namespace OvPhysics::Core
 		 * @param p_end
 		 */
 		std::optional<Entities::RaycastHit> Raycast(OvMaths::FVector3 p_origin, OvMaths::FVector3 p_direction, float p_distance);
+
+		/**
+		* Casts a ray and returns the objects it meets, nearest first, each once, with the point, the normal and the
+		* distance where the ray meets it. A ray that starts inside an object meets it at distance 0
+		* @param p_origin
+		* @param p_direction (need not be normalized)
+		* @param p_distance
+		* @param p_settings
+		*/
+		std::vector<Entities::PhysicsHit> CastRay(const OvMaths::FVector3& p_origin, const OvMaths::FVector3& p_direction, float p_distance, const Settings::QuerySettings& p_settings = {}) const;
+
+		/**
+		* Sweeps a sphere and returns the objects it meets, nearest first, each once. An object the sphere overlaps at
+		* its origin is met at distance 0
+		* @param p_origin
+		* @param p_radius
+		* @param p_direction (need not be normalized)
+		* @param p_distance
+		* @param p_settings
+		*/
+		std::vector<Entities::PhysicsHit> CastSphere(const OvMaths::FVector3& p_origin, float p_radius, const OvMaths::FVector3& p_direction, float p_distance, const Settings::QuerySettings& p_settings = {}) const;
+
+		/**
+		* Returns the objects that overlap a sphere, each once, in no particular order
+		* @param p_center
+		* @param p_radius
+		* @param p_settings
+		*/
+		std::vector<Entities::PhysicalObject*> OverlapSphere(const OvMaths::FVector3& p_center, float p_radius, const Settings::QuerySettings& p_settings = {}) const;
+
+		/**
+		* Returns the objects that overlap a box, each once, in no particular order
+		* @param p_center
+		* @param p_halfExtents
+		* @param p_rotation
+		* @param p_settings
+		*/
+		std::vector<Entities::PhysicalObject*> OverlapBox(const OvMaths::FVector3& p_center, const OvMaths::FVector3& p_halfExtents, const OvMaths::FQuaternion& p_rotation, const Settings::QuerySettings& p_settings = {}) const;
 
 		/**
 		* Defines the world gravity to apply

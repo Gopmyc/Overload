@@ -2,6 +2,6 @@
 
 --- Contains the result of a raycast query
 ---@class RaycastHit
----@field FirstResultObject Actor|nil
----@field ResultObjects Actor[]
+---@field FirstResultObject PhysicalObject|nil
+---@field ResultObjects PhysicalObject[]
 RaycastHit = {}
