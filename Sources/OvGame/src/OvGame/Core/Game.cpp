@@ -123,6 +123,12 @@ void OvGame::Core::Game::Update(float p_deltaTime)
 			RenderCurrentScene(m_sceneRenderer, m_context);
 			m_context.framebuffer->BlitToBackBuffer(windowWidth, windowHeight);
 		}
+
+		{
+			// The actors destroyed during the frame are freed at its end, as in the editor's play mode
+			ZoneScopedN("Scene garbage collection");
+			currentScene->CollectGarbages();
+		}
 	}
 
 	m_context.sceneManager.Update();
