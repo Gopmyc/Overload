@@ -5,6 +5,14 @@ first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 [Semantic Versioning](https://semver.org/): a script, a shader or a project made for one version keeps working with any
 later version of the same major version.
 
+## [Unreleased]
+
+### Fixed
+
+- **Culling of mirrored models**: a model with a negative scale is culled where it is drawn. Its bounding sphere goes
+  through the world matrix, where the decomposed scale and rotation lost the mirror's sign, and its radius follows
+  the largest scale (a scale of -2 on X counted as 0 before).
+
 ## [0.1.0] - 2026-11-07
 
 Adventurer's first version: Overload 1.9 and the changes below.

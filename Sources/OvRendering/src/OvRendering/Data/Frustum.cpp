@@ -253,15 +253,19 @@ bool OvRendering::Data::Frustum::CubeInFrustum(float x, float y, float z, float 
 
 bool OvRendering::Data::Frustum::BoundingSphereInFrustum(const OvRendering::Geometry::BoundingSphere& p_boundingSphere, const OvMaths::FTransform& p_transform) const
 {
-	const auto& position = p_transform.GetWorldPosition();
-	const auto& rotation = p_transform.GetWorldRotation();
+	// The centre goes through the world matrix itself: the scale and rotation decomposed from it lose a mirror's sign
+	auto world = p_transform.GetWorldMatrix();
+	const auto& centre = p_boundingSphere.position;
+
+	const OvMaths::FVector3 worldCenter = {
+		world(0, 0) * centre.x + world(0, 1) * centre.y + world(0, 2) * centre.z + world(0, 3),
+		world(1, 0) * centre.x + world(1, 1) * centre.y + world(1, 2) * centre.z + world(1, 3),
+		world(2, 0) * centre.x + world(2, 1) * centre.y + world(2, 2) * centre.z + world(2, 3)
+	};
+
+	// The world scale is the length of each axis, so the largest one keeps the sphere around the scaled mesh
 	const auto& scale = p_transform.GetWorldScale();
-
-	float maxScale = std::max(std::max(std::max(scale.x, scale.y), scale.z), 0.0f);
-	float scaledRadius = p_boundingSphere.radius * maxScale;
-	auto sphereOffset = OvMaths::FQuaternion::RotatePoint(p_boundingSphere.position, rotation) * maxScale;
-
-	OvMaths::FVector3 worldCenter = position + sphereOffset;
+	const float scaledRadius = p_boundingSphere.radius * std::max({ scale.x, scale.y, scale.z });
 
 	return SphereInFrustum(worldCenter.x, worldCenter.y, worldCenter.z, scaledRadius);
 }
