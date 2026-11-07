@@ -1,5 +1,5 @@
 -- A destroyed actor, and its children, leave the scene at the end of the frame
-local Check = Resources.GetScript("Scripts/Checks/Check.lua")
+local Check = require("Scripts/Checks/Check")
 
 local DestroyCheck = {}
 local oCheck = Check.New("Destroy")

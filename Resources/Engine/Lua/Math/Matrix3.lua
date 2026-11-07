@@ -36,6 +36,12 @@ function Matrix3:__div(rhs) end
 ---@return string
 function Matrix3:__tostring() end
 
+--- The element at a row and a column, as Get
+---@param row integer
+---@param column integer
+---@return number
+function Matrix3:__call(row, column) end
+
 --- Returns true if the matrix is identity
 ---@return boolean
 function Matrix3:IsIdentity() end

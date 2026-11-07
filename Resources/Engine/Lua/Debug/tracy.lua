@@ -11,6 +11,15 @@ function tracy.ZoneBegin() end
 ---@param name string
 function tracy.ZoneBeginN(name) end
 
+--- Starts a profiling zone that captures the call stack, as deep as asked
+---@param depth integer
+function tracy.ZoneBeginS(depth) end
+
+--- Starts a profiling zone with a custom name that captures the call stack, as deep as asked
+---@param name string
+---@param depth integer
+function tracy.ZoneBeginNS(name, depth) end
+
 --- Sets a text for the current zone
 ---@param text string
 function tracy.ZoneText(text) end

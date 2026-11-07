@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include <OvCore/Scripting/Lua/LuaApi.h>
 #include <OvDebug/Logger.h>
 #include <OvGame/Core/Application.h>
 #include <OvGame/Core/LaunchOptions.h>
@@ -40,6 +41,13 @@ namespace
 		{
 			std::cerr << "OvGame: " << result.error << "\n\n" << OvGame::Core::LaunchOptions::GetUsage();
 			return EXIT_FAILURE;
+		}
+
+		if (result.options->dumpLuaApi)
+		{
+			for (const auto& name : OvCore::Scripting::LuaApi::Describe())
+				std::cout << name << '\n';
+			return EXIT_SUCCESS;
 		}
 
 		// Errors are counted over the whole run, from the start scene's loading to the game's destruction

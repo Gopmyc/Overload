@@ -32,6 +32,12 @@ later version of the same major version.
   storage, the Lua `Json` and `Storage` bindings, the project settings, physics layers and queries, and scenes; the
   in-game checks of `Tests/GameChecks` run the engine through `OvGame` (destroyed actors, prefab references, Lua
   queries, project settings). The CI runs both, the in-game checks on Linux. See [Docs/Testing.md](Docs/Testing.md).
+- **Lua module contract**: `require(path)` loads a module of the project's assets, or of the engine's with `:`,
+  shares `Resources.GetScript`'s cache, and raises an error that says why a module cannot be loaded.
+  `Application.GetApiVersion()` returns the version of the Lua API, 1.0 so far, with a deprecation policy in
+  [Docs/Scripting.md](Docs/Scripting.md). `OvGame --dump-lua-api` prints the API, and the engine's tests check it
+  against the definitions of `Resources/Engine/Lua`, which now cover every binding (`AssetRef`, the settings'
+  constructors, the matrices' call, Tracy's stack-capturing zones).
 
 ### Changed
 
@@ -40,6 +46,12 @@ later version of the same major version.
 - **Ragdolls collide by their layer**: their bodies are on `physics_ragdoll_layer` (15 by default). Going through
   dynamic bodies is now the project option `physics_ragdoll_ignores_dynamic_bodies`, off by default. A project that
   relied on it sets it to `true`.
+
+### Removed
+
+- **Constructors no script could use**: `Scene.new`, `PhysicsHit.new`, `RaycastHit.new` and `AssetRef.new`, made by
+  sol on its own, are gone. A scene, a hit or a ray's result come from the engine; an asset reference from `Model()`,
+  `Prefab()` and the like.
 
 ### Fixed
 

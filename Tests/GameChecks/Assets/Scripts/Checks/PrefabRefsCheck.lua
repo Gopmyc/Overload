@@ -1,6 +1,6 @@
 -- A reference between two actors of a prefab names, in each instance, that instance's own actor; a reference to an
 -- actor outside the prefab is kept as written
-local Check = Resources.GetScript("Scripts/Checks/Check.lua")
+local Check = require("Scripts/Checks/Check")
 
 local PrefabRefsCheck = {}
 local oCheck = Check.New("PrefabRefs")

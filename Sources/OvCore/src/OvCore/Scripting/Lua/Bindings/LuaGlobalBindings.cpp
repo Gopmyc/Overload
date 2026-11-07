@@ -28,6 +28,7 @@
 #include "OvCore/Global/ServiceLocator.h"
 #include "OvCore/Helpers/InputHelpers.h"
 #include "OvCore/SceneSystem/SceneManager.h"
+#include "OvCore/Scripting/Lua/LuaApi.h"
 #include "OvCore/ResourceManagement/ModelManager.h"
 #include "OvCore/ResourceManagement/ShaderManager.h"
 #include "OvCore/ResourceManagement/TextureManager.h"
@@ -267,7 +268,9 @@ void BindLuaGlobal(sol::state& p_luaState)
 	// Asset reference type, used in script local tables to declare asset properties.
 	// The inspector renders an asset picker for any field initialised with one of the
 	// factory functions below (Model(), Texture(), Shader(), Material(), Sound(), Prefab()).
+	// An asset reference is made by Model(), Texture()... and filled by the engine
 	p_luaState.new_usertype<AssetRef>("AssetRef",
+		sol::no_constructor,
 		"path", &AssetRef::path
 	);
 
@@ -279,7 +282,9 @@ void BindLuaGlobal(sol::state& p_luaState)
 	p_luaState["Sound"]    = []() { return AssetRef{EFT::SOUND,    ""}; };
 	p_luaState["Prefab"]   = []() { return AssetRef{EFT::PREFAB,   ""}; };
 
+	// A scene, a hit and a ray's result come from the engine only: no script makes one
 	p_luaState.new_usertype<Scene>("Scene",
+		sol::no_constructor,
 		"FindActorByName", [](Scene& s, const std::string& name) -> std::optional<ActorRef> {
 			if (auto* actor = s.FindActorByName(name))
 				return ActorRef{actor->GetGUID()};
@@ -513,6 +518,9 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"CreateModel", &CreateModel
 	);
 
+	// The sandbox's own require: a module of the project's assets, or of the engine's with ":"
+	p_luaState.set_function("require", [](const std::string& p_path) { return OVSERVICE(ScriptEngine).RequireScript(p_path); });
+
 	p_luaState.create_named_table("Math",
 		"RandomInt", [](int p_min, int p_max) { return OvTools::Utils::Random::Generate(p_min, p_max); },
 		"RandomFloat", [](float p_min, float p_max) { return OvTools::Utils::Random::Generate(p_min, p_max); },
@@ -521,6 +529,7 @@ void BindLuaGlobal(sol::state& p_luaState)
 	);
 
 	p_luaState.new_usertype<PhysicsWrapper::RaycastHit>("RaycastHit",
+		sol::no_constructor,
 		"FirstResultObject", &PhysicsWrapper::RaycastHit::FirstResultObject,
 		"ResultObjects", &PhysicsWrapper::RaycastHit::ResultObjects
 	);
@@ -541,6 +550,7 @@ void BindLuaGlobal(sol::state& p_luaState)
 	};
 
 	p_luaState.new_usertype<PhysicsWrapper::Hit>("PhysicsHit",
+		sol::no_constructor,
 		"Object", sol::readonly(&PhysicsWrapper::Hit::Object),
 		"Point", sol::readonly(&PhysicsWrapper::Hit::Point),
 		"Normal", sol::readonly(&PhysicsWrapper::Hit::Normal),
@@ -633,6 +643,7 @@ void BindLuaGlobal(sol::state& p_luaState)
 
 	p_luaState.create_named_table("Application",
 		"Quit", []() { OvCore::Global::QuitRequest::RequestedEvent.Invoke(); },
-		"GetEngineVersion", []() { return std::string(ADVENTURER_VERSION); }
+		"GetEngineVersion", []() { return std::string(ADVENTURER_VERSION); },
+		"GetApiVersion", []() { return std::make_tuple(OvCore::Scripting::LuaApi::kVersionMajor, OvCore::Scripting::LuaApi::kVersionMinor); }
 	);
 }

@@ -19,6 +19,7 @@ A built game runs as before: the project in `Data/User` (its settings in `Data/U
 | `--screenshot <file.png>` | Writes the last frame to a PNG image. Needs `--frames` |
 | `--hidden-window` | Does not show the window. The game still draws each frame |
 | `--fail-on-error` | Ends with exit code 2 when an error was logged |
+| `--dump-lua-api` | Prints the engine's Lua API, one name per line (`Physics.CastRay`, `Vector3.x`), and quits without a window. See [Scripting](Scripting.md) |
 | `--help`, `-h` | Prints the options |
 
 The paths are relative to the current folder. For example, ten seconds of a scene at 60 frames per second, its last

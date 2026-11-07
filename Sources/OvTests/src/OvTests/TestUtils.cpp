@@ -11,6 +11,34 @@
 #include <OvDebug/Logger.h>
 #include <OvTests/TestUtils.h>
 
+namespace
+{
+	std::filesystem::path g_programPath;
+}
+
+void OvTests::SetProgramPath(const char* p_argument0)
+{
+	std::error_code error;
+	g_programPath = std::filesystem::absolute(p_argument0, error);
+}
+
+std::filesystem::path OvTests::FindEngineResources()
+{
+	for (const auto& start : { g_programPath.parent_path(), std::filesystem::current_path() })
+	{
+		for (auto folder = start; !folder.empty(); folder = folder.parent_path())
+		{
+			if (std::filesystem::is_directory(folder / "Resources" / "Engine" / "Lua"))
+				return folder / "Resources" / "Engine";
+
+			if (folder == folder.parent_path())
+				break;
+		}
+	}
+
+	return {};
+}
+
 OvTests::TempFolder::TempFolder()
 {
 	std::random_device device;

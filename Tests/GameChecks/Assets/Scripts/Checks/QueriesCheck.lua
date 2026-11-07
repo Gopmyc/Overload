@@ -1,5 +1,5 @@
 -- Physics queries from Lua, on a column of boxes: an enemy, a trigger, a wall, then a floor on the project's layers
-local Check = Resources.GetScript("Scripts/Checks/Check.lua")
+local Check = require("Scripts/Checks/Check")
 
 local QueriesCheck = {}
 local oCheck = Check.New("Queries")

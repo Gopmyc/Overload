@@ -52,6 +52,11 @@ namespace OvGame::Core
 		*/
 		bool failOnError = false;
 
+		/**
+		* Whether to print the engine's Lua API, one name per line, instead of running the game
+		*/
+		bool dumpLuaApi = false;
+
 		struct ParseResult;
 
 		/**

@@ -9,3 +9,7 @@
 ---@field Density number How fast the fog thickens past its start, per meter
 ---@field MaxOpacity number Most the fog ever covers, from 0 to 1
 FogSettings = {}
+
+--- Creates settings with their default values
+---@return FogSettings
+function FogSettings.new() end

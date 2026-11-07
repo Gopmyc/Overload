@@ -17,6 +17,18 @@
 namespace OvTests
 {
 	/**
+	* Keeps the path the test program was started with, to find the engine's resources from it
+	* @param p_argument0
+	*/
+	void SetProgramPath(const char* p_argument0);
+
+	/**
+	* The engine's resources (Resources/Engine of the checkout), looked for above the program's folder, then above the
+	* current folder. Empty when neither leads to them
+	*/
+	std::filesystem::path FindEngineResources();
+
+	/**
 	* A folder of its own in the system's temporary folder, removed with everything in it when the test is done
 	*/
 	class TempFolder final

@@ -10,3 +10,7 @@
 ---@field SpeedDown number
 ---@field SpeedUp number
 AutoExposureSettings = {}
+
+--- Creates settings with their default values
+---@return AutoExposureSettings
+function AutoExposureSettings.new() end
