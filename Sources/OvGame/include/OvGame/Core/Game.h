@@ -55,6 +55,11 @@ namespace OvGame::Core
 		*/
 		void PostUpdate();
 
+		/**
+		* Returns false when the start scene could not be loaded (the game then runs an empty scene)
+		*/
+		bool HasStartSceneLoaded() const;
+
 	private:
 		OvGame::Core::Context& m_context;
 		OvUI::Modules::Canvas m_canvas;
@@ -68,6 +73,8 @@ namespace OvGame::Core
 		OvGame::Debug::DriverInfo	m_driverInfo;
 		OvGame::Debug::FrameInfo	m_frameInfo;
 		#endif
+
+		bool m_startSceneLoaded = true;
 
 		#ifdef _DEBUG
 		bool m_showDebugInformation = true;

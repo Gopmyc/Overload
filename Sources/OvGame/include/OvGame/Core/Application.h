@@ -21,8 +21,9 @@ namespace OvGame::Core
 	public:
 		/**
 		* Constructor
+		* @param p_options
 		*/
-		Application();
+		Application(const LaunchOptions& p_options);
 
 		/**
 		* Destructor
@@ -30,9 +31,11 @@ namespace OvGame::Core
 		~Application();
 
 		/**
-		* Run the app
+		* Runs the game until it quits, or for the frames the options ask, and returns the exit code: 0 on success, 1 when
+		* the start scene could not be loaded, 3 when the screenshot was not written. Errors logged during the run
+		* are for the caller to count (the game logs some of them while it is destroyed)
 		*/
-		void Run();
+		int Run();
 
 		/**
 		* Returns true if the app is running
@@ -40,6 +43,13 @@ namespace OvGame::Core
 		bool IsRunning() const;
 
 	private:
+		/**
+		* Writes the last frame drawn to the options' screenshot, and returns whether it could
+		*/
+		bool TakeScreenshot() const;
+
+	private:
+		const LaunchOptions m_options;
 		Context m_context;
 		Game m_game;
 		OvTools::Eventing::ListenerID m_quitListener;

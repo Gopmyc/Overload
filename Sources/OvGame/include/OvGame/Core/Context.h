@@ -30,6 +30,8 @@
 #include <OvTools/Filesystem/SaveStorage.h>
 #include <OvTools/Time/Clock.h>
 
+#include <OvGame/Core/LaunchOptions.h>
+
 namespace OvGame::Core
 {
 	/**
@@ -40,8 +42,9 @@ namespace OvGame::Core
 	public:
 		/**
 		* Constructor
+		* @param p_options (where the project and the engine are, and how the window shows)
 		*/
-		Context();
+		Context(const LaunchOptions& p_options);
 
 		/**
 		* Destructor
@@ -51,6 +54,11 @@ namespace OvGame::Core
 	public:
 		const std::filesystem::path engineAssetsPath;
 		const std::filesystem::path projectAssetsPath;
+
+		/**
+		* The scene the game starts on: the command line's, or the project's start_scene
+		*/
+		std::string startScene;
 
 		std::unique_ptr<OvWindowing::Context::Device> device;
 		std::unique_ptr<OvWindowing::Window> window;

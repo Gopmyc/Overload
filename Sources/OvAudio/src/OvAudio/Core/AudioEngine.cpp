@@ -19,10 +19,11 @@ OvAudio::Core::AudioEngine::AudioEngine()
 {
 	m_backend = std::make_unique<SoLoud::Soloud>();
 
-	// If initialization failed
+	// Without an audio device (a headless machine, a CI runner), the game runs on without sound: a warning, so that a
+	// run that fails on errors does not fail for it
 	if (m_backend->init() != SoLoud::SOLOUD_ERRORS::SO_NO_ERROR)
 	{
-		OVLOG_ERROR("Failed to initialize the audio engine. Playback requests will be ignored.");
+		OVLOG_WARNING("Failed to initialize the audio engine. Playback requests will be ignored.");
 		m_backend.reset();
 		return;
 	}

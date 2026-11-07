@@ -48,12 +48,14 @@ std::array<int, 4> CalculateOptimalWindowSizeAndPosition(
 	};
 }
 
-OvGame::Core::Context::Context() :
-	engineAssetsPath(std::filesystem::current_path() / "Data" / "Engine"),
-	projectAssetsPath(std::filesystem::current_path() / "Data" / "User" / "Assets"),
-	projectSettings((std::filesystem::current_path() / "Data" / "User" / "Game.ini").string()),
+OvGame::Core::Context::Context(const LaunchOptions& p_options) :
+	engineAssetsPath(p_options.engineAssets.value_or(std::filesystem::current_path() / "Data" / "Engine")),
+	projectAssetsPath(p_options.projectFile ? p_options.projectFile->parent_path() / "Assets" : std::filesystem::current_path() / "Data" / "User" / "Assets"),
+	projectSettings(p_options.projectFile.value_or(std::filesystem::current_path() / "Data" / "User" / "Game.ini").string()),
 	sceneManager(projectAssetsPath.string(), engineAssetsPath.string())
 {
+	startScene = p_options.scene.value_or(projectSettings.GetOrDefault<std::string>("start_scene", {}));
+
 	ModelManager::ProvideAssetPaths(projectAssetsPath, engineAssetsPath);
 	TextureManager::ProvideAssetPaths(projectAssetsPath, engineAssetsPath);
 	ShaderManager::ProvideAssetPaths(projectAssetsPath, engineAssetsPath);
@@ -88,6 +90,7 @@ OvGame::Core::Context::Context() :
 	projectSettings.TryGet("resizable", windowSettings.resizable);
 	projectSettings.TryGet("fullscreen", windowSettings.fullscreen);
 	windowSettings.samples = static_cast<uint32_t>(samples);
+	windowSettings.visible = !p_options.hiddenWindow;
 
 	/* Window creation */
 	device = std::make_unique<OvWindowing::Context::Device>(deviceSettings);

@@ -9,7 +9,7 @@ the editor and the built game read.
 | --- | --- | --- |
 | `executable_name` | `Game` | The built game's name and window title. It names the save folder when `project_id` is empty |
 | `project_id` | empty | The name of the save folder (see [Saving](Saving.md)): set it once, and renaming the game keeps its saves |
-| `start_scene` | empty | The scene a built game opens, relative to `Assets` |
+| `start_scene` | empty | The scene a built game opens, relative to `Assets` (`--scene` replaces it, see [Command line](CommandLine.md)) |
 | `x_resolution`, `y_resolution` | 1280, 720 | The window's size |
 | `fullscreen` | `false` | A full-screen window |
 | `resizable` | `false` | Whether the player may resize the window |
