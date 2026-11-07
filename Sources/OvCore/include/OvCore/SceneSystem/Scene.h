@@ -165,6 +165,12 @@ namespace OvCore::SceneSystem
 		void CollectGarbages();
 
 		/**
+		* Deletes every actor. Each first runs its last callbacks (OnDisable, OnDestroy) while all the others are still
+		* there; then the actors are deleted one by one, each forgotten by the scene as it goes
+		*/
+		void DestroyAllActors();
+
+		/**
 		* Return the first actor identified by the given name, or nullptr on fail
 		* @param p_name
 		*/

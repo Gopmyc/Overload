@@ -37,12 +37,8 @@ OvCore::SceneSystem::Scene::Scene(
 
 OvCore::SceneSystem::Scene::~Scene()
 {
-	std::for_each(m_actors.begin(), m_actors.end(), [](OvCore::ECS::Actor* element)
-	{ 
-		delete element;
-	});
+	DestroyAllActors();
 
-	m_actors.clear();
 	m_actorsByGUID.clear();
 	m_shadowedActorsByGUID.clear();
 }
@@ -393,6 +389,25 @@ void OvCore::SceneSystem::Scene::CollectGarbages()
 		}
 		return isGarbage;
 	}), m_actors.end());
+}
+
+void OvCore::SceneSystem::Scene::DestroyAllActors()
+{
+	// By index: a callback may create actors, which are prepared and deleted too
+	for (size_t index = 0; index < m_actors.size(); ++index)
+	{
+		m_actors[index]->PrepareForDeletion();
+	}
+
+	while (!m_actors.empty())
+	{
+		ECS::Actor* actor = m_actors.back();
+		m_actors.pop_back();
+
+		const uint64_t guid = actor->GetGUID();
+		delete actor;
+		UnindexActorGUID(actor, guid);
+	}
 }
 
 OvCore::ECS::Actor* OvCore::SceneSystem::Scene::FindActorByName(const std::string& p_name) const

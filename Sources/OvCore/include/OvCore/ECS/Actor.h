@@ -200,6 +200,13 @@ namespace OvCore::ECS
 		void SetSleeping(bool p_sleeping);
 
 		/**
+		* Runs the callbacks the actor runs when deleted (OnDisable when active, OnDestroy once started), then puts it to
+		* sleep, so that deleting it runs them no more. A scene calls it on every actor before deleting any, so that each
+		* callback still finds the others
+		*/
+		void PrepareForDeletion();
+
+		/**
 		* Called when the scene start or when the actor gets enabled for the first time during play mode
 		* This method will always be called in an ordered triple:
 		* - OnAwake()

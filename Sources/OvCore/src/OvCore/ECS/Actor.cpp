@@ -310,6 +310,20 @@ bool OvCore::ECS::Actor::IsAlive() const
 	return !m_destroyed;
 }
 
+void OvCore::ECS::Actor::PrepareForDeletion()
+{
+	if (!m_sleeping)
+	{
+		if (IsActive())
+			OnDisable();
+
+		if (m_awaked && m_started)
+			OnDestroy();
+
+		m_sleeping = true;
+	}
+}
+
 void OvCore::ECS::Actor::SetSleeping(bool p_sleeping)
 {
 	m_sleeping = p_sleeping;
