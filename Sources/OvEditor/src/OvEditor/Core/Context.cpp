@@ -205,9 +205,16 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	);
 
 	// Play mode keeps its saves where the built game will: they are the same game's
+	/* What the scripts may do: their saves, their Json and the longest frame step */
+	const auto runtimeLimits = OvCore::Helpers::ProjectSettings::ReadRuntimeLimits(projectSettings);
+
 	saveStorage = std::make_unique<OvTools::Filesystem::SaveStorage>(
-		OvTools::Filesystem::SaveStorage::GetDefaultRoot(OvCore::Helpers::ProjectSettings::GetSaveName(projectSettings))
+		OvTools::Filesystem::SaveStorage::GetDefaultRoot(OvCore::Helpers::ProjectSettings::GetSaveName(projectSettings)),
+		runtimeLimits.storage
 	);
+
+	OvCore::Scripting::SetJsonLimits(runtimeLimits.json);
+	clock.SetMaxDeltaTime(runtimeLimits.maxFrameDelta);
 
 	// Ensures lua project files are up-to-date. This is necessary for Lua's LSP to function properly.
 	// If Overload's installation directory changes, references to engine symbols would be lost,

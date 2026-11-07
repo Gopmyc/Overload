@@ -68,11 +68,12 @@
 - Actors update in scene order, the order of the scene file. Actors instantiated at run time come last.
 - A `BoneAttachment` is placed after every script, so a script reading such an actor's place during the frame sees
   where it was the frame before.
-- The frame step handed to the Behaviours is in [0, 0.1] seconds, times the time scale, which is never below 0.
+- The frame step handed to the Behaviours is in [0, 0.1] seconds, times the time scale, which is never below 0. A
+  project sets that ceiling with `max_frame_delta` (see [Projects](Projects.md)).
 - `Time.SetScale(scale)` scales every step handed to the Behaviours, the physics and the animations, so the whole world
   slows down together. What must keep its pace runs on `Time.GetUnscaledDeltaTime()`. Stopping play in the editor sets
   the scale back to 1. `Time.GetGameTime()` is the scaled clock, also `ubo_GameTime` in the shaders.
-- Never assume a short frame: on a slow machine a frame can last 0.1 s. A watchdog counting seconds allows for one
-  frame's length.
+- Never assume a short frame: on a slow machine a frame can last the whole ceiling. A watchdog counting seconds
+  allows for one frame's length.
 - `Application.Quit()` closes a built game once the frame is over and leaves play mode in the editor.
 - `Application.GetEngineVersion()` returns the engine's version, so that a project can check the one it was made for.

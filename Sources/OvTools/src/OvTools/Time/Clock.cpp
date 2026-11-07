@@ -41,6 +41,19 @@ void OvTools::Time::Clock::SetTimeScale(float p_timeScale)
 	__TIME_SCALE = p_timeScale;
 }
 
+void OvTools::Time::Clock::SetMaxDeltaTime(float p_maxDeltaTime)
+{
+	if (p_maxDeltaTime > 0.0f)
+	{
+		__MAX_DELTA_TIME = p_maxDeltaTime;
+	}
+}
+
+float OvTools::Time::Clock::GetMaxDeltaTime() const
+{
+	return __MAX_DELTA_TIME;
+}
+
 void OvTools::Time::Clock::Initialize()
 {
 	__DELTA_TIME = 0.0f;
@@ -60,7 +73,7 @@ void OvTools::Time::Clock::Update()
 
 	if (__INITIALIZED)
 	{
-		__DELTA_TIME = __ELAPSED.count() > 0.1 ? 0.1f : static_cast<float>(__ELAPSED.count());
+		__DELTA_TIME = __ELAPSED.count() > __MAX_DELTA_TIME ? __MAX_DELTA_TIME : static_cast<float>(__ELAPSED.count());
 		__TIME_SINCE_START += __DELTA_TIME * __TIME_SCALE;
 	}
 	else

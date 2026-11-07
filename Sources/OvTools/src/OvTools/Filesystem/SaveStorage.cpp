@@ -80,14 +80,20 @@ namespace
 	}
 }
 
-OvTools::Filesystem::SaveStorage::SaveStorage(std::filesystem::path p_root) :
-	m_root(std::move(p_root))
+OvTools::Filesystem::SaveStorage::SaveStorage(std::filesystem::path p_root, SaveStorageLimits p_limits) :
+	m_root(std::move(p_root)),
+	m_limits(p_limits)
 {
 }
 
 const std::filesystem::path& OvTools::Filesystem::SaveStorage::GetRoot() const
 {
 	return m_root;
+}
+
+const OvTools::Filesystem::SaveStorageLimits& OvTools::Filesystem::SaveStorage::GetLimits() const
+{
+	return m_limits;
 }
 
 bool OvTools::Filesystem::SaveStorage::IsValidName(std::string_view p_name)
@@ -272,7 +278,7 @@ bool OvTools::Filesystem::SaveStorage::HasRoomFor(const std::filesystem::path& p
 		}
 	}
 
-	if (total + p_size > kMaxTotalSize || entries + (replaces ? 0 : 1) > kMaxEntryCount)
+	if (total + p_size > m_limits.maxTotalSize || entries + (replaces ? 0 : 1) > m_limits.maxEntryCount)
 	{
 		p_error = "storage full";
 		return false;
@@ -316,7 +322,7 @@ bool OvTools::Filesystem::SaveStorage::Write(std::string_view p_path, std::strin
 		return false;
 	}
 
-	if (p_data.size() > kMaxFileSize)
+	if (p_data.size() > m_limits.maxFileSize)
 	{
 		p_error = "file too large";
 		return false;
@@ -434,7 +440,7 @@ std::optional<std::string> OvTools::Filesystem::SaveStorage::Read(std::string_vi
 		return std::nullopt;
 	}
 
-	if (size > kMaxFileSize)
+	if (size > m_limits.maxFileSize)
 	{
 		p_error = "file too large";
 		return std::nullopt;

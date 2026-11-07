@@ -4,11 +4,14 @@
 * @licence: MIT
 */
 
+#include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include <OvCore/Helpers/ProjectSettings.h>
@@ -85,6 +88,38 @@ namespace
 		}
 
 		return std::nullopt;
+	}
+
+	/**
+	* A number of the project file, its default when the file lacks it, brought within range when it is out of it
+	*/
+	template<typename T>
+	T ReadInRange(const OvTools::Filesystem::IniFile& p_projectSettings, const std::string& p_key, T p_default, T p_min, T p_max)
+	{
+		T value = p_default;
+
+		if (!p_projectSettings.TryGet(p_key, value))
+		{
+			return p_default;
+		}
+
+		if constexpr (std::is_floating_point_v<T>)
+		{
+			if (std::isnan(value))
+			{
+				OVLOG_WARNING(p_key + ": not a number, " + std::to_string(p_default) + " is used");
+				return p_default;
+			}
+		}
+
+		if (value < p_min || value > p_max)
+		{
+			const T clamped = std::clamp(value, p_min, p_max);
+			OVLOG_WARNING(p_key + ": " + std::to_string(value) + " is out of range, " + std::to_string(clamped) + " is used");
+			return clamped;
+		}
+
+		return value;
 	}
 
 	void ReadLayerNames(const std::string& p_value, PhysicsSettings& p_settings)
@@ -172,4 +207,24 @@ std::string OvCore::Helpers::ProjectSettings::GetSaveName(const OvTools::Filesys
 	}
 
 	return "Game";
+}
+
+OvCore::Helpers::ProjectSettings::RuntimeLimits OvCore::Helpers::ProjectSettings::ReadRuntimeLimits(const OvTools::Filesystem::IniFile& p_projectSettings)
+{
+	constexpr size_t kMebibyte = 1024 * 1024;
+
+	RuntimeLimits limits;
+
+	const int fileMiB = ReadInRange(p_projectSettings, "storage_max_file_mib", 4, 1, 1024);
+	const int totalMiB = ReadInRange(p_projectSettings, "storage_max_total_mib", std::max(64, fileMiB), fileMiB, 16384);
+	limits.storage.maxFileSize = static_cast<size_t>(fileMiB) * kMebibyte;
+	limits.storage.maxTotalSize = static_cast<size_t>(totalMiB) * kMebibyte;
+	limits.storage.maxEntryCount = static_cast<size_t>(ReadInRange(p_projectSettings, "storage_max_entries", 1024, 1, 1000000));
+
+	limits.json.maxSize = static_cast<size_t>(ReadInRange(p_projectSettings, "json_max_mib", 4, 1, 1024)) * kMebibyte;
+	limits.json.maxDepth = ReadInRange(p_projectSettings, "json_max_depth", 64, 1, 256);
+
+	limits.maxFrameDelta = ReadInRange(p_projectSettings, "max_frame_delta", 0.1f, 0.001f, 1.0f);
+
+	return limits;
 }
