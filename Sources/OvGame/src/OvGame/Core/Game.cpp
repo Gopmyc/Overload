@@ -36,9 +36,16 @@ OvGame::Core::Game::Game(Context & p_context) :
 	>();
 	#endif
 
-	std::string startupScenePath = m_context.projectSettings.Get<std::string>("start_scene");
-	startupScenePath = OvTools::Utils::PathParser::MakeNonWindowsStyle(startupScenePath);
-	m_context.sceneManager.LoadScene(startupScenePath);
+	const std::string startupScenePath = OvTools::Utils::PathParser::MakeNonWindowsStyle(m_context.startScene);
+
+	// A scene that cannot be loaded leaves an empty one, so that the run ends cleanly and says why
+	if (!m_context.sceneManager.LoadScene(startupScenePath))
+	{
+		OVLOG_ERROR("The start scene \"" + startupScenePath + "\" cannot be loaded");
+		m_startSceneLoaded = false;
+		m_context.sceneManager.LoadEmptyScene();
+	}
+
 	m_context.sceneManager.GetCurrentScene()->Play();
 }
 
@@ -159,4 +166,9 @@ void OvGame::Core::Game::PostUpdate()
 	m_context.inputManager->ClearEvents();
 	m_context.driver->OnFrameCompleted();
 	m_context.driver->OnFramePresented();
+}
+
+bool OvGame::Core::Game::HasStartSceneLoaded() const
+{
+	return m_startSceneLoaded;
 }

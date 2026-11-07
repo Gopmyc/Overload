@@ -25,9 +25,14 @@ later version of the same major version.
   `Clock::SetMaxDeltaTime` and `OvCore::Scripting::SetJsonLimits`.
 - **Play shortcuts**: the editor's keys that start and stop playing are set in Settings > Play Shortcuts (F5 for
   both by default, as before).
+- **`OvGame` command line**: `--project` runs a project from its folder, with `--engine`, `--scene`, `--frames`,
+  `--screenshot` (a PNG of the last frame), `--hidden-window` and `--fail-on-error`; the exit code tells how the run
+  went. Without options, a built game runs as before. See [Docs/CommandLine.md](Docs/CommandLine.md).
 
 ### Changed
 
+- **No audio device is a warning**: the audio engine logs a warning, no longer an error, when it cannot open a
+  device. The game runs on without sound, as before.
 - **Ragdolls collide by their layer**: their bodies are on `physics_ragdoll_layer` (15 by default). Going through
   dynamic bodies is now the project option `physics_ragdoll_ignores_dynamic_bodies`, off by default. A project that
   relied on it sets it to `true`.
