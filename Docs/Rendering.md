@@ -11,8 +11,8 @@
 
 ## Culling
 
-- Frustum culling ignores the sign of the scale: a mirrored model (negative X scale) is culled with its bounding sphere
-  on the wrong side. Give it custom bounds (`frustum_behaviour` 3) centred on its pivot.
+- Frustum culling places a model's bounding sphere through its world matrix, so a mirrored model (a negative scale on
+  any axis) is culled where it is drawn. The sphere's radius grows with the largest scale.
 - A renderer whose vertices are moved far by its shader (particles) also needs custom bounds that hold them all.
 
 ## The post process stack
