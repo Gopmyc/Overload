@@ -97,6 +97,9 @@ project "OvTests"
 		}
 
 	filter { "system:linux" }
+		-- doctest includes <ciso646> under clang, which recent libstdc++ releases deprecate with a #warning in C++20 (-Wcpp is clang's name for #warning without a "#", which a Makefile would take for a comment)
+		buildoptions { "-Wno-cpp" }
+
 		links {
 			"dl",
 			"pthread",
