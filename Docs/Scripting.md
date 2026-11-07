@@ -50,6 +50,9 @@
   active and drawn after `Destroy()`. Switch it off with `SetActive(false)` first.
 - A prefab spawned under an inactive parent starts once the parent is switched on: its `OnAwake` and `OnStart` wait.
 - An actor switched off receives no callback until it is switched on again.
+- When a scene goes (`Scenes.Load`, quitting, stopping play in the editor), every actor receives `OnDisable` (if
+  active) and `OnDestroy` while the scene is still the current one and all its actors are still there. Only then are
+  they deleted, so these callbacks may use their own actor and any other one.
 - Instantiating a prefab from Lua:
 
   ```lua

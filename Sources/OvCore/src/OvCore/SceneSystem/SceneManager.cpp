@@ -118,6 +118,8 @@ void OvCore::SceneSystem::SceneManager::UnloadCurrentScene()
 {
 	if (m_currentScene)
 	{
+		// The actors' last callbacks run while their scene is still the current one, so that their handles resolve
+		m_currentScene->DestroyAllActors();
 		m_currentScene.reset();
 		SceneUnloadEvent.Invoke();
 	}

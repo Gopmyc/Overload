@@ -5,6 +5,15 @@ first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 [Semantic Versioning](https://semver.org/): a script, a shader or a project made for one version keeps working with any
 later version of the same major version.
 
+## [Unreleased]
+
+### Fixed
+
+- **Callbacks when a scene goes**: on a scene change, on quitting and when play stops in the editor, every actor
+  receives `OnDisable` and `OnDestroy` while its scene is still the current one, then the actors are deleted. Before,
+  the scene was already gone during these callbacks, and any actor handle used there raised
+  `ActorRef: no active scene`.
+
 ## [0.1.0] - 2026-11-07
 
 Adventurer's first version: Overload 1.9 and the changes below.
