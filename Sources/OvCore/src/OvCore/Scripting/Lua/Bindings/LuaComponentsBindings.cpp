@@ -25,6 +25,7 @@
 #include <OvCore/ECS/Components/CMaterialRenderer.h>  
 #include <OvCore/ECS/Components/CModelRenderer.h>  
 #include <OvCore/ECS/Components/CPhysicalBox.h>  
+#include <OvCore/ECS/Components/CCharacterController.h>
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>  
 #include <OvCore/ECS/Components/CPhysicalHeightField.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>  
@@ -362,6 +363,38 @@ void BindLuaComponents(sol::state& p_luaState)
 		"SetHeights", &SetHeights,
 		"GetSampleCount", &CPhysicalHeightField::GetSampleCount,
 		"GetSpacing", &CPhysicalHeightField::GetSpacing
+	);
+
+	p_luaState.new_enum<CCharacterController::EGroundState>("CharacterGroundState", {
+		{"ON_GROUND", CCharacterController::EGroundState::ON_GROUND},
+		{"ON_STEEP_GROUND", CCharacterController::EGroundState::ON_STEEP_GROUND},
+		{"NOT_SUPPORTED", CCharacterController::EGroundState::NOT_SUPPORTED},
+		{"IN_AIR", CCharacterController::EGroundState::IN_AIR}
+	});
+
+	p_luaState.new_usertype<CCharacterController>("CharacterController",
+		sol::base_classes, sol::bases<CPhysicalObject, AComponent>(),
+		"GetRadius", &CCharacterController::GetRadius,
+		"SetRadius", &CCharacterController::SetRadius,
+		"GetHeight", &CCharacterController::GetHeight,
+		"SetHeight", &CCharacterController::SetHeight,
+		"GetMaxSlopeAngle", &CCharacterController::GetMaxSlopeAngle,
+		"SetMaxSlopeAngle", &CCharacterController::SetMaxSlopeAngle,
+		"GetStepHeight", &CCharacterController::GetStepHeight,
+		"SetStepHeight", &CCharacterController::SetStepHeight,
+		"GetGroundSnapDistance", &CCharacterController::GetGroundSnapDistance,
+		"SetGroundSnapDistance", &CCharacterController::SetGroundSnapDistance,
+		"GetGravityFactor", &CCharacterController::GetGravityFactor,
+		"SetGravityFactor", &CCharacterController::SetGravityFactor,
+		"GetPushStrength", &CCharacterController::GetPushStrength,
+		"SetPushStrength", &CCharacterController::SetPushStrength,
+		"GetRealVelocity", &CCharacterController::GetRealVelocity,
+		"GetGroundState", &CCharacterController::GetGroundState,
+		"IsGrounded", &CCharacterController::IsGrounded,
+		"GetGroundNormal", &CCharacterController::GetGroundNormal,
+		"GetGroundPoint", &CCharacterController::GetGroundPoint,
+		"GetGroundVelocity", &CCharacterController::GetGroundVelocity,
+		"GetGroundObject", &CCharacterController::GetGroundObject
 	);
 
 	p_luaState.new_enum<OvRendering::Settings::EProjectionMode>("ProjectionMode", {

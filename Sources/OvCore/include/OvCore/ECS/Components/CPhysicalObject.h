@@ -201,6 +201,12 @@ namespace OvCore::ECS::Components
 		void Init();
 		void BindListener();
 
+		/**
+		* Draws the list of collision layers in the inspector
+		* @param p_root
+		*/
+		void DrawCollisionLayer(OvUI::Internal::WidgetContainer& p_root);
+
 	private:
 		virtual void OnEnable() override;
 		virtual void OnDisable() override;

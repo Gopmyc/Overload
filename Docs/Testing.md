@@ -26,6 +26,7 @@ It covers:
 | Lua Json, Lua Storage | The bindings in a bare Lua state: round trips, refused values, the project's limits, the sandbox |
 | Project settings | Layer names and ignored pairs, the save folder's name, the runtime limits and their ranges |
 | Physics layers, queries, engine | Layers by name, bodies that go through each other, casts and overlaps on a column of boxes, a second engine |
+| Character controller | Landing and standing, slopes it walks and slopes it slides down, walls and the real velocity, steps, drops and ledges, jumps and ceilings, queries, triggers and collision events, layers, teleports, impulses and pushes |
 | Scene | GUIDs, destroyed actors and their children freed at garbage collection |
 | Lua API | The bindings and the definitions of `Resources/Engine/Lua` hold the same names, inherited members included |
 | Shader API | `Docs/Shaders.md` lists every name of each public shader include, and the version is defined for every shader |
@@ -45,8 +46,9 @@ capture of the logs.
 
 ## In-game checks
 
-`Tests/run_game_checks.sh` runs each scene of `Tests/GameChecks` with a built `OvGame`, hidden, for 600 frames at
-most, with `--fail-on-error`:
+`Tests/run_game_checks.sh` runs each scene of `Tests/GameChecks` with a built `OvGame`, hidden, for 20000 frames at
+most, with `--fail-on-error`. A check ends the game itself, and the cap only stops one that never does: the physics
+steps in real time, so a check that waits on it takes as many frames as the game draws meanwhile.
 
 ```sh
 Tests/run_game_checks.sh Bin/Release/OvGame/OvGame            # every check
@@ -65,6 +67,7 @@ temporary folder.
 | `Settings` | The project file reaches the game: layer names and ignored pairs, `json_max_depth`, `storage_max_file_mib`, `max_frame_delta` |
 | `Events` | The global `Update` and `LateUpdate` events: their place around the Behaviours' callbacks, their step, an owner that dies, a removal, a callback added while they run |
 | `Shaders` | Every engine shader loads, all its variants compiled; a shader built on `Standard`'s four extension points draws; the fog option on `Standard` and `Unlit` |
+| `Character` | A character controller read from the scene file lands and stands, walks through a body of a layer it ignores and through a trigger, climbs a step, is stopped by a wall, jumps and lands, takes an impulse |
 
 A new check is a scene of `Tests/GameChecks/Assets/Scenes`, named after it, whose Behaviour uses
 `Scripts/Checks/Check.lua`:

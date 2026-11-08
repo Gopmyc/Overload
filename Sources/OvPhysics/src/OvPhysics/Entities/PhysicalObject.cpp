@@ -189,12 +189,17 @@ bool OvPhysics::Entities::PhysicalObject::IsTrigger() const
 
 bool OvPhysics::Entities::PhysicalObject::IsKinematic() const
 {
-	return m_kinematic;
+	return m_kinematic || IsCharacter();
 }
 
 bool OvPhysics::Entities::PhysicalObject::IsStatic() const
 {
-	return m_static || MustBeStatic();
+	return !IsCharacter() && (m_static || MustBeStatic());
+}
+
+bool OvPhysics::Entities::PhysicalObject::IsCharacter() const
+{
+	return false;
 }
 
 bool OvPhysics::Entities::PhysicalObject::MustBeStatic() const
@@ -259,12 +264,19 @@ void OvPhysics::Entities::PhysicalObject::SetAngularFactor(const OvMaths::FVecto
 
 void OvPhysics::Entities::PhysicalObject::SetTrigger(bool p_trigger)
 {
-	m_body->SetIsSensor(p_trigger);
-	m_trigger = p_trigger;
+	// A character controller is never a trigger
+	m_trigger = p_trigger && !IsCharacter();
+	m_body->SetIsSensor(m_trigger);
 }
 
 void OvPhysics::Entities::PhysicalObject::SetKinematic(bool p_kinematic)
 {
+	// A character controller's body is always kinematic, and its velocity is its own
+	if (IsCharacter())
+	{
+		return;
+	}
+
 	m_kinematic = p_kinematic;
 
 	if (m_kinematic)
@@ -279,7 +291,7 @@ void OvPhysics::Entities::PhysicalObject::SetKinematic(bool p_kinematic)
 
 void OvPhysics::Entities::PhysicalObject::SetStatic(bool p_static)
 {
-	if (m_static != p_static)
+	if (m_static != p_static && !IsCharacter())
 	{
 		m_static = p_static;
 		RecreateBody();
@@ -396,14 +408,16 @@ void OvPhysics::Entities::PhysicalObject::CreateBody(const Settings::BodySetting
 
 	m_previousScale = m_transform->GetWorldScale();
 	m_bodyPosition = m_transform->GetWorldPosition();
-	m_bodyRotation = m_transform->GetWorldRotation();
+
+	// A character's capsule stays upright, whatever way its actor faces
+	m_bodyRotation = IsCharacter() ? OvMaths::FQuaternion::Identity : m_transform->GetWorldRotation();
 	m_linearFactor = p_bodySettings.linearFactor;
 	m_angularFactor = p_bodySettings.angularFactor;
 
 	// Jolt cannot simulate a dynamic body without any degree of freedom, such a body is simulated as kinematic
 	const JPH::EAllowedDOFs allowedDOFs = ToAllowedDOFs(m_linearFactor, m_angularFactor);
 	const bool isStatic = IsStatic();
-	const bool isDynamic = !isStatic && !m_kinematic && allowedDOFs != JPH::EAllowedDOFs::None;
+	const bool isDynamic = !isStatic && !IsKinematic() && allowedDOFs != JPH::EAllowedDOFs::None;
 
 	JPH::BodyCreationSettings bodyCreationSettings(
 		CreateShape({ std::abs(m_previousScale.x), std::abs(m_previousScale.y), std::abs(m_previousScale.z) }),
@@ -422,7 +436,7 @@ void OvPhysics::Entities::PhysicalObject::CreateBody(const Settings::BodySetting
 		bodyCreationSettings.mMassPropertiesOverride.mMass = std::max(kMinimumMass, m_mass);
 	}
 
-	bodyCreationSettings.mIsSensor = p_bodySettings.isTrigger;
+	bodyCreationSettings.mIsSensor = p_bodySettings.isTrigger && !IsCharacter();
 	bodyCreationSettings.mMotionQuality = ToMotionQuality(m_collisionMode);
 	bodyCreationSettings.mAllowSleeping = false; // TODO: Avoid using always active
 	bodyCreationSettings.mFriction = p_bodySettings.friction;

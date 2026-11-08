@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <OvMaths/FQuaternion.h>
+#include <OvPhysics/Entities/CharacterController.h>
 #include <OvPhysics/Entities/PhysicalObject.h>
 #include <OvPhysics/Entities/PhysicsHit.h>
 #include <OvPhysics/Entities/Ragdoll.h>
@@ -57,7 +58,7 @@ namespace OvPhysics::Core
 		/**
 		* Simulate the physics. This method call is decomposed in 3 things:
 		* - Pre-Update (Apply FTransforms to physical bodies, called every Update call)
-		* - Simulation (Simulate the physics, called 60 times per seconds)
+		* - Simulation (Move the character controllers, then simulate the bodies, called 60 times per seconds)
 		* - Post-Update (Apply the simulation results, physical bodies transforms, to FTransforms)
 		* This methods returns true if the call invoked a physics simulation
 		*/
@@ -162,6 +163,7 @@ namespace OvPhysics::Core
 
 	private:
 		void PreUpdate();
+		void UpdateCharacters(float p_deltaTime);
 		void PostUpdate();
 
 		void ListenToPhysicalObjects();
@@ -194,5 +196,7 @@ namespace OvPhysics::Core
 
 		static std::map<std::pair<Entities::PhysicalObject*, Entities::PhysicalObject*>, bool> m_collisionEvents;
 		std::vector<std::reference_wrapper<Entities::PhysicalObject>> m_physicalObjects;
+		std::vector<Entities::CharacterController*> m_characters;
+		std::vector<std::pair<JPH::BodyID, JPH::BodyID>> m_characterContacts;
 	};
 }

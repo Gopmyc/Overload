@@ -212,6 +212,11 @@ void OvCore::ECS::Components::CPhysicalObject::OnInspector(OvUI::Internal::Widge
 		SetCollisionDetectionMode(static_cast<OvPhysics::Entities::PhysicalObject::ECollisionDetectionMode>(p_choice));
 	};
 
+	DrawCollisionLayer(p_root);
+}
+
+void OvCore::ECS::Components::CPhysicalObject::DrawCollisionLayer(OvUI::Internal::WidgetContainer& p_root)
+{
 	// The layers are listed by index and by the name the project gives them
 	const auto& physicsEngine = OVSERVICE(OvPhysics::Core::PhysicsEngine);
 

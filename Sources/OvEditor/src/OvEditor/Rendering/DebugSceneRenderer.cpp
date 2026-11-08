@@ -11,6 +11,7 @@
 #include <OvCore/ECS/Components/CTransform.h>
 #include <OvCore/ECS/Components/CDirectionalLight.h>
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
+#include <OvCore/ECS/Components/CCharacterController.h>
 #include <OvCore/ECS/Components/CPhysicalBox.h>
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
@@ -865,6 +866,25 @@ protected:
 				pso,
 				p_actor.transform.GetWorldPosition(),
 				p_actor.transform.GetWorldRotation(),
+				radius,
+				height,
+				OvMaths::FVector3{ 0.f, 1.f, 0.f },
+				1.0f,
+				false
+			);
+		}
+
+		/* Draw the character controller's capsule if any: it stays upright, whatever way its actor faces */
+		if (auto characterController = p_actor.GetComponent<OvCore::ECS::Components::CCharacterController>(); characterController)
+		{
+			FVector3 actorScale = p_actor.transform.GetWorldScale();
+			float radius = std::abs(characterController->GetRadius() * std::max(std::max(std::abs(actorScale.x), std::abs(actorScale.z)), 0.f));
+			float height = std::abs(characterController->GetHeight() * actorScale.y);
+
+			m_debugShapeFeature.DrawCapsule(
+				pso,
+				p_actor.transform.GetWorldPosition(),
+				OvMaths::FQuaternion::Identity,
 				radius,
 				height,
 				OvMaths::FVector3{ 0.f, 1.f, 0.f },
