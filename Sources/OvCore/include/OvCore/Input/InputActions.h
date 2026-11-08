@@ -91,6 +91,13 @@ namespace OvCore::Input
 		void Update(const IInputSource& p_source);
 
 		/**
+		* Reads the inputs for this frame again, once the source hides some it gave (an input consumed during the frame):
+		* an action that loses its inputs is released, if it was held before this frame
+		* @param p_source
+		*/
+		void Refresh(const IInputSource& p_source);
+
+		/**
 		* Returns true if the project declares the action
 		* @param p_action
 		*/
@@ -174,6 +181,7 @@ namespace OvCore::Input
 			std::string name;
 			Bindings defaults;
 			Bindings bindings;
+			bool wasHeld = false;
 			bool held = false;
 			bool pressed = false;
 			bool released = false;
@@ -183,10 +191,12 @@ namespace OvCore::Input
 		Action* Find(std::string_view p_action);
 		const Action* Find(std::string_view p_action) const;
 		void RemoveDuplicates();
+		void Evaluate(const IInputSource& p_source);
 
 	private:
 		std::vector<Action> m_actions;
-		std::vector<float> m_axisValues;
+		std::vector<float> m_previousValues;
+		std::vector<float> m_values;
 		std::optional<InputId> m_pressedInput;
 	};
 }

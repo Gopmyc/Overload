@@ -4,12 +4,14 @@
 * @licence: MIT
 */
 
+#include <algorithm>
 #include <optional>
 #include <type_traits>
 #include <unordered_set>
 
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Helpers/InputHelpers.h>
+#include <OvCore/Input/InputConsumption.h>
 #include <OvWindowing/Inputs/InputManager.h>
 #include <OvWindowing/Window.h>
 
@@ -19,6 +21,9 @@ using OvWindowing::Inputs::EKey;
 using OvWindowing::Inputs::EKeyState;
 using OvWindowing::Inputs::EMouseButton;
 using OvWindowing::Inputs::EMouseButtonState;
+using OvCore::Helpers::InputHelpers;
+using OvCore::Input::InputConsumption;
+using OvCore::Input::InputId;
 
 namespace
 {
@@ -66,29 +71,32 @@ namespace
 	std::unordered_set<EMouseButton> __RELEASED_BUTTONS;
 	std::unordered_set<PadButton, PadButtonHash> __RELEASED_PAD_BUTTONS;
 
+	// Consumed by the game itself (a UI that took a click), the keyboard's capture, and the scroll taken for the frame
+	InputConsumption __CONSUMPTION;
+
 	// The position last given to the game, and the offset that keeps a lock taken again from jumping
 	std::optional<OvMaths::FVector2> __LAST_MOUSE_POSITION;
 	OvMaths::FVector2 __LOCKED_MOUSE_OFFSET;
 	bool __REBASE_MOUSE = false;
 
-	OvWindowing::Inputs::InputManager& Input()
+	OvWindowing::Inputs::InputManager& Manager()
 	{
 		return OVSERVICE(OvWindowing::Inputs::InputManager);
 	}
 
 	bool IsHeld(EKey p_key)
 	{
-		return Input().GetKeyState(p_key) == EKeyState::KEY_DOWN;
+		return Manager().GetKeyState(p_key) == EKeyState::KEY_DOWN;
 	}
 
 	bool IsHeld(EMouseButton p_button)
 	{
-		return Input().GetMouseButtonState(p_button) == EMouseButtonState::MOUSE_DOWN;
+		return Manager().GetMouseButtonState(p_button) == EMouseButtonState::MOUSE_DOWN;
 	}
 
 	bool IsHeld(const PadButton& p_button)
 	{
-		return Input().GetGamepads().IsButtonDown(p_button.pad, p_button.button);
+		return Manager().GetGamepads().IsButtonDown(p_button.pad, p_button.button);
 	}
 
 	/**
@@ -106,6 +114,78 @@ namespace
 		}
 	}
 
+	InputId KeyInput(EKey p_key)
+	{
+		return { InputId::EDevice::KEY, static_cast<int>(p_key) };
+	}
+
+	InputId MouseInput(EMouseButton p_button)
+	{
+		return { InputId::EDevice::MOUSE_BUTTON, static_cast<int>(p_button) };
+	}
+
+	InputId PadButtonInput(EGamepadButton p_button)
+	{
+		return { InputId::EDevice::GAMEPAD_BUTTON, static_cast<int>(p_button) };
+	}
+
+	/**
+	* The way of the axis a value goes: a trigger has one, a stick's axis two
+	*/
+	InputId PadAxisInput(EGamepadAxis p_axis, float p_value)
+	{
+		const bool trigger = p_axis == EGamepadAxis::GAMEPAD_AXIS_LEFT_TRIGGER || p_axis == EGamepadAxis::GAMEPAD_AXIS_RIGHT_TRIGGER;
+		return { InputId::EDevice::GAMEPAD_AXIS, static_cast<int>(p_axis), static_cast<int8_t>(trigger ? 0 : (p_value < 0.0f ? -1 : 1)) };
+	}
+
+	/**
+	* An input as the game would see it without consumption: what the consumption is told
+	*/
+	InputConsumption::State ReadUnconsumed(const InputId& p_input, int p_pad)
+	{
+		switch (p_input.device)
+		{
+		case InputId::EDevice::KEY:
+		{
+			const auto key = static_cast<EKey>(p_input.code);
+			return { InputHelpers::GetKey(key, true) ? 1.0f : 0.0f, InputHelpers::GetKeyDown(key, true), InputHelpers::GetKeyUp(key, true) };
+		}
+
+		case InputId::EDevice::MOUSE_BUTTON:
+		{
+			const auto button = static_cast<EMouseButton>(p_input.code);
+			return { InputHelpers::GetMouseButton(button, true) ? 1.0f : 0.0f, InputHelpers::GetMouseButtonDown(button, true), InputHelpers::GetMouseButtonUp(button, true) };
+		}
+
+		case InputId::EDevice::GAMEPAD_BUTTON:
+		{
+			const auto button = static_cast<EGamepadButton>(p_input.code);
+			return { InputHelpers::GetGamepadButton(p_pad, button, true) ? 1.0f : 0.0f, InputHelpers::GetGamepadButtonDown(p_pad, button, true), InputHelpers::GetGamepadButtonUp(p_pad, button, true) };
+		}
+
+		case InputId::EDevice::GAMEPAD_AXIS:
+		{
+			const float value = InputHelpers::GetGamepadAxis(p_pad, static_cast<EGamepadAxis>(p_input.code), true);
+			return { p_input.direction == 0 ? value : std::max(value * static_cast<float>(p_input.direction), 0.0f) };
+		}
+		}
+
+		return {};
+	}
+
+	/**
+	* Whether a read leaves the input out, and whether the consumption released it for the game on this frame
+	*/
+	bool Hidden(const InputId& p_input, int p_pad, bool p_includeConsumed)
+	{
+		return !p_includeConsumed && __CONSUMPTION.IsHidden(p_input, p_pad);
+	}
+
+	bool ReleasedByConsumption(const InputId& p_input, int p_pad, bool p_includeConsumed)
+	{
+		return !p_includeConsumed && __CONSUMPTION.IsReleasedForGame(p_input, p_pad);
+	}
+
 	OvMaths::FVector2 GetRawMousePosition()
 	{
 		if (__MOUSE_POSITION_PROVIDER)
@@ -113,7 +193,7 @@ namespace
 			return __MOUSE_POSITION_PROVIDER();
 		}
 
-		const auto [mouseX, mouseY] = Input().GetMousePosition();
+		const auto [mouseX, mouseY] = Manager().GetMousePosition();
 		return { static_cast<float>(mouseX), static_cast<float>(mouseY) };
 	}
 
@@ -130,7 +210,7 @@ namespace
 	{
 		using T = typename TSet::value_type;
 
-		auto& input = Input();
+		auto& input = Manager();
 
 		std::erase_if(p_ignored, [&input](const T& p_input) {
 			if constexpr (std::is_same_v<T, EKey>)
@@ -183,7 +263,7 @@ namespace
 
 	void OpenGate()
 	{
-		auto& input = Input();
+		auto& input = Manager();
 
 		for (int key = kFirstKey; key <= kLastKey; ++key)
 		{
@@ -257,93 +337,120 @@ OvMaths::FVector2 OvCore::Helpers::InputHelpers::GetViewportSize()
 	return { static_cast<float>(width), static_cast<float>(height) };
 }
 
-bool OvCore::Helpers::InputHelpers::GetKey(EKey p_key)
+bool OvCore::Helpers::InputHelpers::GetKey(EKey p_key, bool p_includeConsumed)
 {
-	return __GAME_INPUT_OPEN && !__IGNORED_KEYS.contains(p_key) && IsHeld(p_key);
+	return __GAME_INPUT_OPEN && !__IGNORED_KEYS.contains(p_key) && !Hidden(KeyInput(p_key), 0, p_includeConsumed) && IsHeld(p_key);
 }
 
-bool OvCore::Helpers::InputHelpers::GetKeyDown(EKey p_key)
+bool OvCore::Helpers::InputHelpers::GetKeyDown(EKey p_key, bool p_includeConsumed)
 {
-	return __GAME_INPUT_OPEN && !__IGNORED_KEYS.contains(p_key) && Input().IsKeyPressed(p_key);
+	return __GAME_INPUT_OPEN && !__IGNORED_KEYS.contains(p_key) && !Hidden(KeyInput(p_key), 0, p_includeConsumed) && Manager().IsKeyPressed(p_key);
 }
 
-bool OvCore::Helpers::InputHelpers::GetKeyUp(EKey p_key)
+bool OvCore::Helpers::InputHelpers::GetKeyUp(EKey p_key, bool p_includeConsumed)
 {
-	return __RELEASED_KEYS.contains(p_key) || (__GAME_INPUT_OPEN && !__IGNORED_KEYS.contains(p_key) && Input().IsKeyReleased(p_key));
+	const bool hidden = Hidden(KeyInput(p_key), 0, p_includeConsumed);
+	return (__RELEASED_KEYS.contains(p_key) && !hidden) || ReleasedByConsumption(KeyInput(p_key), 0, p_includeConsumed) || (__GAME_INPUT_OPEN && !__IGNORED_KEYS.contains(p_key) && !hidden && Manager().IsKeyReleased(p_key));
 }
 
-bool OvCore::Helpers::InputHelpers::GetMouseButton(EMouseButton p_button)
+bool OvCore::Helpers::InputHelpers::GetMouseButton(EMouseButton p_button, bool p_includeConsumed)
 {
-	return __GAME_INPUT_OPEN && !__IGNORED_BUTTONS.contains(p_button) && IsHeld(p_button);
+	return __GAME_INPUT_OPEN && !__IGNORED_BUTTONS.contains(p_button) && !Hidden(MouseInput(p_button), 0, p_includeConsumed) && IsHeld(p_button);
 }
 
-bool OvCore::Helpers::InputHelpers::GetMouseButtonDown(EMouseButton p_button)
+bool OvCore::Helpers::InputHelpers::GetMouseButtonDown(EMouseButton p_button, bool p_includeConsumed)
 {
-	return __GAME_INPUT_OPEN && !__IGNORED_BUTTONS.contains(p_button) && Input().IsMouseButtonPressed(p_button);
+	return __GAME_INPUT_OPEN && !__IGNORED_BUTTONS.contains(p_button) && !Hidden(MouseInput(p_button), 0, p_includeConsumed) && Manager().IsMouseButtonPressed(p_button);
 }
 
-bool OvCore::Helpers::InputHelpers::GetMouseButtonUp(EMouseButton p_button)
+bool OvCore::Helpers::InputHelpers::GetMouseButtonUp(EMouseButton p_button, bool p_includeConsumed)
 {
-	return __RELEASED_BUTTONS.contains(p_button) || (__GAME_INPUT_OPEN && !__IGNORED_BUTTONS.contains(p_button) && Input().IsMouseButtonReleased(p_button));
+	const bool hidden = Hidden(MouseInput(p_button), 0, p_includeConsumed);
+	return (__RELEASED_BUTTONS.contains(p_button) && !hidden) || ReleasedByConsumption(MouseInput(p_button), 0, p_includeConsumed) || (__GAME_INPUT_OPEN && !__IGNORED_BUTTONS.contains(p_button) && !hidden && Manager().IsMouseButtonReleased(p_button));
 }
 
-OvMaths::FVector2 OvCore::Helpers::InputHelpers::GetMouseScroll()
+OvMaths::FVector2 OvCore::Helpers::InputHelpers::GetMouseScroll(bool p_includeConsumed)
 {
-	if (!__GAME_INPUT_OPEN || !__MOUSE_OVER_GAME)
+	if (!__GAME_INPUT_OPEN || !__MOUSE_OVER_GAME || (!p_includeConsumed && __CONSUMPTION.IsMouseScrollConsumed()))
 	{
 		return {};
 	}
 
-	const auto [scrollX, scrollY] = Input().GetMouseScroll();
+	const auto [scrollX, scrollY] = Manager().GetMouseScroll();
 	return { static_cast<float>(scrollX), static_cast<float>(scrollY) };
 }
 
 std::optional<int> OvCore::Helpers::InputHelpers::GetFirstGamepad()
 {
-	return Input().GetGamepads().GetFirstConnected();
+	return Manager().GetGamepads().GetFirstConnected();
 }
 
 bool OvCore::Helpers::InputHelpers::IsGamepadConnected(int p_pad)
 {
-	return Input().GetGamepads().IsConnected(p_pad);
+	return Manager().GetGamepads().IsConnected(p_pad);
 }
 
 std::string OvCore::Helpers::InputHelpers::GetGamepadName(int p_pad)
 {
-	return Input().GetGamepads().GetName(p_pad);
+	return Manager().GetGamepads().GetName(p_pad);
 }
 
-bool OvCore::Helpers::InputHelpers::GetGamepadButton(int p_pad, EGamepadButton p_button)
+bool OvCore::Helpers::InputHelpers::GetGamepadButton(int p_pad, EGamepadButton p_button, bool p_includeConsumed)
 {
 	const PadButton button{ p_pad, p_button };
-	return __GAME_INPUT_OPEN && !__IGNORED_PAD_BUTTONS.contains(button) && IsHeld(button);
+	return __GAME_INPUT_OPEN && !__IGNORED_PAD_BUTTONS.contains(button) && !Hidden(PadButtonInput(p_button), p_pad, p_includeConsumed) && IsHeld(button);
 }
 
-bool OvCore::Helpers::InputHelpers::GetGamepadButtonDown(int p_pad, EGamepadButton p_button)
+bool OvCore::Helpers::InputHelpers::GetGamepadButtonDown(int p_pad, EGamepadButton p_button, bool p_includeConsumed)
 {
 	const PadButton button{ p_pad, p_button };
-	return __GAME_INPUT_OPEN && !__IGNORED_PAD_BUTTONS.contains(button) && Input().GetGamepads().IsButtonPressed(p_pad, p_button);
+	return __GAME_INPUT_OPEN && !__IGNORED_PAD_BUTTONS.contains(button) && !Hidden(PadButtonInput(p_button), p_pad, p_includeConsumed) && Manager().GetGamepads().IsButtonPressed(p_pad, p_button);
 }
 
-bool OvCore::Helpers::InputHelpers::GetGamepadButtonUp(int p_pad, EGamepadButton p_button)
+bool OvCore::Helpers::InputHelpers::GetGamepadButtonUp(int p_pad, EGamepadButton p_button, bool p_includeConsumed)
 {
 	const PadButton button{ p_pad, p_button };
-	return __RELEASED_PAD_BUTTONS.contains(button) || (__GAME_INPUT_OPEN && !__IGNORED_PAD_BUTTONS.contains(button) && Input().GetGamepads().IsButtonReleased(p_pad, p_button));
+	const bool hidden = Hidden(PadButtonInput(p_button), p_pad, p_includeConsumed);
+	return (__RELEASED_PAD_BUTTONS.contains(button) && !hidden) || ReleasedByConsumption(PadButtonInput(p_button), p_pad, p_includeConsumed) || (__GAME_INPUT_OPEN && !__IGNORED_PAD_BUTTONS.contains(button) && !hidden && Manager().GetGamepads().IsButtonReleased(p_pad, p_button));
 }
 
-float OvCore::Helpers::InputHelpers::GetGamepadAxis(int p_pad, EGamepadAxis p_axis)
+float OvCore::Helpers::InputHelpers::GetGamepadAxis(int p_pad, EGamepadAxis p_axis, bool p_includeConsumed)
 {
-	return __GAME_INPUT_OPEN ? Input().GetGamepads().GetAxis(p_pad, p_axis) : 0.0f;
+	const float value = __GAME_INPUT_OPEN ? Manager().GetGamepads().GetAxis(p_pad, p_axis) : 0.0f;
+
+	// A consumed way of a stick reads as 0, while the other way still reads
+	return value != 0.0f && Hidden(PadAxisInput(p_axis, value), p_pad, p_includeConsumed) ? 0.0f : value;
 }
 
 void OvCore::Helpers::InputHelpers::SetGamepadDeadZone(float p_deadZone)
 {
-	Input().GetGamepads().SetDeadZone(p_deadZone);
+	Manager().GetGamepads().SetDeadZone(p_deadZone);
 }
 
 float OvCore::Helpers::InputHelpers::GetGamepadDeadZone()
 {
-	return Input().GetGamepads().GetDeadZone();
+	return Manager().GetGamepads().GetDeadZone();
+}
+
+bool OvCore::Helpers::InputHelpers::Consume(const InputId& p_input, int p_pad)
+{
+	__CONSUMPTION.Consume(p_input, p_pad, ReadUnconsumed(p_input, p_pad));
+	return __CONSUMPTION.IsHidden(p_input, p_pad);
+}
+
+void OvCore::Helpers::InputHelpers::ConsumeMouseScroll()
+{
+	__CONSUMPTION.ConsumeMouseScroll();
+}
+
+void OvCore::Helpers::InputHelpers::SetKeyboardCaptured(bool p_captured)
+{
+	__CONSUMPTION.SetKeyboardCaptured(p_captured, ReadUnconsumed);
+}
+
+bool OvCore::Helpers::InputHelpers::IsKeyboardCaptured()
+{
+	return __CONSUMPTION.IsKeyboardCaptured();
 }
 
 void OvCore::Helpers::InputHelpers::SetMouseLocked(bool p_locked)
@@ -372,7 +479,7 @@ void OvCore::Helpers::InputHelpers::SetCursorShape(OvWindowing::Cursor::ECursorS
 	}
 }
 
-void OvCore::Helpers::InputHelpers::UpdateGameInputGate(bool p_open, bool p_mouseOverGame)
+void OvCore::Helpers::InputHelpers::BeginFrame()
 {
 	__RELEASED_KEYS.clear();
 	__RELEASED_BUTTONS.clear();
@@ -381,6 +488,13 @@ void OvCore::Helpers::InputHelpers::UpdateGameInputGate(bool p_open, bool p_mous
 	PruneIgnored(__IGNORED_KEYS);
 	PruneIgnored(__IGNORED_BUTTONS);
 	PruneIgnored(__IGNORED_PAD_BUTTONS);
+
+	__CONSUMPTION.BeginFrame(ReadUnconsumed);
+}
+
+void OvCore::Helpers::InputHelpers::UpdateGameInputGate(bool p_open, bool p_mouseOverGame)
+{
+	BeginFrame();
 
 	if (p_open != __GAME_INPUT_OPEN)
 	{
@@ -405,7 +519,7 @@ void OvCore::Helpers::InputHelpers::UpdateGameInputGate(bool p_open, bool p_mous
 	{
 		for (int button = 0; button < kButtonCount; ++button)
 		{
-			if (const auto value = static_cast<EMouseButton>(button); Input().IsMouseButtonPressed(value))
+			if (const auto value = static_cast<EMouseButton>(button); Manager().IsMouseButtonPressed(value))
 				__IGNORED_BUTTONS.insert(value);
 		}
 	}
@@ -423,10 +537,11 @@ void OvCore::Helpers::InputHelpers::ResetGameInputGate()
 	__RELEASED_KEYS.clear();
 	__RELEASED_BUTTONS.clear();
 	__RELEASED_PAD_BUTTONS.clear();
+	__CONSUMPTION.Reset();
 	__LAST_MOUSE_POSITION.reset();
 
 	// A play session starts with the default dead zone, whatever the last one set
-	Input().GetGamepads().SetDeadZone(OvWindowing::Inputs::Gamepads::kDefaultDeadZone);
+	Manager().GetGamepads().SetDeadZone(OvWindowing::Inputs::Gamepads::kDefaultDeadZone);
 	__LOCKED_MOUSE_OFFSET = {};
 	__REBASE_MOUSE = false;
 }

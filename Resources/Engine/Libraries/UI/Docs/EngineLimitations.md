@@ -32,10 +32,12 @@ not just its Lua binding. Features that only need a binding are listed in
   Other keyboard layouts, AltGr, dead keys, accents, IME and the Caps Lock state aren't supported. Key
   repeat is emulated by the controller (0.4 s delay, then every 0.05 s).
 
-## 4. Inputs can't be consumed
+## 4. Inputs aren't consumed
 
 - **Feature:** keeping UI input away from gameplay.
-- **Missing primitive:** a way to mark an input as handled.
+- **Missing primitive:** none any more. Since the Lua API 1.6, `Inputs.Consume`, `Inputs.ConsumeMouseScroll` and
+  `Inputs.SetKeyboardCaptured` hide an input from gameplay (see the engine's `Docs/Input.md`), but the controller
+  doesn't call them yet.
 - **Impact:** game scripts still receive the keys and clicks meant for the UI. For instance, typing in
   a `DTextEntry` also triggers gameplay key bindings. Games have to check
   `controller:GetFocusedPanel()` and `controller:GetHoveredPanel()` themselves.

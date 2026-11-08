@@ -73,6 +73,10 @@ later version of the same major version.
   input), `ResetBindings`, `GetPressedInput` and `GetInputName` make a rebinding menu, and the bindings are saved in the
   save folder. The Lua API is now 1.5. See [Docs/Input.md](Docs/Input.md).
 - **JSON in C++**: `OvTools::Utils::Json` reads and writes JSON values, for the engine's own files.
+- **Input consumption**: `Inputs.Consume(input[, pad])` hides an input from the game's reads, direct or through the
+  actions, until it is released, and releases it for the game if it saw it held; `Inputs.ConsumeMouseScroll()` hides
+  the frame's scroll, and `Inputs.SetKeyboardCaptured(captured)` every key, for a text field. Every read takes a last
+  `includeConsumed` argument, for the code that consumed. The Lua API is now 1.6. See [Docs/Input.md](Docs/Input.md).
 
 ### Changed
 

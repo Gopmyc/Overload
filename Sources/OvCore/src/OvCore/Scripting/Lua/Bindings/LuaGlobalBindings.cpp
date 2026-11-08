@@ -557,25 +557,25 @@ void BindLuaGlobal(sol::state& p_luaState)
 	);
 
 	p_luaState.create_named_table("Inputs",
-		"GetKeyDown", [](EKey p_key) { return OvCore::Helpers::InputHelpers::GetKeyDown(p_key); },
-		"GetKeyUp", [](EKey p_key) { return OvCore::Helpers::InputHelpers::GetKeyUp(p_key); },
-		"GetKey", [](EKey p_key) { return OvCore::Helpers::InputHelpers::GetKey(p_key); },
+		"GetKeyDown", [](EKey p_key, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetKeyDown(p_key, p_includeConsumed.value_or(false)); },
+		"GetKeyUp", [](EKey p_key, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetKeyUp(p_key, p_includeConsumed.value_or(false)); },
+		"GetKey", [](EKey p_key, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetKey(p_key, p_includeConsumed.value_or(false)); },
 		"GetKeyName", [](EKey p_key) { return OVSERVICE(InputManager).GetKeyName(p_key); },
-		"GetMouseButtonDown", [](EMouseButton p_button) { return OvCore::Helpers::InputHelpers::GetMouseButtonDown(p_button); },
-		"GetMouseButtonUp", [](EMouseButton p_button) { return OvCore::Helpers::InputHelpers::GetMouseButtonUp(p_button); },
-		"GetMouseButton", [](EMouseButton p_button) { return OvCore::Helpers::InputHelpers::GetMouseButton(p_button); },
+		"GetMouseButtonDown", [](EMouseButton p_button, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetMouseButtonDown(p_button, p_includeConsumed.value_or(false)); },
+		"GetMouseButtonUp", [](EMouseButton p_button, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetMouseButtonUp(p_button, p_includeConsumed.value_or(false)); },
+		"GetMouseButton", [](EMouseButton p_button, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetMouseButton(p_button, p_includeConsumed.value_or(false)); },
 		"GetMousePos", []() { return OvCore::Helpers::InputHelpers::GetMousePosition(); },
 		"GetViewportSize", []() { return OvCore::Helpers::InputHelpers::GetViewportSize(); },
-		"GetMouseScroll", []() { return OvCore::Helpers::InputHelpers::GetMouseScroll(); },
+		"GetMouseScroll", [](sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetMouseScroll(p_includeConsumed.value_or(false)); },
 		"LockMouse", []() { OvCore::Helpers::InputHelpers::SetMouseLocked(true); },
 		"UnlockMouse", []() { OvCore::Helpers::InputHelpers::SetMouseLocked(false); },
 		"SetCursorShape", [](Cursor::ECursorShape p_shape) { OvCore::Helpers::InputHelpers::SetCursorShape(p_shape); },
 		"IsGamepadConnected", [](sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::IsGamepadConnected(*pad); },
 		"GetGamepadName", [](sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad ? OvCore::Helpers::InputHelpers::GetGamepadName(*pad) : std::string{}; },
-		"GetGamepadButton", [](EGamepadButton p_button, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButton(*pad, p_button); },
-		"GetGamepadButtonDown", [](EGamepadButton p_button, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButtonDown(*pad, p_button); },
-		"GetGamepadButtonUp", [](EGamepadButton p_button, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButtonUp(*pad, p_button); },
-		"GetGamepadAxis", [](EGamepadAxis p_axis, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad ? OvCore::Helpers::InputHelpers::GetGamepadAxis(*pad, p_axis) : 0.0f; },
+		"GetGamepadButton", [](EGamepadButton p_button, sol::optional<int> p_pad, sol::optional<bool> p_includeConsumed) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButton(*pad, p_button, p_includeConsumed.value_or(false)); },
+		"GetGamepadButtonDown", [](EGamepadButton p_button, sol::optional<int> p_pad, sol::optional<bool> p_includeConsumed) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButtonDown(*pad, p_button, p_includeConsumed.value_or(false)); },
+		"GetGamepadButtonUp", [](EGamepadButton p_button, sol::optional<int> p_pad, sol::optional<bool> p_includeConsumed) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButtonUp(*pad, p_button, p_includeConsumed.value_or(false)); },
+		"GetGamepadAxis", [](EGamepadAxis p_axis, sol::optional<int> p_pad, sol::optional<bool> p_includeConsumed) { const auto pad = ResolveGamepad(p_pad); return pad ? OvCore::Helpers::InputHelpers::GetGamepadAxis(*pad, p_axis, p_includeConsumed.value_or(false)) : 0.0f; },
 		"SetGamepadDeadZone", [](float p_deadZone) { OvCore::Helpers::InputHelpers::SetGamepadDeadZone(p_deadZone); },
 		"GetGamepadDeadZone", []() { return OvCore::Helpers::InputHelpers::GetGamepadDeadZone(); },
 		"GetAction", [](const std::string& p_action) { return FindAction(p_action, "GetAction") && Actions().IsHeld(p_action); },
@@ -634,7 +634,35 @@ void BindLuaGlobal(sol::state& p_luaState)
 		{
 			const auto input = OvCore::Input::ParseInput(p_input);
 			return input ? OvCore::Input::GetInputLabel(*input) : std::string{};
-		}
+		},
+		"Consume", [](const std::string& p_input, sol::optional<int> p_pad) -> std::tuple<bool, sol::optional<std::string>>
+		{
+			const auto input = OvCore::Input::ParseInput(p_input);
+			if (!input)
+			{
+				return { false, std::format("no input named \"{}\"", p_input) };
+			}
+
+			const bool gamepad = input->device == OvCore::Input::InputId::EDevice::GAMEPAD_BUTTON || input->device == OvCore::Input::InputId::EDevice::GAMEPAD_AXIS;
+			const auto pad = gamepad ? ResolveGamepad(p_pad) : std::optional<int>(0);
+			if (!pad)
+			{
+				return { false, sol::nullopt };
+			}
+
+			const bool hidden = OvCore::Helpers::InputHelpers::Consume(*input, *pad);
+
+			// The actions read this frame's inputs before the scripts: they leave the input out at once
+			Actions().Refresh(OvCore::Input::GameInputSource{});
+			return { hidden, sol::nullopt };
+		},
+		"ConsumeMouseScroll", []() { OvCore::Helpers::InputHelpers::ConsumeMouseScroll(); },
+		"SetKeyboardCaptured", [](bool p_captured)
+		{
+			OvCore::Helpers::InputHelpers::SetKeyboardCaptured(p_captured);
+			Actions().Refresh(OvCore::Input::GameInputSource{});
+		},
+		"IsKeyboardCaptured", []() { return OvCore::Helpers::InputHelpers::IsKeyboardCaptured(); }
 	);
 
 	p_luaState.create_named_table("Scenes",
