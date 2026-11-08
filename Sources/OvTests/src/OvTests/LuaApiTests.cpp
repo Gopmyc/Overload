@@ -16,7 +16,10 @@
 #include <doctest/doctest.h>
 #include <sol/sol.hpp>
 
+#include <OvCore/ECS/Actor.h>
+#include <OvCore/ECS/Components/Behaviour.h>
 #include <OvCore/Global/ServiceLocator.h>
+#include <OvCore/SceneSystem/Scene.h>
 #include <OvCore/Scripting/Lua/LuaApi.h>
 #include <OvCore/Scripting/ScriptEngine.h>
 #include <OvTests/TestUtils.h>
@@ -245,6 +248,110 @@ TEST_SUITE("Lua modules")
 			CHECK(results.get<int>("major") == OvCore::Scripting::LuaApi::kVersionMajor);
 			CHECK(results.get<int>("minor") == OvCore::Scripting::LuaApi::kVersionMinor);
 
+		}
+	}
+
+	TEST_CASE("global frame events run outside any Behaviour, in order, and drop what fails")
+	{
+		OvTests::TempFolder project;
+		OvTests::TempFolder engineAssets;
+
+		project.WriteFile("Scripts/Frames.lua", R"(
+			local Frames = { log = {} }
+			local function add(entry) Frames.log[#Frames.log + 1] = entry end
+
+			Events.AddUpdate(function(step) add("U" .. step) end)
+			Events.AddLateUpdate(function(step) add("L" .. step) end)
+			Events.AddUpdate(function() error("boom") end)
+
+			local removed = Events.AddUpdate(function() add("never") end)
+			Frames.removedOnce = Events.Remove(removed)
+			Frames.removedTwice = Events.Remove(removed)
+
+			local adder
+			adder = Events.AddUpdate(function()
+				add("A")
+				Events.Remove(adder)
+				Events.AddUpdate(function() add("N") end)
+			end)
+
+			local ok, message = pcall(Events.AddUpdate, 42)
+			Frames.badArgument = ok and "accepted" or tostring(message)
+			return Frames
+		)");
+
+		OvCore::Scripting::ScriptEngine engine(project.GetPath(), engineAssets.GetPath());
+		OvCore::Global::ServiceLocator::Provide(engine);
+		OvTests::LogCapture logs;
+
+		{
+			const sol::object loaded = engine.GetScript("Scripts/Frames.lua");
+			REQUIRE(loaded.get_type() == sol::type::table);
+			const sol::table frames = loaded.as<sol::table>();
+
+			CHECK(frames.get<bool>("removedOnce"));
+			CHECK_FALSE(frames.get<bool>("removedTwice"));
+			CHECK(frames.get<std::string>("badArgument").find("Events.AddUpdate: a function is expected") != std::string::npos);
+
+			// Two frames, as a scene runs them
+			OvCore::SceneSystem::Scene::UpdateEvent.Invoke(0.5f);
+			OvCore::SceneSystem::Scene::LateUpdateEvent.Invoke(0.5f);
+			OvCore::SceneSystem::Scene::UpdateEvent.Invoke(0.25f);
+			OvCore::SceneSystem::Scene::LateUpdateEvent.Invoke(0.25f);
+
+			std::vector<std::string> log;
+			for (const auto& [index, entry] : frames.get<sol::table>("log"))
+				log.push_back(entry.as<std::string>());
+
+			// The adder ran once and removed itself; what it added first ran at the next frame
+			CHECK(log == std::vector<std::string>{ "U0.5", "A", "L0.5", "U0.25", "N", "L0.25" });
+			CHECK(logs.Count(OvDebug::ELogLevel::LOG_ERROR) == 1);
+			CHECK(logs.Contains(OvDebug::ELogLevel::LOG_ERROR, "Events.AddUpdate: a callback failed and is removed"));
+			CHECK(logs.Contains(OvDebug::ELogLevel::LOG_ERROR, "boom"));
+		}
+
+		// Without a Lua state, the events reach no one
+		engine.DestroyContext();
+		OvCore::SceneSystem::Scene::UpdateEvent.Invoke(0.5f);
+		CHECK_FALSE(engine.RemoveFrameCallback(1));
+		engine.CreateContext();
+	}
+
+	TEST_CASE("a Behaviour whose path starts with a colon comes from the engine's resources")
+	{
+		OvTests::TempFolder project;
+		OvTests::TempFolder engineAssets;
+		engineAssets.WriteFile("Behaviours/Spin.lua", "return { nSpeed = 90 }");
+		project.WriteFile("Scripts/Local.lua", "return { nSpeed = 10 }");
+
+		OvCore::Scripting::ScriptEngine engine(project.GetPath(), engineAssets.GetPath());
+		OvCore::Global::ServiceLocator::Provide(engine);
+
+		// The actors go before the engine their Behaviours are registered with
+		{
+			OvCore::SceneSystem::Scene scene(project.GetPath(), engineAssets.GetPath());
+			auto& actor = scene.CreateActor("Spinner");
+
+			auto& engineBehaviour = actor.AddBehaviour(":Behaviours/Spin.lua");
+			auto& projectBehaviour = actor.AddBehaviour("Scripts/Local.lua");
+
+			for (auto* behaviour : { &engineBehaviour, &projectBehaviour })
+			{
+				CAPTURE(behaviour->name);
+				const auto script = behaviour->GetScript();
+				REQUIRE(script.has_value());
+				REQUIRE(script->IsValid());
+			}
+
+			const auto speed = [](OvCore::ECS::Components::Behaviour& p_behaviour)
+			{
+				auto& script = static_cast<OvCore::Scripting::LuaScript&>(p_behaviour.GetScript().value());
+				// A property reaches the script as a number of the inspector: a float
+				return (*script.GetContext().table).get<double>("nSpeed");
+			};
+
+			CHECK(speed(engineBehaviour) == doctest::Approx(90.0));
+			CHECK(speed(projectBehaviour) == doctest::Approx(10.0));
 		}
 	}
 }

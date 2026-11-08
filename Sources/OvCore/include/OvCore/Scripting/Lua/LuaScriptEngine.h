@@ -6,11 +6,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include <OvCore/Scripting/Common/ScriptPropertyValue.h>
 #include <OvCore/Scripting/Common/TScriptEngine.h>
 
 namespace OvCore::ECS::Components
@@ -34,11 +37,17 @@ namespace sol
 namespace OvCore::Scripting
 {
 	/**
+	* The callbacks of the global Update and LateUpdate events (Events.AddUpdate...), which live with the Lua state
+	*/
+	struct LuaFrameEvents;
+
+	/**
 	* Lua script engine context
 	*/
 	struct LuaScriptEngineContext
 	{
 		std::unique_ptr<sol::state> luaState;
+		std::unique_ptr<LuaFrameEvents> frameEvents;
 		std::filesystem::path projectAssetsPath;
 		std::filesystem::path engineAssetsPath;
 		std::vector<std::reference_wrapper<OvCore::ECS::Components::Behaviour>> behaviours;
@@ -92,6 +101,30 @@ namespace OvCore::Scripting
 		* @param p_path
 		*/
 		sol::object RequireScript(const std::string& p_path);
+
+		/**
+		* The global events a script can listen to, outside any Behaviour
+		*/
+		enum class EFrameEvent
+		{
+			UPDATE,     // Every frame, before every Behaviour's OnUpdate
+			LATE_UPDATE // Every frame, after every Behaviour's OnLateUpdate
+		};
+
+		/**
+		* Calls the Lua function with the frame's step at each event from the next frame on, until it is removed, it
+		* fails, or its owner (when given) is no longer alive. Returns its id
+		* @param p_event
+		* @param p_callback
+		* @param p_owner
+		*/
+		uint64_t AddFrameCallback(EFrameEvent p_event, const sol::object& p_callback, std::optional<ActorRef> p_owner);
+
+		/**
+		* Removes a callback, and returns whether it was there
+		* @param p_id
+		*/
+		bool RemoveFrameCallback(uint64_t p_id);
 
 	private:
 		sol::object LoadModule(const std::string& p_path, std::string& p_error);

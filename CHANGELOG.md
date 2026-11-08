@@ -34,7 +34,7 @@ later version of the same major version.
   queries, project settings). The CI runs both, the in-game checks on Linux. See [Docs/Testing.md](Docs/Testing.md).
 - **Lua module contract**: `require(path)` loads a module of the project's assets, or of the engine's with `:`,
   shares `Resources.GetScript`'s cache, and raises an error that says why a module cannot be loaded.
-  `Application.GetApiVersion()` returns the version of the Lua API, 1.0 so far, with a deprecation policy in
+  `Application.GetApiVersion()` returns the version of the Lua API, with a deprecation policy in
   [Docs/Scripting.md](Docs/Scripting.md). `OvGame --dump-lua-api` prints the API, and the engine's tests check it
   against the definitions of `Resources/Engine/Lua`, which now cover every binding (`AssetRef`, the settings'
   constructors, the matrices' call, Tracy's stack-capturing zones).
@@ -45,6 +45,12 @@ later version of the same major version.
   `Standard/StandardFragment.ovfxh`) that a shader includes and extends through `STANDARD_VERTEX`, `STANDARD_CLIP`,
   `STANDARD_SURFACE` and `STANDARD_LIGHTING`, instead of copying `Standard` and falling behind it. `Standard` draws as
   before, pixel for pixel.
+- **Global frame events**: `Events.AddUpdate(callback[, owner])`, `Events.AddLateUpdate` and `Events.Remove` run a
+  module every frame, before every Behaviour's `OnUpdate` and after every `OnLateUpdate`, without an actor in the scene.
+  A callback that fails is logged and removed, one with an owner ends with it. The Lua API is now 1.1. See
+  [Docs/Scripting.md](Docs/Scripting.md).
+- **Behaviours from the engine's resources**: a Behaviour whose path starts with `:` (`:Behaviours/Spin.lua`) is loaded
+  from the engine's resources, as `require` loads a module.
 - **Fog as a material option**: `u_Fog` on `Standard` (on by default) and `Unlit` (off by default, now able to take the
   fog), as both behaved before.
 

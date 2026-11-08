@@ -6,15 +6,20 @@
 
 #include <OvCore/Scripting/Lua/LuaScriptEngine.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <format>
-#include <stdexcept>
 #include <fstream>
+#include <memory>
+#include <stdexcept>
+#include <string_view>
+#include <vector>
 #include <sol/sol.hpp>
 #include <tracy/Tracy.hpp>
 
 #include <OvDebug/Logger.h>
 #include <OvDebug/Assertion.h>
+#include <OvCore/SceneSystem/Scene.h>
 #include <OvCore/Scripting/Lua/LuaApi.h>
 #include <OvCore/Scripting/ScriptEngine.h>
 #include <OvCore/ECS/Components/Behaviour.h>
@@ -22,8 +27,61 @@
 #include <OvTools/Utils/PathParser.h>
 #include <OvTools/Utils/String.h>
 
+namespace OvCore::Scripting
+{
+	struct LuaFrameCallback
+	{
+		uint64_t id = 0;
+		sol::protected_function callback;
+		std::optional<ActorRef> owner;
+		bool removed = false;
+	};
+
+	struct LuaFrameEvents
+	{
+		// Shared, so that a callback that adds or removes one while the event runs never moves the one running
+		std::vector<std::shared_ptr<LuaFrameCallback>> update;
+		std::vector<std::shared_ptr<LuaFrameCallback>> lateUpdate;
+		uint64_t nextId = 1;
+		OvTools::Eventing::ListenerID updateListener = 0;
+		OvTools::Eventing::ListenerID lateUpdateListener = 0;
+	};
+}
+
 namespace
 {
+	/**
+	* Runs the callbacks of an event: those added while it runs start at the next frame, a removed one is skipped at
+	* once, and one that fails or whose owner is gone is removed
+	*/
+	void RunFrameCallbacks(std::vector<std::shared_ptr<OvCore::Scripting::LuaFrameCallback>>& p_callbacks, float p_deltaTime, std::string_view p_eventName)
+	{
+		const auto running = p_callbacks;
+
+		for (const auto& entry : running)
+		{
+			if (entry->removed)
+				continue;
+
+			if (entry->owner && !entry->owner->IsAlive())
+			{
+				entry->removed = true;
+				continue;
+			}
+
+			const sol::protected_function_result result = entry->callback(p_deltaTime);
+
+			if (!result.valid())
+			{
+				const sol::error error = result;
+				OVLOG_ERROR(std::format("Events.{}: a callback failed and is removed: {}", p_eventName, error.what()));
+				entry->removed = true;
+			}
+		}
+
+		std::erase_if(p_callbacks, [](const auto& p_entry) { return p_entry->removed; });
+	}
+
 	// Registry keys for the shared scripts. Living in the registry keeps them out of _G,
 	// and they die with the lua state, so Reload() invalidates them for free.
 	constexpr auto kLoadedScriptsKey = "__OverloadLoadedScripts";
@@ -245,7 +303,8 @@ void OvCore::Scripting::LuaScriptEngineBase::AddBehaviour(OvCore::ECS::Component
 
 	m_context.behaviours.push_back(std::ref(p_toAdd));
 
-	const auto scriptPath = m_context.projectAssetsPath / p_toAdd.name;
+	// A Behaviour of the project's assets, or of the engine's with ":"
+	const auto scriptPath = OvTools::Utils::PathParser::GetRealPath(p_toAdd.name, m_context.engineAssetsPath, m_context.projectAssetsPath);
 
 	if (!RegisterBehaviour(*m_context.luaState, p_toAdd, scriptPath.string()))
 	{
@@ -404,11 +463,21 @@ void OvCore::Scripting::LuaScriptEngine::CreateContext()
 
 	LuaApi::Bind(*m_context.luaState);
 
+	m_context.frameEvents = std::make_unique<LuaFrameEvents>();
+	m_context.frameEvents->updateListener = SceneSystem::Scene::UpdateEvent += [this](float p_deltaTime)
+	{
+		RunFrameCallbacks(m_context.frameEvents->update, p_deltaTime, "AddUpdate");
+	};
+	m_context.frameEvents->lateUpdateListener = SceneSystem::Scene::LateUpdateEvent += [this](float p_deltaTime)
+	{
+		RunFrameCallbacks(m_context.frameEvents->lateUpdate, p_deltaTime, "AddLateUpdate");
+	};
+
 	m_context.errorCount = 0;
 
 	std::for_each(m_context.behaviours.begin(), m_context.behaviours.end(),
 		[this](std::reference_wrapper<OvCore::ECS::Components::Behaviour> behaviour) {
-			const auto scriptPath = m_context.projectAssetsPath / behaviour.get().name;
+			const auto scriptPath = OvTools::Utils::PathParser::GetRealPath(behaviour.get().name, m_context.engineAssetsPath, m_context.projectAssetsPath);
 			if (!RegisterBehaviour(*m_context.luaState, behaviour.get(), scriptPath.string()))
 			{
 				++m_context.errorCount;
@@ -433,6 +502,14 @@ void OvCore::Scripting::LuaScriptEngine::DestroyContext()
 			behaviour.get().RemoveScript();
 		}
 	);
+
+	// The callbacks hold Lua functions: they go before the state
+	if (m_context.frameEvents)
+	{
+		SceneSystem::Scene::UpdateEvent -= m_context.frameEvents->updateListener;
+		SceneSystem::Scene::LateUpdateEvent -= m_context.frameEvents->lateUpdateListener;
+		m_context.frameEvents.reset();
+	}
 
 	m_context.luaState.reset();
 }
@@ -539,4 +616,43 @@ sol::object OvCore::Scripting::LuaScriptEngine::LoadModule(const std::string& p_
 	loadedScripts[key] = script;
 
 	return script;
+}
+
+uint64_t OvCore::Scripting::LuaScriptEngine::AddFrameCallback(EFrameEvent p_event, const sol::object& p_callback, std::optional<ActorRef> p_owner)
+{
+	OVASSERT(m_context.frameEvents != nullptr, "No valid Lua context");
+
+	auto entry = std::make_shared<LuaFrameCallback>();
+	entry->id = m_context.frameEvents->nextId++;
+	entry->callback = p_callback.as<sol::protected_function>();
+	entry->owner = p_owner;
+
+	auto& callbacks = p_event == EFrameEvent::UPDATE ? m_context.frameEvents->update : m_context.frameEvents->lateUpdate;
+	callbacks.push_back(entry);
+
+	return entry->id;
+}
+
+bool OvCore::Scripting::LuaScriptEngine::RemoveFrameCallback(uint64_t p_id)
+{
+	if (!m_context.frameEvents)
+		return false;
+
+	for (auto* callbacks : { &m_context.frameEvents->update, &m_context.frameEvents->lateUpdate })
+	{
+		const auto found = std::find_if(callbacks->begin(), callbacks->end(), [p_id](const auto& p_entry)
+		{
+			return p_entry->id == p_id && !p_entry->removed;
+		});
+
+		if (found != callbacks->end())
+		{
+			// Marked first: an event that is running skips it at once
+			(*found)->removed = true;
+			callbacks->erase(found);
+			return true;
+		}
+	}
+
+	return false;
 }

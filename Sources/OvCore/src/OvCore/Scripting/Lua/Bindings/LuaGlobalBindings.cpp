@@ -10,7 +10,9 @@
 #include <format>
 #include <limits>
 #include <optional>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <vector>
 
@@ -520,6 +522,28 @@ void BindLuaGlobal(sol::state& p_luaState)
 
 	// The sandbox's own require: a module of the project's assets, or of the engine's with ":"
 	p_luaState.set_function("require", [](const std::string& p_path) { return OVSERVICE(ScriptEngine).RequireScript(p_path); });
+
+	// Frame events outside any Behaviour, for the modules that keep a clock (timers, tweens): an owner, an actor, ends
+	// its callback with it
+	using EFrameEvent = OvCore::Scripting::LuaScriptEngine::EFrameEvent;
+	const auto addFrameCallback = [](EFrameEvent p_event, std::string_view p_name)
+	{
+		return [p_event, p_name](const sol::object& p_callback, sol::optional<ActorRef> p_owner) -> uint64_t
+		{
+			if (p_callback.get_type() != sol::type::function)
+			{
+				throw std::runtime_error(std::format("Events.{}: a function is expected", p_name));
+			}
+
+			return OVSERVICE(ScriptEngine).AddFrameCallback(p_event, p_callback, p_owner ? std::optional<ActorRef>(*p_owner) : std::nullopt);
+		};
+	};
+
+	p_luaState.create_named_table("Events",
+		"AddUpdate", addFrameCallback(EFrameEvent::UPDATE, "AddUpdate"),
+		"AddLateUpdate", addFrameCallback(EFrameEvent::LATE_UPDATE, "AddLateUpdate"),
+		"Remove", [](uint64_t p_id) { return OVSERVICE(ScriptEngine).RemoveFrameCallback(p_id); }
+	);
 
 	p_luaState.create_named_table("Math",
 		"RandomInt", [](int p_min, int p_max) { return OvTools::Utils::Random::Generate(p_min, p_max); },
