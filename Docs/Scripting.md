@@ -48,6 +48,9 @@ binding.
 - In a prefab or a scene file, the property types are `number`, `string`, `bool`, `actor` and `asset`. A property
   written `type="boolean"` is not read at all, and the script default silently wins.
 - `self.owner` is the actor the Behaviour sits on.
+- A Behaviour's script is a path of the project's assets (`Scripts/Door.lua`), or of the engine's resources with a
+  leading colon (`:Behaviours/Spin.lua`), in a scene file as with `actor:AddBehaviour(path)`. `actor:GetBehaviour`
+  finds either by its file name (`"Spin"`).
 - Callbacks: `OnAwake`, `OnStart`; `OnEnable`, `OnDisable`, `OnDestroy`; `OnUpdate(dt)`, `OnFixedUpdate(dt)`,
   `OnLateUpdate(dt)`; `OnCollisionEnter/Stay/Exit`, `OnTriggerEnter/Stay/Exit`.
 - The Behaviours of one actor run in their declared order, the order of the prefab or the scene file, for every
@@ -88,6 +91,17 @@ binding.
 ## Update order and time
 
 - Actors update in scene order, the order of the scene file. Actors instantiated at run time come last.
+- A frame runs, in this order: the global `Update` callbacks, every Behaviour's `OnUpdate`, every Behaviour's
+  `OnLateUpdate`, the global `LateUpdate` callbacks, then the bone attachments (`OnFixedUpdate` comes first, with the
+  physics, on the frames that step it).
+- **Global events** run a module every frame without an actor in the scene (a timer, a tween, a registry):
+  - `Events.AddUpdate(callback[, owner])` and `Events.AddLateUpdate(callback[, owner])` return an id;
+    `Events.Remove(id)` removes the callback at once, even while its event runs;
+  - the callback receives the same step as `OnUpdate`, and runs from the next frame on;
+  - one that raises an error is logged and removed; one given an owner, an actor, is removed once that actor is no
+    longer alive;
+  - the callbacks live with the Lua state, like the modules: they outlive a scene change, and the editor drops them
+    when play starts and stops. They run only while the scene plays.
 - A `BoneAttachment` is placed after every script, so a script reading such an actor's place during the frame sees
   where it was the frame before.
 - The frame step handed to the Behaviours is in [0, 0.1] seconds, times the time scale, which is never below 0. A

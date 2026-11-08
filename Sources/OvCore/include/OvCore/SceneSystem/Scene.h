@@ -20,6 +20,7 @@
 #include <OvCore/ECS/Components/CModelRenderer.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
+#include <OvTools/Eventing/Event.h>
 #include <OvTools/Utils/OptRef.h>
 
 namespace OvCore::SceneSystem
@@ -114,6 +115,17 @@ namespace OvCore::SceneSystem
 		* @param p_deltaTime
 		*/
 		void LateUpdate(float p_deltaTime);
+
+		/**
+		* Invoked at the start of Update, before any actor's: the script engine's global Update event
+		*/
+		static OvTools::Eventing::Event<float> UpdateEvent;
+
+		/**
+		* Invoked in LateUpdate once every actor's has run, before the bone attachments follow their bones: the script
+		* engine's global LateUpdate event
+		*/
+		static OvTools::Eventing::Event<float> LateUpdateEvent;
 
 		/**
 		* Places every bone attachment on its bone, parents first. Called at the end of LateUpdate, once every script

@@ -137,9 +137,14 @@ bool OvCore::SceneSystem::Scene::IsPlaying() const
 	return m_isPlaying;
 }
 
+OvTools::Eventing::Event<float> OvCore::SceneSystem::Scene::UpdateEvent;
+OvTools::Eventing::Event<float> OvCore::SceneSystem::Scene::LateUpdateEvent;
+
 void OvCore::SceneSystem::Scene::Update(float p_deltaTime)
 {
 	ZoneScoped;
+	UpdateEvent.Invoke(p_deltaTime);
+
 	auto actors = m_actors;
 	std::for_each(actors.begin(), actors.end(), std::bind(std::mem_fn(&ECS::Actor::OnUpdate), std::placeholders::_1, p_deltaTime));
 }
@@ -156,6 +161,8 @@ void OvCore::SceneSystem::Scene::LateUpdate(float p_deltaTime)
 	ZoneScoped;
 	auto actors = m_actors;
 	std::for_each(actors.begin(), actors.end(), std::bind(std::mem_fn(&ECS::Actor::OnLateUpdate), std::placeholders::_1, p_deltaTime));
+
+	LateUpdateEvent.Invoke(p_deltaTime);
 
 	UpdateBoneAttachments();
 }

@@ -29,7 +29,7 @@ It covers:
 | Scene | GUIDs, destroyed actors and their children freed at garbage collection |
 | Lua API | The bindings and the definitions of `Resources/Engine/Lua` hold the same names, inherited members included |
 | Shader API | `Docs/Shaders.md` lists every name of each public shader include, and the version is defined for every shader |
-| Lua modules | `require` from the project and the engine's resources, its cache shared with `Resources.GetScript`, and the error for each failure |
+| Lua modules | `require` from the project and the engine's resources, its cache shared with `Resources.GetScript`, and the error for each failure; the global frame events (order, removal, a failing callback); a Behaviour from the engine's resources |
 
 doctest's options pick what runs: `--test-suite="Physics*"`, `--test-case="*limits*"`, `--success` to list every
 check, `--help` for the rest.
@@ -63,6 +63,7 @@ temporary folder.
 | `PrefabRefs` | In each instance of a prefab, a reference between two of its actors names the instance's own actor; a reference to an actor of the scene is kept |
 | `Queries` | `Physics.CastRay`, `CastSphere`, `OverlapSphere`, `OverlapBox`, layer masks and triggers, from Lua |
 | `Settings` | The project file reaches the game: layer names and ignored pairs, `json_max_depth`, `storage_max_file_mib`, `max_frame_delta` |
+| `Events` | The global `Update` and `LateUpdate` events: their place around the Behaviours' callbacks, their step, an owner that dies, a removal, a callback added while they run |
 | `Shaders` | Every engine shader loads, all its variants compiled; a shader built on `Standard`'s four extension points draws; the fog option on `Standard` and `Unlit` |
 
 A new check is a scene of `Tests/GameChecks/Assets/Scenes`, named after it, whose Behaviour uses
