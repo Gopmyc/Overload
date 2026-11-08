@@ -108,6 +108,48 @@ void OvWindowing::Inputs::InputManager::ClearEvents()
 	m_mousePosition.reset();
 }
 
+void OvWindowing::Inputs::InputManager::UpdateGamepads()
+{
+	for (int pad = 0; pad < Gamepads::kMaxGamepads; ++pad)
+	{
+		const int joystick = GLFW_JOYSTICK_1 + pad;
+		GLFWgamepadstate glfwState;
+
+		if (glfwJoystickIsGamepad(joystick) == GLFW_TRUE && glfwGetGamepadState(joystick, &glfwState) == GLFW_TRUE)
+		{
+			GamepadState state;
+			const char* name = glfwGetGamepadName(joystick);
+			state.name = name ? name : "";
+
+			for (int button = 0; button < GamepadState::kButtonCount; ++button)
+			{
+				state.buttons[button] = glfwState.buttons[button] == GLFW_PRESS;
+			}
+
+			for (int axis = 0; axis < GamepadState::kAxisCount; ++axis)
+			{
+				state.axes[axis] = glfwState.axes[axis];
+			}
+
+			m_gamepads.SetState(pad, state);
+		}
+		else
+		{
+			m_gamepads.SetState(pad, std::nullopt);
+		}
+	}
+}
+
+OvWindowing::Inputs::Gamepads& OvWindowing::Inputs::InputManager::GetGamepads()
+{
+	return m_gamepads;
+}
+
+const OvWindowing::Inputs::Gamepads& OvWindowing::Inputs::InputManager::GetGamepads() const
+{
+	return m_gamepads;
+}
+
 void OvWindowing::Inputs::InputManager::OnKeyPressed(int p_key)
 {
 	m_keyPressed.insert(static_cast<EKey>(p_key));

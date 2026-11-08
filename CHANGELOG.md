@@ -63,6 +63,10 @@ later version of the same major version.
   draws a dynamic body or a character controller between its last two physics steps, so that it and what follows it
   move smoothly above 60 FPS. `OnFixedUpdate` still sees the pose of the physics, and a script that moves the transform
   teleports the body. Off by default. The Lua API is now 1.3.
+- **Gamepads**: up to 4, through GLFW's gamepad mappings. `Inputs.GetGamepadButton`, `GetGamepadButtonDown`,
+  `GetGamepadButtonUp` and `GetGamepadAxis` (sticks with a disc dead zone, up positive; triggers 0 to 1), on a given pad
+  or the first connected; `IsGamepadConnected`, `GetGamepadName`, `SetGamepadDeadZone`. They follow the Game View's
+  focus in the editor as the keyboard does. The Lua API is now 1.4. See [Docs/Input.md](Docs/Input.md).
 
 ### Changed
 

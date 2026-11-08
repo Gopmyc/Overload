@@ -53,6 +53,19 @@
 
 namespace
 {
+	/**
+	* The gamepad a script names, 1 to 4, as the engine counts them, 0 to 3; when it names none, the first connected
+	*/
+	std::optional<int> ResolveGamepad(sol::optional<int> p_pad)
+	{
+		if (p_pad)
+		{
+			return *p_pad >= 1 && *p_pad <= OvWindowing::Inputs::Gamepads::kMaxGamepads ? std::optional<int>(*p_pad - 1) : std::nullopt;
+		}
+
+		return OvCore::Helpers::InputHelpers::GetFirstGamepad();
+	}
+
 	using Results = std::tuple<sol::object, sol::object>;
 
 	/**
@@ -473,6 +486,33 @@ void BindLuaGlobal(sol::state& p_luaState)
 		{"BUTTON_MIDDLE",	EMouseButton::MOUSE_BUTTON_MIDDLE},
 	});
 
+	p_luaState.new_enum<EGamepadButton>("GamepadButton", {
+		{"A",				EGamepadButton::GAMEPAD_BUTTON_A},
+		{"B",				EGamepadButton::GAMEPAD_BUTTON_B},
+		{"X",				EGamepadButton::GAMEPAD_BUTTON_X},
+		{"Y",				EGamepadButton::GAMEPAD_BUTTON_Y},
+		{"LEFT_BUMPER",		EGamepadButton::GAMEPAD_BUTTON_LEFT_BUMPER},
+		{"RIGHT_BUMPER",	EGamepadButton::GAMEPAD_BUTTON_RIGHT_BUMPER},
+		{"BACK",			EGamepadButton::GAMEPAD_BUTTON_BACK},
+		{"START",			EGamepadButton::GAMEPAD_BUTTON_START},
+		{"GUIDE",			EGamepadButton::GAMEPAD_BUTTON_GUIDE},
+		{"LEFT_THUMB",		EGamepadButton::GAMEPAD_BUTTON_LEFT_THUMB},
+		{"RIGHT_THUMB",		EGamepadButton::GAMEPAD_BUTTON_RIGHT_THUMB},
+		{"DPAD_UP",			EGamepadButton::GAMEPAD_BUTTON_DPAD_UP},
+		{"DPAD_RIGHT",		EGamepadButton::GAMEPAD_BUTTON_DPAD_RIGHT},
+		{"DPAD_DOWN",		EGamepadButton::GAMEPAD_BUTTON_DPAD_DOWN},
+		{"DPAD_LEFT",		EGamepadButton::GAMEPAD_BUTTON_DPAD_LEFT},
+	});
+
+	p_luaState.new_enum<EGamepadAxis>("GamepadAxis", {
+		{"LEFT_X",			EGamepadAxis::GAMEPAD_AXIS_LEFT_X},
+		{"LEFT_Y",			EGamepadAxis::GAMEPAD_AXIS_LEFT_Y},
+		{"RIGHT_X",			EGamepadAxis::GAMEPAD_AXIS_RIGHT_X},
+		{"RIGHT_Y",			EGamepadAxis::GAMEPAD_AXIS_RIGHT_Y},
+		{"LEFT_TRIGGER",	EGamepadAxis::GAMEPAD_AXIS_LEFT_TRIGGER},
+		{"RIGHT_TRIGGER",	EGamepadAxis::GAMEPAD_AXIS_RIGHT_TRIGGER},
+	});
+
 	p_luaState.new_enum<Cursor::ECursorShape>("CursorShape", {
 		{"ARROW",		Cursor::ECursorShape::ARROW},
 		{"IBEAM",		Cursor::ECursorShape::IBEAM},
@@ -502,7 +542,15 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"GetMouseScroll", []() { return OvCore::Helpers::InputHelpers::GetMouseScroll(); },
 		"LockMouse", []() { OvCore::Helpers::InputHelpers::SetMouseLocked(true); },
 		"UnlockMouse", []() { OvCore::Helpers::InputHelpers::SetMouseLocked(false); },
-		"SetCursorShape", [](Cursor::ECursorShape p_shape) { OvCore::Helpers::InputHelpers::SetCursorShape(p_shape); }
+		"SetCursorShape", [](Cursor::ECursorShape p_shape) { OvCore::Helpers::InputHelpers::SetCursorShape(p_shape); },
+		"IsGamepadConnected", [](sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::IsGamepadConnected(*pad); },
+		"GetGamepadName", [](sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad ? OvCore::Helpers::InputHelpers::GetGamepadName(*pad) : std::string{}; },
+		"GetGamepadButton", [](EGamepadButton p_button, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButton(*pad, p_button); },
+		"GetGamepadButtonDown", [](EGamepadButton p_button, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButtonDown(*pad, p_button); },
+		"GetGamepadButtonUp", [](EGamepadButton p_button, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButtonUp(*pad, p_button); },
+		"GetGamepadAxis", [](EGamepadAxis p_axis, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad ? OvCore::Helpers::InputHelpers::GetGamepadAxis(*pad, p_axis) : 0.0f; },
+		"SetGamepadDeadZone", [](float p_deadZone) { OvCore::Helpers::InputHelpers::SetGamepadDeadZone(p_deadZone); },
+		"GetGamepadDeadZone", []() { return OvCore::Helpers::InputHelpers::GetGamepadDeadZone(); }
 	);
 
 	p_luaState.create_named_table("Scenes",

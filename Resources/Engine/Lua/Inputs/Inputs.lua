@@ -63,3 +63,47 @@ function Inputs.UnlockMouse() end
 --- Sets the shape of the mouse cursor
 ---@param shape CursorShape
 function Inputs.SetCursorShape(shape) end
+
+--- Returns true if the gamepad is connected, or, without a pad, if any is. Pads go from 1 to 4; only a device the
+--- system maps to a gamepad layout counts
+---@param pad? integer
+---@return boolean
+function Inputs.IsGamepadConnected(pad) end
+
+--- Returns the name of the gamepad (the first connected one without a pad), or an empty string when there is none
+---@param pad? integer
+---@return string
+function Inputs.GetGamepadName(pad) end
+
+--- Returns true if the gamepad button is currently down, on the given pad (1 to 4) or the first connected one
+---@param button GamepadButton
+---@param pad? integer
+---@return boolean
+function Inputs.GetGamepadButton(button, pad) end
+
+--- Returns true if the gamepad button has been pressed during the current frame
+---@param button GamepadButton
+---@param pad? integer
+---@return boolean
+function Inputs.GetGamepadButtonDown(button, pad) end
+
+--- Returns true if the gamepad button has been released during the current frame
+---@param button GamepadButton
+---@param pad? integer
+---@return boolean
+function Inputs.GetGamepadButtonUp(button, pad) end
+
+--- Returns a gamepad axis: a stick from -1 to 1 (right and up positive), 0 inside the dead zone and scaled beyond it;
+--- a trigger from 0 at rest to 1. 0 when the pad is not connected
+---@param axis GamepadAxis
+---@param pad? integer
+---@return number
+function Inputs.GetGamepadAxis(axis, pad) end
+
+--- Sets the share of a stick's travel, from its centre, that reads as 0 (0 to 0.95, 0.2 by default)
+---@param deadZone number
+function Inputs.SetGamepadDeadZone(deadZone) end
+
+--- Returns the share of a stick's travel, from its centre, that reads as 0
+---@return number
+function Inputs.GetGamepadDeadZone() end

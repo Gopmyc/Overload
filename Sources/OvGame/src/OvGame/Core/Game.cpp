@@ -59,6 +59,7 @@ void OvGame::Core::Game::PreUpdate()
 	ZoneScoped;
 
 	m_context.device->PollEvents();
+	m_context.inputManager->UpdateGamepads();
 }
 
 void RenderCurrentScene(
