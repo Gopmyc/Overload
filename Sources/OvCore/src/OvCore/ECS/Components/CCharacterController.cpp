@@ -161,6 +161,7 @@ void OvCore::ECS::Components::CCharacterController::OnSerialize(tinyxml2::XMLDoc
 	Helpers::Serializer::SerializeFloat(p_doc, p_node, "ground_snap_distance", GetGroundSnapDistance());
 	Helpers::Serializer::SerializeFloat(p_doc, p_node, "gravity_factor", GetGravityFactor());
 	Helpers::Serializer::SerializeFloat(p_doc, p_node, "push_strength", GetPushStrength());
+	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "interpolated", IsInterpolated());
 }
 
 void OvCore::ECS::Components::CCharacterController::OnDeserialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
@@ -184,6 +185,10 @@ void OvCore::ECS::Components::CCharacterController::OnDeserialize(tinyxml2::XMLD
 	int layer = static_cast<int>(GetCollisionLayer());
 	Helpers::Serializer::DeserializeInt(p_doc, p_node, "collision_layer", layer);
 	SetCollisionLayer(static_cast<uint16_t>(std::clamp(layer, 0, OvPhysics::Settings::PhysicsSettings::kLayerCount - 1)));
+
+	bool interpolated = IsInterpolated();
+	Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "interpolated", interpolated);
+	SetInterpolated(interpolated);
 }
 
 void OvCore::ECS::Components::CCharacterController::OnInspector(OvUI::Internal::WidgetContainer& p_root)
@@ -195,6 +200,7 @@ void OvCore::ECS::Components::CCharacterController::OnInspector(OvUI::Internal::
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Ground Snap Distance", std::bind(&CCharacterController::GetGroundSnapDistance, this), std::bind(&CCharacterController::SetGroundSnapDistance, this, std::placeholders::_1), 0.01f, 0.f, 100.f);
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Gravity Factor", std::bind(&CCharacterController::GetGravityFactor, this), std::bind(&CCharacterController::SetGravityFactor, this, std::placeholders::_1), 0.05f, -100.f, 100.f);
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Mass", std::bind(&CCharacterController::GetMass, this), std::bind(&CCharacterController::SetMass, this, std::placeholders::_1), 0.1f, 0.f, 10000.f);
+	Helpers::GUIDrawer::DrawBoolean(p_root, "Interpolated", std::bind(&CCharacterController::IsInterpolated, this), std::bind(&CCharacterController::SetInterpolated, this, std::placeholders::_1));
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Push Strength", std::bind(&CCharacterController::GetPushStrength, this), std::bind(&CCharacterController::SetPushStrength, this, std::placeholders::_1), 1.f, 0.f, 100000.f);
 
 	DrawCollisionLayer(p_root);

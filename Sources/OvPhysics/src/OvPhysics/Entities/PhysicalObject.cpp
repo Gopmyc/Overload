@@ -202,6 +202,36 @@ bool OvPhysics::Entities::PhysicalObject::IsCharacter() const
 	return false;
 }
 
+void OvPhysics::Entities::PhysicalObject::SetInterpolated(bool p_interpolated)
+{
+	if (p_interpolated != m_interpolated)
+	{
+		m_interpolated = p_interpolated;
+		m_hasPhysicsPose = false;
+	}
+}
+
+bool OvPhysics::Entities::PhysicalObject::IsInterpolated() const
+{
+	return m_interpolated;
+}
+
+void OvPhysics::Entities::PhysicalObject::RecordPhysicsPose(const OvMaths::FVector3& p_position, const OvMaths::FQuaternion& p_rotation)
+{
+	m_previousPhysicsPosition = m_hasPhysicsPose ? m_physicsPosition : p_position;
+	m_previousPhysicsRotation = m_hasPhysicsPose ? m_physicsRotation : p_rotation;
+	m_physicsPosition = p_position;
+	m_physicsRotation = p_rotation;
+	m_hasPhysicsPose = true;
+}
+
+void OvPhysics::Entities::PhysicalObject::ResetPhysicsPose(const OvMaths::FVector3& p_position, const OvMaths::FQuaternion& p_rotation)
+{
+	m_previousPhysicsPosition = m_physicsPosition = p_position;
+	m_previousPhysicsRotation = m_physicsRotation = p_rotation;
+	m_hasPhysicsPose = m_interpolated;
+}
+
 bool OvPhysics::Entities::PhysicalObject::MustBeStatic() const
 {
 	return false;
@@ -339,6 +369,9 @@ void OvPhysics::Entities::PhysicalObject::UpdateBodyTransform()
 		m_bodyPosition = position;
 		m_bodyRotation = rotation;
 
+		// Moved elsewhere, an interpolated body starts again from there rather than sliding to it
+		ResetPhysicsPose(position, rotation);
+
 		m_bodyInterface->SetPositionAndRotation(
 			m_body->GetID(),
 			Conversion::ToJoltVector3(position),
@@ -364,6 +397,42 @@ void OvPhysics::Entities::PhysicalObject::UpdateFTransform()
 	const OvMaths::FQuaternion rotation = Conversion::ToOvQuaternion(m_body->GetRotation());
 
 	// World setters recompute the local transform (and its scale) from the matrices, so they are only used when required
+	if (m_transform->HasParent())
+	{
+		m_transform->SetWorldPosition(position);
+		m_transform->SetWorldRotation(rotation);
+	}
+	else
+	{
+		m_transform->SetLocalPosition(position);
+		m_transform->SetLocalRotation(rotation);
+	}
+
+	m_bodyPosition = m_transform->GetWorldPosition();
+	m_bodyRotation = m_transform->GetWorldRotation();
+
+	if (m_interpolated)
+	{
+		RecordPhysicsPose(position, rotation);
+	}
+}
+
+void OvPhysics::Entities::PhysicalObject::ApplyInterpolation(float p_alpha)
+{
+	if (!m_interpolated || !m_hasPhysicsPose || !m_enabled || !m_body->IsDynamic())
+	{
+		return;
+	}
+
+	// A script moved the transform since the physics did: it is teleported there at the next step, not interpolated
+	if (!IsSamePose(m_transform->GetWorldPosition(), m_transform->GetWorldRotation(), m_bodyPosition, m_bodyRotation))
+	{
+		return;
+	}
+
+	const OvMaths::FVector3 position = OvMaths::FVector3::Lerp(m_previousPhysicsPosition, m_physicsPosition, p_alpha);
+	const OvMaths::FQuaternion rotation = OvMaths::FQuaternion::Normalize(OvMaths::FQuaternion::Slerp(m_previousPhysicsRotation, m_physicsRotation, p_alpha));
+
 	if (m_transform->HasParent())
 	{
 		m_transform->SetWorldPosition(position);

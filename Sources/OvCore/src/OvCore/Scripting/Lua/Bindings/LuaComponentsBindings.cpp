@@ -330,6 +330,8 @@ void BindLuaComponents(sol::state& p_luaState)
 		"SetKinematic", &CPhysicalObject::SetKinematic,
 		"IsStatic", &CPhysicalObject::IsStatic,
 		"SetStatic", &CPhysicalObject::SetStatic,
+		"IsInterpolated", &CPhysicalObject::IsInterpolated,
+		"SetInterpolated", &CPhysicalObject::SetInterpolated,
 		"GetCollisionLayer", [](CPhysicalObject& p_this) { return static_cast<int>(p_this.GetCollisionLayer()); },
 		"SetCollisionLayer", [](CPhysicalObject& p_this, int p_layer)
 		{

@@ -208,6 +208,7 @@ namespace OvPhysics::Entities
 		JPH::Shape* CreateShape(const OvMaths::FVector3& p_scale) const override;
 		void UpdateBodyTransform() override;
 		void UpdateFTransform() override;
+		void ApplyInterpolation(float p_alpha) override;
 
 	private:
 		friend class OvPhysics::Core::PhysicsEngine;

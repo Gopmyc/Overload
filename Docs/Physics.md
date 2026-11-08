@@ -48,8 +48,23 @@ The physics is Jolt Physics 5.6.0. It steps at a fixed 1/60 s; `OnFixedUpdate` r
   given, even against a wall. Measure real speed from displacement, or move the body with a character controller,
   whose `GetRealVelocity()` gives it.
 - A script that rewrites the linear velocity every step wipes any impulse; apply pushes through the same script.
-- A body moved in `OnFixedUpdate` only moves on fixed steps: anything sampled per frame (a camera) must follow an
-  interpolated visual, not the body itself.
+- A body only moves on physics steps, 60 a second: above 60 FPS, it and whatever follows it (a camera, a model) move
+  in jerks, unless it is interpolated.
+
+## Interpolation
+
+- `SetInterpolated(true)` (`interpolated` in a file, a box in the inspector; off by default) draws a body the physics
+  moves, a dynamic body or a character controller, between its last two physics steps, so that it moves smoothly at
+  any frame rate. The simulation is the same with or without it.
+- Each frame, once the fixed update is done, the engine moves the transform to the point between the two steps that the
+  time gathered toward the next step gives. On screen, the body is thus up to one step, 1/60 s, behind the physics.
+- During `OnFixedUpdate`, the transform holds the pose of the physics, as without interpolation; during `OnUpdate`,
+  `OnLateUpdate` and on screen, the interpolated one. Code that steers a body reads it in `OnFixedUpdate`; a camera that
+  follows it, in `OnLateUpdate`.
+- A transform moved by a script, at any time, teleports the body there: it starts again from that pose, with its
+  velocity, without sliding from where it was.
+- A character controller is interpolated on its position only: its rotation is its actor's. A static or kinematic body,
+  which its transform moves, is never interpolated.
 
 ## Character controllers
 

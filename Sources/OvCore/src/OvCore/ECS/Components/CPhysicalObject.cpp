@@ -106,6 +106,16 @@ uint16_t OvCore::ECS::Components::CPhysicalObject::GetCollisionLayer() const
 	return m_physicalObject->GetLayer();
 }
 
+bool OvCore::ECS::Components::CPhysicalObject::IsInterpolated() const
+{
+	return m_physicalObject->IsInterpolated();
+}
+
+void OvCore::ECS::Components::CPhysicalObject::SetInterpolated(bool p_interpolated)
+{
+	m_physicalObject->SetInterpolated(p_interpolated);
+}
+
 void OvCore::ECS::Components::CPhysicalObject::SetMass(float p_mass)
 {
 	m_physicalObject->SetMass(p_mass);
@@ -173,6 +183,7 @@ void OvCore::ECS::Components::CPhysicalObject::OnSerialize(tinyxml2::XMLDocument
 	Helpers::Serializer::SerializeVec3(p_doc, p_node, "angular_factor", GetAngularFactor());
 	Helpers::Serializer::SerializeInt(p_doc, p_node, "collision_mode", static_cast<int>(GetCollisionDetectionMode()));
 	Helpers::Serializer::SerializeInt(p_doc, p_node, "collision_layer", static_cast<int>(GetCollisionLayer()));
+	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "interpolated", IsInterpolated());
 }
 
 void OvCore::ECS::Components::CPhysicalObject::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node)
@@ -190,6 +201,11 @@ void OvCore::ECS::Components::CPhysicalObject::OnDeserialize(tinyxml2::XMLDocume
 	// A file written before collision layers puts the object on the default layer
 	const int layer = Helpers::Serializer::DeserializeInt(p_doc, p_node, "collision_layer");
 	SetCollisionLayer(static_cast<uint16_t>(std::clamp(layer, 0, OvPhysics::Settings::PhysicsSettings::kLayerCount - 1)));
+
+	// A file written before interpolation leaves it off
+	bool interpolated = false;
+	Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "interpolated", interpolated);
+	SetInterpolated(interpolated);
 }
 
 void OvCore::ECS::Components::CPhysicalObject::OnInspector(OvUI::Internal::WidgetContainer & p_root)
@@ -197,6 +213,7 @@ void OvCore::ECS::Components::CPhysicalObject::OnInspector(OvUI::Internal::Widge
 	Helpers::GUIDrawer::DrawBoolean(p_root, "Trigger", std::bind(&CPhysicalObject::IsTrigger, this), std::bind(&CPhysicalObject::SetTrigger, this, std::placeholders::_1));
 	Helpers::GUIDrawer::DrawBoolean(p_root, "Kinematic", std::bind(&CPhysicalObject::IsKinematic, this), std::bind(&CPhysicalObject::SetKinematic, this, std::placeholders::_1));
 	Helpers::GUIDrawer::DrawBoolean(p_root, "Static", std::bind(&CPhysicalObject::IsStatic, this), std::bind(&CPhysicalObject::SetStatic, this, std::placeholders::_1));
+	Helpers::GUIDrawer::DrawBoolean(p_root, "Interpolated", std::bind(&CPhysicalObject::IsInterpolated, this), std::bind(&CPhysicalObject::SetInterpolated, this, std::placeholders::_1));
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Mass", std::bind(&CPhysicalObject::GetMass, this), std::bind(&CPhysicalObject::SetMass, this, std::placeholders::_1), 0.1f, 0.f, 10000.f);
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Bounciness", std::bind(&CPhysicalObject::GetBounciness, this), std::bind(&CPhysicalObject::SetBounciness, this, std::placeholders::_1), 0.1f, 0.f, 1.f);
 	Helpers::GUIDrawer::DrawScalar<float>(p_root, "Friction", std::bind(&CPhysicalObject::GetFriction, this), std::bind(&CPhysicalObject::SetFriction, this, std::placeholders::_1), 0.1f, 0.f, 1.f);

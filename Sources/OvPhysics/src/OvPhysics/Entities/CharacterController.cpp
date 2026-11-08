@@ -331,6 +331,7 @@ void OvPhysics::Entities::CharacterController::UpdateBodyTransform()
 			m_character->SetPosition(Conversion::ToJoltVector3(position));
 		}
 
+		ResetPhysicsPose(position, OvMaths::FQuaternion::Identity);
 		m_teleported = true;
 	}
 
@@ -351,6 +352,39 @@ void OvPhysics::Entities::CharacterController::UpdateFTransform()
 	const OvMaths::FVector3 position = Conversion::ToOvVector3(m_character->GetPosition());
 
 	// The rotation is the actor's own: only the position follows the character
+	if (m_transform->HasParent())
+	{
+		m_transform->SetWorldPosition(position);
+	}
+	else
+	{
+		m_transform->SetLocalPosition(position);
+	}
+
+	m_bodyPosition = m_transform->GetWorldPosition();
+
+	if (m_interpolated)
+	{
+		RecordPhysicsPose(position, OvMaths::FQuaternion::Identity);
+	}
+}
+
+void OvPhysics::Entities::CharacterController::ApplyInterpolation(float p_alpha)
+{
+	if (!m_interpolated || !m_hasPhysicsPose || !m_enabled)
+	{
+		return;
+	}
+
+	// A script moved the transform since the physics did: the character is teleported there, not interpolated
+	const OvMaths::FVector3 current = m_transform->GetWorldPosition();
+	if (current.x != m_bodyPosition.x || current.y != m_bodyPosition.y || current.z != m_bodyPosition.z)
+	{
+		return;
+	}
+
+	const OvMaths::FVector3 position = OvMaths::FVector3::Lerp(m_previousPhysicsPosition, m_physicsPosition, p_alpha);
+
 	if (m_transform->HasParent())
 	{
 		m_transform->SetWorldPosition(position);

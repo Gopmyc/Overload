@@ -104,6 +104,17 @@ function PhysicalObject:IsStatic() end
 ---@param static boolean
 function PhysicalObject:SetStatic(static) end
 
+--- Returns true if the actor's transform is interpolated between the last two physics steps
+---@return boolean
+function PhysicalObject:IsInterpolated() end
+
+--- Defines if the actor's transform is interpolated between the last two physics steps, so that it moves smoothly at
+--- any frame rate (off by default). Only a body the physics moves, a dynamic body or a character controller, is
+--- interpolated. During OnFixedUpdate the transform holds the pose of the physics; during OnUpdate, OnLateUpdate and on
+--- screen, a pose up to one step behind it, between the last two steps. Moving the transform teleports the body
+---@param interpolated boolean
+function PhysicalObject:SetInterpolated(interpolated) end
+
 --- Returns the collision layer of the physical object (0 to 15)
 ---@return integer
 function PhysicalObject:GetCollisionLayer() end

@@ -26,6 +26,7 @@ It covers:
 | Lua Json, Lua Storage | The bindings in a bare Lua state: round trips, refused values, the project's limits, the sandbox |
 | Project settings | Layer names and ignored pairs, the save folder's name, the runtime limits and their ranges |
 | Physics layers, queries, engine | Layers by name, bodies that go through each other, casts and overlaps on a column of boxes, a second engine |
+| Physics interpolation | A body drawn between its last two steps and the same physics without it, teleports in and out of the fixed update, a character's position but not its rotation, kinematic and static bodies left alone |
 | Character controller | Landing and standing, slopes it walks and slopes it slides down, walls and the real velocity, steps, drops and ledges, jumps and ceilings, queries, triggers and collision events, layers, teleports, impulses and pushes |
 | Scene | GUIDs, destroyed actors and their children freed at garbage collection |
 | Lua API | The bindings and the definitions of `Resources/Engine/Lua` hold the same names, inherited members included |
@@ -67,6 +68,7 @@ temporary folder.
 | `Settings` | The project file reaches the game: layer names and ignored pairs, `json_max_depth`, `storage_max_file_mib`, `max_frame_delta` |
 | `Events` | The global `Update` and `LateUpdate` events: their place around the Behaviours' callbacks, their step, an owner that dies, a removal, a callback added while they run |
 | `Shaders` | Every engine shader loads, all its variants compiled; a shader built on `Standard`'s four extension points draws; the fog option on `Standard` and `Unlit` |
+| `Interpolation` | Two boxes falling side by side, one interpolated from the scene file: the same physics in the fixed update, the interpolated one between its last two steps on every frame, a teleport from a script |
 | `Character` | A character controller read from the scene file lands and stands, walks through a body of a layer it ignores and through a trigger, climbs a step, is stopped by a wall, jumps and lands, takes an impulse |
 
 A new check is a scene of `Tests/GameChecks/Assets/Scenes`, named after it, whose Behaviour uses

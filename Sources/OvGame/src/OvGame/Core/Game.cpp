@@ -112,6 +112,9 @@ void OvGame::Core::Game::Update(float p_deltaTime)
 
 			if (m_context.physicsEngine->Update(p_deltaTime))
 				currentScene->FixedUpdate(p_deltaTime);
+
+			// The rest of the frame sees the interpolated bodies between their last two steps
+			m_context.physicsEngine->Interpolate();
 		}
 
 		{

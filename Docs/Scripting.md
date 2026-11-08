@@ -93,7 +93,8 @@ binding.
 - Actors update in scene order, the order of the scene file. Actors instantiated at run time come last.
 - A frame runs, in this order: the global `Update` callbacks, every Behaviour's `OnUpdate`, every Behaviour's
   `OnLateUpdate`, the global `LateUpdate` callbacks, then the bone attachments (`OnFixedUpdate` comes first, with the
-  physics, on the frames that step it).
+  physics, on the frames that step it; the interpolated bodies move between it and the rest of the frame, see
+  [Physics](Physics.md)).
 - **Global events** run a module every frame without an actor in the scene (a timer, a tween, a registry):
   - `Events.AddUpdate(callback[, owner])` and `Events.AddLateUpdate(callback[, owner])` return an id;
     `Events.Remove(id)` removes the callback at once, even while its event runs;

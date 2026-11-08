@@ -59,6 +59,10 @@ later version of the same major version.
   went, `IsGrounded()`, `GetGroundState()` and `GetGroundObject()` what holds it. Queries, triggers and collision
   events see it as a body; `physics_ragdoll_ignores_dynamic_bodies` lets ragdolls through it. The Lua API is now 1.2.
   See [Docs/Physics.md](Docs/Physics.md).
+- **Physics interpolation**: `PhysicalObject:SetInterpolated(true)` (`interpolated` in a file, a box in the inspector)
+  draws a dynamic body or a character controller between its last two physics steps, so that it and what follows it
+  move smoothly above 60 FPS. `OnFixedUpdate` still sees the pose of the physics, and a script that moves the transform
+  teleports the body. Off by default. The Lua API is now 1.3.
 
 ### Changed
 

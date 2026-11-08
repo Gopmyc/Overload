@@ -104,6 +104,11 @@ namespace OvCore::ECS::Components
 		uint16_t GetCollisionLayer() const;
 
 		/**
+		* Returns true if the actor's transform is interpolated between the last two physics steps
+		*/
+		bool IsInterpolated() const;
+
+		/**
 		* Defines a new mass for the physical object
 		* @param p_mass
 		*/
@@ -175,6 +180,14 @@ namespace OvCore::ECS::Components
 		* @param p_layer
 		*/
 		void SetCollisionLayer(uint16_t p_layer);
+
+		/**
+		* Defines if the actor's transform is interpolated between the last two physics steps, so that it moves
+		* smoothly at any frame rate. Only a body the physics moves (a dynamic body, a character controller) is
+		* interpolated; during OnFixedUpdate, the transform holds the pose of the physics
+		* @param p_interpolated
+		*/
+		void SetInterpolated(bool p_interpolated);
 
 		/**
 		* Serialize the component
