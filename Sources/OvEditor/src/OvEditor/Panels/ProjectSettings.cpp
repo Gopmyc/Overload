@@ -89,6 +89,9 @@ OvEditor::Panels::ProjectSettings::ProjectSettings(const std::string & p_title, 
 		GUIDrawer::DrawString(columns, "Executable name", GenerateGatherer<std::string>("executable_name"), GenerateProvider<std::string>("executable_name"));
 		GUIDrawer::DrawString(columns, "Project ID", GenerateGatherer<std::string>("project_id"), GenerateProvider<std::string>("project_id"));
 		GUIDrawer::DrawAsset(columns, "Window Icon", GenerateGatherer<std::string>("window_icon"), GenerateProvider<std::string>("window_icon"), OvTools::Utils::PathParser::EFileType::TEXTURE);
+
+		// The project's input actions, a JSON file of its assets (see Docs/Input.md)
+		GUIDrawer::DrawString(columns, "Input actions", GenerateGatherer<std::string>("input_actions"), GenerateProvider<std::string>("input_actions"));
 	}
 
 	{

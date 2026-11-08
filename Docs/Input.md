@@ -5,6 +5,53 @@
   case, and `""` for the others.
 - Mouse buttons are `MouseButton.BUTTON_LEFT`, `BUTTON_RIGHT`, `BUTTON_MIDDLE`, or `BUTTON_1` to `BUTTON_8`.
 
+## Actions
+
+Gameplay reads actions ("Jump", "Attack") rather than keys, so that the player can rebind them and play with a keyboard,
+a mouse or a gamepad alike.
+
+- The project declares its actions in a JSON file of its assets, which its `input_actions` key names (see
+  [Projects](Projects.md)), each with its default inputs, in the order a menu lists them:
+
+  ```json
+  {
+  	"actions": [
+  		{ "name": "Jump", "inputs": ["SPACE", "GAMEPAD_A"] },
+  		{ "name": "Attack", "inputs": ["MOUSE_LEFT", "GAMEPAD_RIGHT_TRIGGER"] },
+  		{ "name": "MoveRight", "inputs": ["D", "RIGHT", "GAMEPAD_LEFT_X+"] }
+  	]
+  }
+  ```
+
+- An input is named after the `Key` enum (`SPACE`, `W`, `LEFT_SHIFT`, `F1`), `MOUSE_LEFT`, `MOUSE_RIGHT`,
+  `MOUSE_MIDDLE`, `MOUSE_BUTTON_4` to `MOUSE_BUTTON_8`, `GAMEPAD_A` to `GAMEPAD_DPAD_LEFT` (the `GamepadButton` enum),
+  `GAMEPAD_LEFT_TRIGGER` and `GAMEPAD_RIGHT_TRIGGER`, or one way of a stick's axis: `GAMEPAD_LEFT_X+`, `GAMEPAD_LEFT_X-`,
+  `GAMEPAD_LEFT_Y+` (up), `GAMEPAD_LEFT_Y-`, and the same for `RIGHT`. A gamepad input is read on the first connected
+  pad.
+- An action has 4 slots. An input bound twice stays only where it comes first. What the file gets wrong (an unknown
+  input, an action named twice, a fifth input) is logged as a warning and skipped. The editor reads the file again each
+  time play starts.
+- `Inputs.GetAction(name)`, `GetActionDown` and `GetActionUp` read an action as the keyboard's functions read a key:
+  held while any of its inputs is (an axis or a trigger from halfway), pressed on the frame it begins to be held,
+  released on the frame it stops. `Inputs.GetActionValue(name)` is how far it is pushed, 0 to 1, the furthest of its
+  inputs: a stick's way for a walk speed. An action the project does not declare is logged once and reads as released.
+- A rebinding menu:
+  - `Inputs.GetActionNames()` lists the actions;
+  - `Inputs.GetBindings(name)` gives their 4 slots (`""` for an empty one);
+  - `Inputs.GetInputName(input)` gives a label to show: a printable key as the keyboard's layout names it (`Z` for the
+    `W` of a French keyboard), the others in words (`Left Shift`, `Mouse Right`, `Pad A`, `Pad Left Stick Up`);
+  - `Inputs.GetPressedInput()` gives the input that went down during the frame, keys before buttons, buttons before
+    axes, to bind it;
+  - `Inputs.SetBinding(name, slot, input)` binds a slot (1 to 4), or empties it with `""` or `nil`. An input another
+    slot holds, of this action or another, moves here, and that slot gets back what this one held. It returns `true`, or
+    `false` and why;
+  - `Inputs.ResetBindings([name])` brings an action, or all of them, back to their defaults. An action reset takes its
+    defaults from whoever holds them.
+- The bindings are saved at once in the project's save folder (`input_bindings.json`, see [Saving](Saving.md)), and read
+  back when the game starts. What no longer matches the project (an action removed, an input unknown) is logged and
+  left at its default.
+- In the editor, actions follow the Game View's focus as the inputs they read do.
+
 ## Gamepads
 
 - Up to 4 gamepads, numbered 1 to 4. A device counts as a gamepad when the system can map it to a gamepad layout
@@ -22,7 +69,6 @@
   there, `Inputs.GetGamepadName([pad])` its name. A pad that is not there, or out of 1 to 4, reads as released and 0.
 - A pad unplugged releases its buttons on that frame. In the editor, a pad follows the Game View's focus as the
   keyboard does; each play session starts with the default dead zone.
-- The engine has no input actions: a game that lets the player rebind keys maps its own action names to keys.
 - Input is not consumed: a click or a key meant for the UI also reaches gameplay scripts. Gameplay checks whether the
   UI holds the focus before reading input (see the UI library's `EngineLimitations.md`).
 - In the editor, the Game View's focus decides: the game reads keys, clicks, scroll and the mouse lock only while the

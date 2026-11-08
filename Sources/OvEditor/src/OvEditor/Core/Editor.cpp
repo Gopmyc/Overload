@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <OvCore/Input/GameInput.h>
 #include "OvEditor/Core/EditorActions.h"
 #include <tracy/Tracy.hpp>
 
@@ -238,6 +239,9 @@ void OvEditor::Core::Editor::PreUpdate()
 void OvEditor::Core::Editor::Update(float p_deltaTime)
 {
 	UpdateGameInputGate();
+
+	// The actions read the input the gate lets through
+	m_context.inputActions->Update(OvCore::Input::GameInputSource{});
 
 	// Disable mouse input when the cursor is locked during gameplay or view interaction.
 	const bool mouseEnabled = m_context.window->GetCursorMode() != OvWindowing::Cursor::ECursorMode::DISABLED;
