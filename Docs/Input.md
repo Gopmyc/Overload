@@ -52,6 +52,35 @@ a mouse or a gamepad alike.
   left at its default.
 - In the editor, actions follow the Game View's focus as the inputs they read do.
 
+## Consuming input
+
+A UI keeps from gameplay the input it takes: the click on a button, the keys typed in a text field.
+
+- `Inputs.Consume(input[, pad])` hides an input from the game's reads, direct (`GetKey`, `GetMouseButton`,
+  `GetGamepadButton`, `GetGamepadAxis`) and through the actions, until it is released. The input is named as for the
+  actions (`"MOUSE_LEFT"`, `"SPACE"`, `"GAMEPAD_A"`, `"GAMEPAD_LEFT_X+"`); a gamepad input is that of the given pad, or
+  of the first connected one.
+  - An input consumed as it goes down never reaches the game, neither its press nor its release.
+  - One the game saw held before this frame is released for it on this frame, so that nothing it drives stays down.
+  - A trigger or a way of a stick stays hidden until it is back to 0; the stick's other way still reads.
+  - It returns `true` if the input is hidden from now on, `false` when it is not held (there is nothing to hide), or
+    `false` and why for a name no input has. Consuming again what is hidden already changes nothing, so a UI can
+    consume on every frame it holds an input.
+- `Inputs.ConsumeMouseScroll()` hides the scroll of the frame.
+- `Inputs.SetKeyboardCaptured(true)`, for a text field, hides every key, directly and through the actions; the mouse
+  and the gamepads are still read. A key the game saw held is released for it then, and a key still held when
+  `Inputs.SetKeyboardCaptured(false)` frees the keyboard stays hidden until released. The capture lasts until it is
+  freed, through a scene change too; `Inputs.IsKeyboardCaptured()` tells whether it is on.
+- What consumes still reads what it took: every read takes a last argument, `includeConsumed`, that sees through the
+  consumption and the capture: `Inputs.GetKey(key, true)`, `Inputs.GetMouseButtonUp(button, true)`,
+  `Inputs.GetGamepadButton(button, nil, true)` (`nil` for the first connected pad), `Inputs.GetMouseScroll(true)`. The
+  Game View's focus still applies to it.
+- Consume before gameplay reads: in an `Events.AddUpdate` callback, which runs before every Behaviour (see
+  [Scripting](Scripting.md)). The actions, read once a frame before the scripts, leave out at once what is consumed.
+- In the editor, each play session starts with nothing consumed and the keyboard free.
+- The engine's UI library does not consume yet: gameplay still checks whether the UI holds the focus before reading
+  input (see the UI library's `EngineLimitations.md`).
+
 ## Gamepads
 
 - Up to 4 gamepads, numbered 1 to 4. A device counts as a gamepad when the system can map it to a gamepad layout
@@ -69,8 +98,6 @@ a mouse or a gamepad alike.
   there, `Inputs.GetGamepadName([pad])` its name. A pad that is not there, or out of 1 to 4, reads as released and 0.
 - A pad unplugged releases its buttons on that frame. In the editor, a pad follows the Game View's focus as the
   keyboard does; each play session starts with the default dead zone.
-- Input is not consumed: a click or a key meant for the UI also reaches gameplay scripts. Gameplay checks whether the
-  UI holds the focus before reading input (see the UI library's `EngineLimitations.md`).
 - In the editor, the Game View's focus decides: the game reads keys, clicks, scroll and the mouse lock only while the
   Game View has the focus. Elsewhere it sees nothing, a key held is released for it, its cursor is freed and play goes
   on. The click that gives the focus is not seen by the game.

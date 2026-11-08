@@ -1,23 +1,28 @@
 ---@meta
 
---- Some global inputs functions. In the editor, the game only gets input while the Game View has the focus
+--- Some global inputs functions. In the editor, the game only gets input while the Game View has the focus.
+--- An input consumed (Inputs.Consume), or a key while the keyboard is captured, reads as up; a read given
+--- includeConsumed = true still sees it, for the code that consumed it
 ---@class Inputs
 Inputs = {}
 
 --- Returns true if the key has been pressed during the current frame
 ---@param key Key
+---@param includeConsumed? boolean
 ---@return boolean
-function Inputs.GetKeyDown(key) end
+function Inputs.GetKeyDown(key, includeConsumed) end
 
 --- Returns true if the key has been released during the current frame
 ---@param key Key
+---@param includeConsumed? boolean
 ---@return boolean
-function Inputs.GetKeyUp(key) end
+function Inputs.GetKeyUp(key, includeConsumed) end
 
 --- Returns true if the key is currently down
 ---@param key Key
+---@param includeConsumed? boolean
 ---@return boolean
-function Inputs.GetKey(key) end
+function Inputs.GetKey(key, includeConsumed) end
 
 --- Returns the name of a printable key in the keyboard's current layout, as it prints it (the "z" of a French
 --- keyboard where the key is Key.W), or an empty string for a key that prints nothing
@@ -27,18 +32,21 @@ function Inputs.GetKeyName(key) end
 
 --- Returns true if the mouse button has been pressed during the current frame
 ---@param button MouseButton
+---@param includeConsumed? boolean
 ---@return boolean
-function Inputs.GetMouseButtonDown(button) end
+function Inputs.GetMouseButtonDown(button, includeConsumed) end
 
 --- Returns true if the mouse button has been released during the current frame
 ---@param button MouseButton
+---@param includeConsumed? boolean
 ---@return boolean
-function Inputs.GetMouseButtonUp(button) end
+function Inputs.GetMouseButtonUp(button, includeConsumed) end
 
 --- Returns true if the mouse button is currently down
 ---@param button MouseButton
+---@param includeConsumed? boolean
 ---@return boolean
-function Inputs.GetMouseButton(button) end
+function Inputs.GetMouseButton(button, includeConsumed) end
 
 --- Returns the current position of the mouse cursor, relative to the top-left corner of the Game View in the editor, or of the window in a built game
 --- The position isn't clamped, so it can be outside of the rendered area
@@ -51,8 +59,9 @@ function Inputs.GetMousePos() end
 function Inputs.GetViewportSize() end
 
 --- Returns the current scroll value
+---@param includeConsumed? boolean
 ---@return Vector2
-function Inputs.GetMouseScroll() end
+function Inputs.GetMouseScroll(includeConsumed) end
 
 --- Locks and hides the mouse cursor
 function Inputs.LockMouse() end
@@ -78,27 +87,31 @@ function Inputs.GetGamepadName(pad) end
 --- Returns true if the gamepad button is currently down, on the given pad (1 to 4) or the first connected one
 ---@param button GamepadButton
 ---@param pad? integer
+---@param includeConsumed? boolean
 ---@return boolean
-function Inputs.GetGamepadButton(button, pad) end
+function Inputs.GetGamepadButton(button, pad, includeConsumed) end
 
 --- Returns true if the gamepad button has been pressed during the current frame
 ---@param button GamepadButton
 ---@param pad? integer
+---@param includeConsumed? boolean
 ---@return boolean
-function Inputs.GetGamepadButtonDown(button, pad) end
+function Inputs.GetGamepadButtonDown(button, pad, includeConsumed) end
 
 --- Returns true if the gamepad button has been released during the current frame
 ---@param button GamepadButton
 ---@param pad? integer
+---@param includeConsumed? boolean
 ---@return boolean
-function Inputs.GetGamepadButtonUp(button, pad) end
+function Inputs.GetGamepadButtonUp(button, pad, includeConsumed) end
 
 --- Returns a gamepad axis: a stick from -1 to 1 (right and up positive), 0 inside the dead zone and scaled beyond it;
 --- a trigger from 0 at rest to 1. 0 when the pad is not connected
 ---@param axis GamepadAxis
 ---@param pad? integer
+---@param includeConsumed? boolean
 ---@return number
-function Inputs.GetGamepadAxis(axis, pad) end
+function Inputs.GetGamepadAxis(axis, pad, includeConsumed) end
 
 --- Sets the share of a stick's travel, from its centre, that reads as 0 (0 to 0.95, 0.2 by default)
 ---@param deadZone number
@@ -165,3 +178,28 @@ function Inputs.GetPressedInput() end
 ---@param input string
 ---@return string
 function Inputs.GetInputName(input) end
+
+--- Hides an input from the game's reads, direct or through an action, until it is released: a UI that takes a click
+--- or a key keeps it from gameplay. Consume in an Events.AddUpdate callback, which runs before every Behaviour. An
+--- input the game saw held before this frame is released for it on this frame; a way of a stick is hidden until the
+--- stick is back to the centre. A gamepad input is that of the given pad (1 to 4) or of the first connected one.
+--- Returns true if the input is hidden from now on, false when it is not held (there is nothing to hide), or false and
+--- why for a name no input has
+---@param input string
+---@param pad? integer
+---@return boolean
+---@return string|nil
+function Inputs.Consume(input, pad) end
+
+--- Hides the scroll of the current frame from the game's reads
+function Inputs.ConsumeMouseScroll() end
+
+--- Captures the keyboard, for a text field, or frees it. While it is captured, every key reads as up, directly and
+--- through the actions; the mouse and the gamepads are still read. A key the game saw held is released for it when the
+--- capture starts, and one held when it ends stays hidden until released
+---@param captured boolean
+function Inputs.SetKeyboardCaptured(captured) end
+
+--- Returns true while the keyboard is captured
+---@return boolean
+function Inputs.IsKeyboardCaptured() end

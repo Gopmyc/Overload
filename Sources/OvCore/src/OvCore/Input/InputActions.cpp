@@ -119,10 +119,26 @@ void OvCore::Input::InputActions::SetDefinitions(const std::vector<ActionDefinit
 
 void OvCore::Input::InputActions::Update(const IInputSource& p_source)
 {
-	const std::vector<InputId>& inputs = GetAllInputs();
-	m_axisValues.resize(inputs.size(), 0.0f);
+	for (Action& action : m_actions)
+	{
+		action.wasHeld = action.held;
+	}
 
-	std::vector<float> values(inputs.size());
+	m_previousValues = m_values;
+	Evaluate(p_source);
+}
+
+void OvCore::Input::InputActions::Refresh(const IInputSource& p_source)
+{
+	Evaluate(p_source);
+}
+
+void OvCore::Input::InputActions::Evaluate(const IInputSource& p_source)
+{
+	const std::vector<InputId>& inputs = GetAllInputs();
+	m_previousValues.resize(inputs.size(), 0.0f);
+	m_values.assign(inputs.size(), 0.0f);
+
 	std::vector<bool> down(inputs.size());
 	std::vector<bool> up(inputs.size());
 
@@ -131,7 +147,7 @@ void OvCore::Input::InputActions::Update(const IInputSource& p_source)
 	for (size_t index = 0; index < inputs.size(); ++index)
 	{
 		const InputId& input = inputs[index];
-		values[index] = std::clamp(p_source.GetValue(input), 0.0f, 1.0f);
+		m_values[index] = std::clamp(p_source.GetValue(input), 0.0f, 1.0f);
 
 		if (input.IsButton())
 		{
@@ -141,10 +157,9 @@ void OvCore::Input::InputActions::Update(const IInputSource& p_source)
 		else
 		{
 			// An axis is pressed when it crosses the threshold
-			const float previous = m_axisValues[index];
-			down[index] = previous < kPressThreshold && values[index] >= kPressThreshold;
-			up[index] = previous >= kPressThreshold && values[index] < kPressThreshold;
-			m_axisValues[index] = values[index];
+			const float previous = m_previousValues[index];
+			down[index] = previous < kPressThreshold && m_values[index] >= kPressThreshold;
+			up[index] = previous >= kPressThreshold && m_values[index] < kPressThreshold;
 		}
 
 		if (down[index] && !m_pressedInput)
@@ -160,7 +175,6 @@ void OvCore::Input::InputActions::Update(const IInputSource& p_source)
 
 	for (Action& action : m_actions)
 	{
-		const bool wasHeld = action.held;
 		bool anyDown = false;
 		bool anyUp = false;
 
@@ -180,15 +194,15 @@ void OvCore::Input::InputActions::Update(const IInputSource& p_source)
 				continue;
 			}
 
-			action.value = std::max(action.value, values[index]);
-			action.held = action.held || values[index] >= kPressThreshold;
+			action.value = std::max(action.value, m_values[index]);
+			action.held = action.held || m_values[index] >= kPressThreshold;
 			anyDown = anyDown || down[index];
 			anyUp = anyUp || up[index];
 		}
 
 		// A tap within a frame both presses and releases the action
-		action.pressed = !wasHeld && (action.held || anyDown);
-		action.released = !action.held && (wasHeld || (anyDown && anyUp));
+		action.pressed = !action.wasHeld && (action.held || anyDown);
+		action.released = !action.held && (action.wasHeld || (anyDown && anyUp));
 	}
 }
 
