@@ -10,6 +10,7 @@
 
 #include <OvCore/ECS/Components/CAmbientBoxLight.h>
 #include <OvCore/ECS/Components/CAmbientSphereLight.h>
+#include <OvCore/ECS/Components/CCharacterController.h>
 #include <OvCore/ECS/Components/CPhysicalBox.h>
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
@@ -67,6 +68,19 @@ namespace
 						ps->GetRadius() * p_actor.transform.GetWorldScale().y
 					),
 					ps->GetRadius() * p_actor.transform.GetWorldScale().z
+				) * 1.5f);
+			}
+
+			if (auto cc = p_actor.GetComponent<OvCore::ECS::Components::CCharacterController>())
+			{
+				distance = std::max(distance, std::max
+				(
+					std::max
+					(
+						cc->GetRadius() * p_actor.transform.GetWorldScale().x,
+						cc->GetHeight() * p_actor.transform.GetWorldScale().y
+					),
+					cc->GetRadius() * p_actor.transform.GetWorldScale().z
 				) * 1.5f);
 			}
 

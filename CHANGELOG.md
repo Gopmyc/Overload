@@ -53,6 +53,12 @@ later version of the same major version.
   from the engine's resources, as `require` loads a module.
 - **Fog as a material option**: `u_Fog` on `Standard` (on by default) and `Unlit` (off by default, now able to take the
   fog), as both behaved before.
+- **Character controller**: `CharacterController` (`Actor:AddCharacterController`, the "Character Controller" component)
+  moves a character by its velocity on Jolt's `CharacterVirtual`: it stands on the slopes it can walk without sliding,
+  climbs steps, keeps to the ground going down and falls under gravity. `GetRealVelocity()` says how fast it really
+  went, `IsGrounded()`, `GetGroundState()` and `GetGroundObject()` what holds it. Queries, triggers and collision
+  events see it as a body; `physics_ragdoll_ignores_dynamic_bodies` lets ragdolls through it. The Lua API is now 1.2.
+  See [Docs/Physics.md](Docs/Physics.md).
 
 ### Changed
 

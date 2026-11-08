@@ -26,8 +26,10 @@ export XDG_DATA_HOME="$DATA"
 FAILED=0
 for NAME in "${CHECKS[@]}"; do
 	LOG="$DATA/$NAME.log"
+	# A check ends the game itself: the frame cap only stops one that never does. The physics steps in real time,
+	# so a check that waits for it needs as many frames as the game draws in that time
 	timeout 300 "$GAME" --project "$ROOT/Tests/GameChecks" --engine "$ROOT/Resources/Engine" \
-		--scene "Scenes/$NAME.ovscene" --frames 600 --hidden-window --fail-on-error > "$LOG" 2>&1
+		--scene "Scenes/$NAME.ovscene" --frames 20000 --hidden-window --fail-on-error > "$LOG" 2>&1
 	CODE=$?
 	VERDICT="$(sed 's/\x1b\[[0-9;]*m//g' "$LOG" | grep -o "CHECK PASSED $NAME .*" | head -1)"
 

@@ -45,10 +45,41 @@ The physics is Jolt Physics 5.6.0. It steps at a fixed 1/60 s; `OnFixedUpdate` r
 ## Moving bodies
 
 - The physics step runs before the `OnFixedUpdate` that sets a velocity: reading the velocity back returns the order
-  given, even against a wall. Measure real speed from displacement.
+  given, even against a wall. Measure real speed from displacement, or move the body with a character controller,
+  whose `GetRealVelocity()` gives it.
 - A script that rewrites the linear velocity every step wipes any impulse; apply pushes through the same script.
 - A body moved in `OnFixedUpdate` only moves on fixed steps: anything sampled per frame (a camera) must follow an
   interpolated visual, not the body itself.
+
+## Character controllers
+
+- A `CharacterController` (`Actor:AddCharacterController()`, "Character Controller" in the inspector) moves a character
+  by its velocity, on Jolt's `CharacterVirtual`, where a frictionless capsule would be pushed about by its contacts. It
+  is the actor's physical object: an actor has a controller or a collider, not both.
+- Its capsule is a `PhysicalCapsule`'s: `radius`, `height` its straight part, centred on the actor and scaled with it.
+  It stays upright whatever way the actor faces: only the actor's position follows the physics, its rotation is the
+  script's. Standing, the bottom of the capsule is on the ground; it keeps 2 cm from walls.
+- On ground no steeper than `max_slope_angle` (50° by default) it stands without sliding. It climbs steps up to
+  `step_height` (0.3 m), and follows the ground down by up to `ground_snap_distance` (0.3 m) when it walks off it,
+  instead of hopping down. Steeper ground it slides down, as a body would.
+- `SetLinearVelocity` and `GetLinearVelocity` are the velocity it moves at. The horizontal part is the one it was
+  given: walls never change it. The vertical part is the controller's: the ground's while it stands, growing with
+  `gravity_factor` times the world's gravity (1 by default) while it falls; a ceiling ends a rise, and the ground or
+  anything that holds it up ends a fall. A jump sets the vertical velocity.
+- `GetRealVelocity()` is how fast it really moved over the last step: 0 into a wall, the slope it climbs included.
+- `IsGrounded()` is true on ground it can stand on. `GetGroundState()` tells more (`CharacterGroundState`: `ON_GROUND`,
+  `ON_STEEP_GROUND`, `NOT_SUPPORTED`, `IN_AIR`), and `GetGroundNormal()`, `GetGroundPoint()`, `GetGroundVelocity()` and
+  `GetGroundObject()` describe the ground. A moving body it stands on carries it along.
+- `AddImpulse(impulse)` changes the velocity by the impulse over its `mass` (70 kg by default), `AddForce(force)` over
+  the next step.
+- It moves before each physics step, against the world as it is, then its body follows it: it pushes dynamic bodies
+  with up to `push_strength` newtons (100 by default); bodies meet it as they would a kinematic body, and cannot push
+  it.
+- Its collision layer works as a body's, for what it stands on and walks into. Queries meet it, triggers see it come
+  in and go, and it raises collision events with what it touches, static bodies included.
+- Moving its actor's transform takes it there at once. A disabled controller stays where it is.
+- The settings of a body (friction, bounciness, factors, collision mode, trigger, kinematic, static) mean nothing to a
+  controller, and its file only holds its own. A setting missing from a file keeps its default.
 
 ## Queries
 
@@ -73,8 +104,8 @@ The physics is Jolt Physics 5.6.0. It steps at a fixed 1/60 s; `OnFixedUpdate` r
   constraints, from its current pose; `StopRagdoll`, `IsRagdoll`, `AddRagdollImpulse`.
 - A ragdoll's bodies are on the project's `physics_ragdoll_layer`, 15 (`Ragdoll`) by default, and collide as that
   layer does. They raise no collision event, and raycasts never return them.
-- With `physics_ragdoll_ignores_dynamic_bodies=true`, they also go through every dynamic body, so that a falling body
-  never pushes nor trips a living one; they still fall on static and kinematic bodies and on each other. The option is
-  off by default.
+- With `physics_ragdoll_ignores_dynamic_bodies=true`, they also go through every dynamic body and every character
+  controller, so that a falling body never pushes nor trips a living one; they still fall on static and kinematic bodies
+  and on each other. The option is off by default.
 - While a ragdoll drives a skeleton, the animation does not; the bones it does not move keep their pose relative to
   their parent.

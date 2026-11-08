@@ -63,18 +63,18 @@ namespace OvPhysics::Entities
 		* Add a force to the physical object
 		* @param p_force
 		*/
-		void AddForce(const OvMaths::FVector3& p_force);
-		
+		virtual void AddForce(const OvMaths::FVector3& p_force);
+
 		/**
 		* Add an impulse to the physical object
 		* @param p_impulse
 		*/
-		void AddImpulse(const OvMaths::FVector3& p_impulse);
+		virtual void AddImpulse(const OvMaths::FVector3& p_impulse);
 
 		/**
 		* Clear forces
 		*/
-		void ClearForces();
+		virtual void ClearForces();
 
 		/**
 		* Returns the mass of the physical object
@@ -99,7 +99,7 @@ namespace OvPhysics::Entities
 		/**
 		* Returns the linear velocity of the physical object
 		*/
-		OvMaths::FVector3 GetLinearVelocity() const;
+		virtual OvMaths::FVector3 GetLinearVelocity() const;
 
 		/**
 		* Returns the angular of the physical object
@@ -131,6 +131,12 @@ namespace OvPhysics::Entities
 		* body is only moved when its transform changes
 		*/
 		bool IsStatic() const;
+
+		/**
+		* Returns true if the physical object is a character controller: its body is kinematic, never static nor a
+		* trigger, and the controller moves it
+		*/
+		virtual bool IsCharacter() const;
 
 		/**
 		* Returns a reference to the transform of the physical object
@@ -165,7 +171,7 @@ namespace OvPhysics::Entities
 		* Defines a new linear velocity for the physical object
 		* @param p_linearVelocity
 		*/
-		void SetLinearVelocity(const OvMaths::FVector3& p_linearVelocity);
+		virtual void SetLinearVelocity(const OvMaths::FVector3& p_linearVelocity);
 
 		/**
 		* Defines a new angular velocity for the physical object
@@ -256,14 +262,14 @@ namespace OvPhysics::Entities
 		void Consider();
 		void Unconsider();
 
+		/* Needed by the physics engine */
+		virtual void UpdateBodyTransform();
+		virtual void UpdateFTransform();
+
 	private:
 		/* Internal */
 		void CreateBody(const Settings::BodySettings& p_bodySettings);
 		Settings::BodySettings DestroyBody();
-
-		/* Needed by the physics engine */
-		void					UpdateBodyTransform();
-		void					UpdateFTransform();
 
 	public:
 		OvTools::Eventing::Event<PhysicalObject&>			CollisionStartEvent;
@@ -274,7 +280,7 @@ namespace OvPhysics::Entities
 		OvTools::Eventing::Event<PhysicalObject&>			TriggerStayEvent;
 		OvTools::Eventing::Event<PhysicalObject&>			TriggerStopEvent;
 
-	private:
+	protected:
 		/* Transform stuff */
 		OvMaths::FTransform* const		m_transform;
 		const bool						m_internalTransform;

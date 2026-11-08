@@ -40,6 +40,7 @@
 #include <OvDebug/Logger.h>
 
 #include <OvPhysics/Core/PhysicsEngine.h>
+#include <OvPhysics/Entities/CharacterController.h>
 #include <OvPhysics/Entities/PhysicalObject.h>
 #include <OvPhysics/Entities/Ragdoll.h>
 #include <OvPhysics/Tools/Conversion.h>
@@ -100,6 +101,14 @@ namespace
 	bool IsRagdollBody(const JPH::Body& p_body)
 	{
 		return p_body.GetUserData() == 0;
+	}
+
+	/**
+	* A character controller's body is kinematic, and its controller says what it touches
+	*/
+	bool IsCharacterBody(const JPH::Body& p_body)
+	{
+		return p_body.IsKinematic() && !IsRagdollBody(p_body) && reinterpret_cast<const OvPhysics::Entities::PhysicalObject*>(p_body.GetUserData())->IsCharacter();
 	}
 
 	/**
@@ -233,8 +242,8 @@ public:
 	}
 
 	/**
-	* When the settings ask it, a ragdoll falls on the world but goes through the dynamic bodies: it never pushes nor
-	* trips a living body
+	* When the settings ask it, a ragdoll falls on the world but goes through the dynamic bodies and the characters: it
+	* never pushes nor trips a living body
 	*/
 	JPH::ValidateResult OnContactValidate(const JPH::Body& p_body1, const JPH::Body& p_body2, JPH::RVec3Arg, const JPH::CollideShapeResult&) override
 	{
@@ -242,8 +251,9 @@ public:
 		{
 			const bool isRagdoll1 = IsRagdollBody(p_body1);
 			const bool isRagdoll2 = IsRagdollBody(p_body2);
+			const JPH::Body& other = isRagdoll1 ? p_body2 : p_body1;
 
-			if (isRagdoll1 != isRagdoll2 && (isRagdoll1 ? p_body2 : p_body1).IsDynamic())
+			if (isRagdoll1 != isRagdoll2 && (other.IsDynamic() || IsCharacterBody(other)))
 			{
 				return JPH::ValidateResult::RejectAllContactsForThisBodyPair;
 			}
@@ -276,6 +286,12 @@ private:
 	{
 		// Only physical objects raise collision events, and a ragdoll's bodies are none
 		if (p_body1.GetUserData() == 0 || p_body2.GetUserData() == 0)
+		{
+			return;
+		}
+
+		// A character's controller reports what it touches, but triggers see its body
+		if ((IsCharacterBody(p_body1) || IsCharacterBody(p_body2)) && !p_body1.IsSensor() && !p_body2.IsSensor())
 		{
 			return;
 		}
@@ -351,10 +367,35 @@ void OvPhysics::Core::PhysicsEngine::PreUpdate()
 	ResetCollisionEvents();
 }
 
+void OvPhysics::Core::PhysicsEngine::UpdateCharacters(float p_deltaTime)
+{
+	for (CharacterController* character : m_characters)
+	{
+		if (character->IsEnabled())
+		{
+			character->Step(p_deltaTime, *m_objectLayerPairFilter, m_settings.ragdollIgnoresDynamicBodies, *m_tempAllocator, m_characterContacts);
+		}
+	}
+}
+
 void OvPhysics::Core::PhysicsEngine::PostUpdate()
 {
 	for (const auto& [body1, body2] : m_contactListener->ConsumeContacts())
 	{
+		CollisionCallback(body1, body2);
+	}
+
+	// Two characters that touch each report the other: a pair is always given in the same order, so that it is
+	// counted once
+	const JPH::BodyInterface& bodyInterface = m_physicsSystem->GetBodyInterface();
+
+	for (auto [body1, body2] : std::exchange(m_characterContacts, {}))
+	{
+		if (bodyInterface.GetUserData(body2) < bodyInterface.GetUserData(body1))
+		{
+			std::swap(body1, body2);
+		}
+
 		CollisionCallback(body1, body2);
 	}
 
@@ -378,6 +419,9 @@ bool OvPhysics::Core::PhysicsEngine::Update(float p_deltaTime)
 	const int stepCount = static_cast<int>(m_accumulatedTime / kFixedTimeStep);
 	const int simulatedStepCount = std::min(stepCount, kMaxSubSteps);
 	m_accumulatedTime -= stepCount * kFixedTimeStep;
+
+	// The characters move first, against the world as it is, then their bodies follow them during the simulation
+	UpdateCharacters(simulatedStepCount * kFixedTimeStep);
 
 	m_physicsSystem->Update(simulatedStepCount * kFixedTimeStep, simulatedStepCount, m_tempAllocator.get(), m_jobSystem.get());
 
@@ -658,6 +702,13 @@ void OvPhysics::Core::PhysicsEngine::Consider(PhysicalObject& p_toConsider)
 {
 	p_toConsider.m_bodyInterface = &m_physicsSystem->GetBodyInterface();
 	m_physicalObjects.push_back(std::ref(p_toConsider));
+
+	if (p_toConsider.IsCharacter())
+	{
+		auto& character = static_cast<CharacterController&>(p_toConsider);
+		character.Attach(*m_physicsSystem);
+		m_characters.push_back(&character);
+	}
 }
 
 void OvPhysics::Core::PhysicsEngine::Unconsider(PhysicalObject& p_toUnconsider)
@@ -671,6 +722,12 @@ void OvPhysics::Core::PhysicsEngine::Unconsider(PhysicalObject& p_toUnconsider)
 		if (found != m_physicalObjects.end())
 			m_physicalObjects.erase(found);
 	}
+
+	// Destroyed, the object is no longer known to be a character: it is looked for by its address
+	std::erase_if(m_characters, [&p_toUnconsider](const CharacterController* p_character)
+	{
+		return static_cast<const PhysicalObject*>(p_character) == std::addressof(p_toUnconsider);
+	});
 
 	{
 		decltype(m_collisionEvents)::iterator iter = m_collisionEvents.begin();
