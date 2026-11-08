@@ -7,9 +7,13 @@
 #pragma once
 
 #include <functional>
+#include <optional>
+#include <string>
 
 #include <OvMaths/FVector2.h>
 #include <OvWindowing/Cursor/ECursorShape.h>
+#include <OvWindowing/Inputs/EGamepadAxis.h>
+#include <OvWindowing/Inputs/EGamepadButton.h>
 #include <OvWindowing/Inputs/EKey.h>
 #include <OvWindowing/Inputs/EMouseButton.h>
 
@@ -90,6 +94,62 @@ namespace OvCore::Helpers
 		* Returns the mouse scroll of this frame, as the game sees it
 		*/
 		static OvMaths::FVector2 GetMouseScroll();
+
+		/**
+		* Returns the first connected gamepad (0 to 3), if any
+		*/
+		static std::optional<int> GetFirstGamepad();
+
+		/**
+		* Returns true if the gamepad is connected
+		* @param p_pad (0 to 3)
+		*/
+		static bool IsGamepadConnected(int p_pad);
+
+		/**
+		* Returns the name of the gamepad, empty when it is not connected
+		* @param p_pad
+		*/
+		static std::string GetGamepadName(int p_pad);
+
+		/**
+		* Returns true if the gamepad button is held, as the game sees it
+		* @param p_pad
+		* @param p_button
+		*/
+		static bool GetGamepadButton(int p_pad, OvWindowing::Inputs::EGamepadButton p_button);
+
+		/**
+		* Returns true if the gamepad button was pressed during the frame, as the game sees it
+		* @param p_pad
+		* @param p_button
+		*/
+		static bool GetGamepadButtonDown(int p_pad, OvWindowing::Inputs::EGamepadButton p_button);
+
+		/**
+		* Returns true if the gamepad button was released during the frame, as the game sees it
+		* @param p_pad
+		* @param p_button
+		*/
+		static bool GetGamepadButtonUp(int p_pad, OvWindowing::Inputs::EGamepadButton p_button);
+
+		/**
+		* Returns a gamepad axis, dead zone applied, as the game sees it: 0 while the gate is closed
+		* @param p_pad
+		* @param p_axis
+		*/
+		static float GetGamepadAxis(int p_pad, OvWindowing::Inputs::EGamepadAxis p_axis);
+
+		/**
+		* Defines the share of a stick's travel, from its centre, that reads as 0
+		* @param p_deadZone
+		*/
+		static void SetGamepadDeadZone(float p_deadZone);
+
+		/**
+		* Returns the share of a stick's travel, from its centre, that reads as 0
+		*/
+		static float GetGamepadDeadZone();
 
 		/**
 		* Locks (hides and captures) or frees the mouse for the game. While the gate is closed the request is kept,

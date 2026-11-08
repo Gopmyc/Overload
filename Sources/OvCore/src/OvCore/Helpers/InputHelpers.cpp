@@ -13,6 +13,8 @@
 #include <OvWindowing/Inputs/InputManager.h>
 #include <OvWindowing/Window.h>
 
+using OvWindowing::Inputs::EGamepadAxis;
+using OvWindowing::Inputs::EGamepadButton;
 using OvWindowing::Inputs::EKey;
 using OvWindowing::Inputs::EKeyState;
 using OvWindowing::Inputs::EMouseButton;
@@ -23,6 +25,27 @@ namespace
 	constexpr int kFirstKey = static_cast<int>(EKey::KEY_SPACE);
 	constexpr int kLastKey = static_cast<int>(EKey::KEY_MENU);
 	constexpr int kButtonCount = 8;
+	constexpr int kGamepadCount = OvWindowing::Inputs::Gamepads::kMaxGamepads;
+	constexpr int kGamepadButtonCount = OvWindowing::Inputs::GamepadState::kButtonCount;
+
+	/**
+	* A gamepad button of a pad, as one value for the gate's sets
+	*/
+	struct PadButton
+	{
+		int pad;
+		EGamepadButton button;
+
+		bool operator==(const PadButton&) const = default;
+	};
+
+	struct PadButtonHash
+	{
+		size_t operator()(const PadButton& p_value) const
+		{
+			return static_cast<size_t>(p_value.pad * 32 + static_cast<int>(p_value.button));
+		}
+	};
 
 	OvCore::Helpers::InputHelpers::MousePositionProviderCallback __MOUSE_POSITION_PROVIDER;
 	OvCore::Helpers::InputHelpers::ViewportSizeProviderCallback __VIEWPORT_SIZE_PROVIDER;
@@ -36,10 +59,12 @@ namespace
 	// Held when the gate opened, or pressed for the host: hidden from the game until released
 	std::unordered_set<EKey> __IGNORED_KEYS;
 	std::unordered_set<EMouseButton> __IGNORED_BUTTONS;
+	std::unordered_set<PadButton, PadButtonHash> __IGNORED_PAD_BUTTONS;
 
 	// Still held when the gate closed: released for the game on the next frame, so nothing stays down
 	std::unordered_set<EKey> __RELEASED_KEYS;
 	std::unordered_set<EMouseButton> __RELEASED_BUTTONS;
+	std::unordered_set<PadButton, PadButtonHash> __RELEASED_PAD_BUTTONS;
 
 	// The position last given to the game, and the offset that keeps a lock taken again from jumping
 	std::optional<OvMaths::FVector2> __LAST_MOUSE_POSITION;
@@ -61,6 +86,26 @@ namespace
 		return Input().GetMouseButtonState(p_button) == EMouseButtonState::MOUSE_DOWN;
 	}
 
+	bool IsHeld(const PadButton& p_button)
+	{
+		return Input().GetGamepads().IsButtonDown(p_button.pad, p_button.button);
+	}
+
+	/**
+	* Calls the function for every gamepad button of every pad
+	*/
+	template<typename TFunction>
+	void ForEachPadButton(TFunction p_function)
+	{
+		for (int pad = 0; pad < kGamepadCount; ++pad)
+		{
+			for (int button = 0; button < kGamepadButtonCount; ++button)
+			{
+				p_function(PadButton{ pad, static_cast<EGamepadButton>(button) });
+			}
+		}
+	}
+
 	OvMaths::FVector2 GetRawMousePosition()
 	{
 		if (__MOUSE_POSITION_PROVIDER)
@@ -80,16 +125,23 @@ namespace
 	/**
 	* What was ignored leaves the set once it is up again (released on an earlier frame), or pressed afresh
 	*/
-	template<typename T>
-	void PruneIgnored(std::unordered_set<T>& p_ignored)
+	template<typename TSet>
+	void PruneIgnored(TSet& p_ignored)
 	{
+		using T = typename TSet::value_type;
+
 		auto& input = Input();
 
-		std::erase_if(p_ignored, [&input](T p_input) {
+		std::erase_if(p_ignored, [&input](const T& p_input) {
 			if constexpr (std::is_same_v<T, EKey>)
 				return input.IsKeyPressed(p_input) || (!IsHeld(p_input) && !input.IsKeyReleased(p_input));
-			else
+			else if constexpr (std::is_same_v<T, EMouseButton>)
 				return input.IsMouseButtonPressed(p_input) || (!IsHeld(p_input) && !input.IsMouseButtonReleased(p_input));
+			else
+			{
+				const auto& gamepads = input.GetGamepads();
+				return gamepads.IsButtonPressed(p_input.pad, p_input.button) || (!IsHeld(p_input) && !gamepads.IsButtonReleased(p_input.pad, p_input.button));
+			}
 		});
 	}
 
@@ -107,8 +159,14 @@ namespace
 				__RELEASED_BUTTONS.insert(value);
 		}
 
+		ForEachPadButton([](const PadButton& p_button) {
+			if (IsHeld(p_button) && !__IGNORED_PAD_BUTTONS.contains(p_button))
+				__RELEASED_PAD_BUTTONS.insert(p_button);
+		});
+
 		__IGNORED_KEYS.clear();
 		__IGNORED_BUTTONS.clear();
+		__IGNORED_PAD_BUTTONS.clear();
 
 		if (__MOUSE_LOCK_REQUESTED)
 		{
@@ -138,6 +196,11 @@ namespace
 			if (const auto value = static_cast<EMouseButton>(button); IsHeld(value) && !input.IsMouseButtonPressed(value))
 				__IGNORED_BUTTONS.insert(value);
 		}
+
+		ForEachPadButton([&input](const PadButton& p_button) {
+			if (IsHeld(p_button) && !input.GetGamepads().IsButtonPressed(p_button.pad, p_button.button))
+				__IGNORED_PAD_BUTTONS.insert(p_button);
+		});
 
 		if (__MOUSE_LOCK_REQUESTED)
 		{
@@ -235,6 +298,54 @@ OvMaths::FVector2 OvCore::Helpers::InputHelpers::GetMouseScroll()
 	return { static_cast<float>(scrollX), static_cast<float>(scrollY) };
 }
 
+std::optional<int> OvCore::Helpers::InputHelpers::GetFirstGamepad()
+{
+	return Input().GetGamepads().GetFirstConnected();
+}
+
+bool OvCore::Helpers::InputHelpers::IsGamepadConnected(int p_pad)
+{
+	return Input().GetGamepads().IsConnected(p_pad);
+}
+
+std::string OvCore::Helpers::InputHelpers::GetGamepadName(int p_pad)
+{
+	return Input().GetGamepads().GetName(p_pad);
+}
+
+bool OvCore::Helpers::InputHelpers::GetGamepadButton(int p_pad, EGamepadButton p_button)
+{
+	const PadButton button{ p_pad, p_button };
+	return __GAME_INPUT_OPEN && !__IGNORED_PAD_BUTTONS.contains(button) && IsHeld(button);
+}
+
+bool OvCore::Helpers::InputHelpers::GetGamepadButtonDown(int p_pad, EGamepadButton p_button)
+{
+	const PadButton button{ p_pad, p_button };
+	return __GAME_INPUT_OPEN && !__IGNORED_PAD_BUTTONS.contains(button) && Input().GetGamepads().IsButtonPressed(p_pad, p_button);
+}
+
+bool OvCore::Helpers::InputHelpers::GetGamepadButtonUp(int p_pad, EGamepadButton p_button)
+{
+	const PadButton button{ p_pad, p_button };
+	return __RELEASED_PAD_BUTTONS.contains(button) || (__GAME_INPUT_OPEN && !__IGNORED_PAD_BUTTONS.contains(button) && Input().GetGamepads().IsButtonReleased(p_pad, p_button));
+}
+
+float OvCore::Helpers::InputHelpers::GetGamepadAxis(int p_pad, EGamepadAxis p_axis)
+{
+	return __GAME_INPUT_OPEN ? Input().GetGamepads().GetAxis(p_pad, p_axis) : 0.0f;
+}
+
+void OvCore::Helpers::InputHelpers::SetGamepadDeadZone(float p_deadZone)
+{
+	Input().GetGamepads().SetDeadZone(p_deadZone);
+}
+
+float OvCore::Helpers::InputHelpers::GetGamepadDeadZone()
+{
+	return Input().GetGamepads().GetDeadZone();
+}
+
 void OvCore::Helpers::InputHelpers::SetMouseLocked(bool p_locked)
 {
 	// Asked again (some games lock every frame), the offset that hides a reopening stays
@@ -265,9 +376,11 @@ void OvCore::Helpers::InputHelpers::UpdateGameInputGate(bool p_open, bool p_mous
 {
 	__RELEASED_KEYS.clear();
 	__RELEASED_BUTTONS.clear();
+	__RELEASED_PAD_BUTTONS.clear();
 
 	PruneIgnored(__IGNORED_KEYS);
 	PruneIgnored(__IGNORED_BUTTONS);
+	PruneIgnored(__IGNORED_PAD_BUTTONS);
 
 	if (p_open != __GAME_INPUT_OPEN)
 	{
@@ -306,9 +419,14 @@ void OvCore::Helpers::InputHelpers::ResetGameInputGate()
 	__CURSOR_SHAPE_SET = false;
 	__IGNORED_KEYS.clear();
 	__IGNORED_BUTTONS.clear();
+	__IGNORED_PAD_BUTTONS.clear();
 	__RELEASED_KEYS.clear();
 	__RELEASED_BUTTONS.clear();
+	__RELEASED_PAD_BUTTONS.clear();
 	__LAST_MOUSE_POSITION.reset();
+
+	// A play session starts with the default dead zone, whatever the last one set
+	Input().GetGamepads().SetDeadZone(OvWindowing::Inputs::Gamepads::kDefaultDeadZone);
 	__LOCKED_MOUSE_OFFSET = {};
 	__REBASE_MOUSE = false;
 }

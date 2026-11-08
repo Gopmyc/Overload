@@ -232,6 +232,7 @@ void OvEditor::Core::Editor::PreUpdate()
 {
 	ZoneScopedN("Editor Pre-Update");
 	m_context.device->PollEvents();
+	m_context.inputManager->UpdateGamepads();
 }
 
 void OvEditor::Core::Editor::Update(float p_deltaTime)
