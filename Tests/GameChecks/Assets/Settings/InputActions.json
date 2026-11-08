@@ -1,0 +1,8 @@
+{
+	"actions": [
+		{ "name": "Jump", "inputs": ["SPACE", "GAMEPAD_A"] },
+		{ "name": "Attack", "inputs": ["MOUSE_LEFT", "GAMEPAD_RIGHT_TRIGGER"] },
+		{ "name": "MoveRight", "inputs": ["D", "RIGHT", "GAMEPAD_LEFT_X+"] },
+		{ "name": "Interact", "inputs": ["E"] }
+	]
+}

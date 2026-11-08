@@ -107,3 +107,61 @@ function Inputs.SetGamepadDeadZone(deadZone) end
 --- Returns the share of a stick's travel, from its centre, that reads as 0
 ---@return number
 function Inputs.GetGamepadDeadZone() end
+
+--- Returns true if one of the action's inputs is held (an axis pushed at least halfway). The project declares its
+--- actions in the file its input_actions key names; an action it does not declare is logged once and reads as released
+---@param action string
+---@return boolean
+function Inputs.GetAction(action) end
+
+--- Returns true if the action began to be held during the current frame
+---@param action string
+---@return boolean
+function Inputs.GetActionDown(action) end
+
+--- Returns true if the action stopped being held during the current frame
+---@param action string
+---@return boolean
+function Inputs.GetActionUp(action) end
+
+--- Returns how far the action is pushed, from 0 to 1: the furthest of its inputs (1 for a key held)
+---@param action string
+---@return number
+function Inputs.GetActionValue(action) end
+
+--- Returns the names of the project's actions, in the order the project declares them
+---@return string[]
+function Inputs.GetActionNames() end
+
+--- Returns the inputs the action is bound to, its 4 slots in order ("" for an empty slot), or nil for an action the
+--- project does not declare. Inputs are named "SPACE" (the names of Key), "MOUSE_LEFT", "MOUSE_BUTTON_4", "GAMEPAD_A",
+--- "GAMEPAD_LEFT_TRIGGER", "GAMEPAD_LEFT_X+" (one way of a stick's axis)
+---@param action string
+---@return string[]|nil
+function Inputs.GetBindings(action) end
+
+--- Binds a slot (1 to 4) of an action to an input, or empties it with "" or nil. An input another slot holds moves
+--- here, and that slot gets back what this one held. The bindings are saved at once in the save folder, and read back
+--- when the game starts. Returns true, or false and why
+---@param action string
+---@param slot integer
+---@param input? string
+---@return boolean
+---@return string|nil
+function Inputs.SetBinding(action, slot, input) end
+
+--- Binds an action, or every action without one, to its default inputs again, and saves the bindings
+---@param action? string
+function Inputs.ResetBindings(action) end
+
+--- Returns the input that went down during the current frame (the first, keys before buttons, buttons before axes),
+--- or nil: what a menu waits for to bind an action
+---@return string|nil
+function Inputs.GetPressedInput() end
+
+--- Returns a label a menu can show for an input: a printable key as the keyboard's layout names it ("Z" for the W of a
+--- French keyboard), the others in words ("Left Shift", "Mouse Right", "Pad A", "Pad Left Stick Up"); "" for a name
+--- no input has
+---@param input string
+---@return string
+function Inputs.GetInputName(input) end

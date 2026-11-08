@@ -17,6 +17,7 @@ the editor and the built game read.
 | `multisampling`, `samples` | `false`, 4 | Multisample anti-aliasing |
 | `gravity` | -9.81 | The physics' gravity along Y |
 | `window_icon` | empty | The window's icon, relative to `Assets` (the engine's icon when empty) |
+| `input_actions` | empty | The project's input actions, a JSON file relative to `Assets` (see [Input](Input.md)); none when empty |
 | `build_type` | the platform's | The editor's build configuration |
 
 ## Optional keys

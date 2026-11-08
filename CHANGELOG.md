@@ -67,6 +67,12 @@ later version of the same major version.
   `GetGamepadButtonUp` and `GetGamepadAxis` (sticks with a disc dead zone, up positive; triggers 0 to 1), on a given pad
   or the first connected; `IsGamepadConnected`, `GetGamepadName`, `SetGamepadDeadZone`. They follow the Game View's
   focus in the editor as the keyboard does. The Lua API is now 1.4. See [Docs/Input.md](Docs/Input.md).
+- **Input actions**: a project declares its actions and their default inputs (keys, mouse buttons, gamepad buttons,
+  triggers, a stick's way) in a JSON file its `input_actions` key names. `Inputs.GetAction`, `GetActionDown`,
+  `GetActionUp` and `GetActionValue` read them; `GetBindings`, `SetBinding` (which swaps with the slot that held the
+  input), `ResetBindings`, `GetPressedInput` and `GetInputName` make a rebinding menu, and the bindings are saved in the
+  save folder. The Lua API is now 1.5. See [Docs/Input.md](Docs/Input.md).
+- **JSON in C++**: `OvTools::Utils::Json` reads and writes JSON values, for the engine's own files.
 
 ### Changed
 

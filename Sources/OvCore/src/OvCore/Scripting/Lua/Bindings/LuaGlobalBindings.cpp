@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <format>
 #include <limits>
+#include <unordered_set>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -17,6 +18,7 @@
 #include <vector>
 
 #include <OvDebug/Logger.h>
+#include <OvTools/Filesystem/SaveStorage.h>
 #include <OvMaths/FVector2.h>
 #include <OvMaths/FVector3.h>
 #include <OvTools/Time/Clock.h>
@@ -28,6 +30,7 @@
 #include "OvCore/ECS/PhysicsWrapper.h"
 #include "OvCore/Global/QuitRequest.h"
 #include "OvCore/Global/ServiceLocator.h"
+#include "OvCore/Input/GameInput.h"
 #include "OvCore/Helpers/InputHelpers.h"
 #include "OvCore/SceneSystem/SceneManager.h"
 #include "OvCore/Scripting/Lua/LuaApi.h"
@@ -53,6 +56,30 @@
 
 namespace
 {
+	OvCore::Input::InputActions& Actions()
+	{
+		return OVSERVICE(OvCore::Input::InputActions);
+	}
+
+	/**
+	* Returns true if the project declares the action; an unknown one is logged once, and reads as released
+	*/
+	bool FindAction(const std::string& p_action, std::string_view p_function)
+	{
+		if (Actions().HasAction(p_action))
+		{
+			return true;
+		}
+
+		static std::unordered_set<std::string> reported;
+		if (reported.insert(p_action).second)
+		{
+			OVLOG_ERROR(std::format("Inputs.{}: the project declares no action named \"{}\"", p_function, p_action));
+		}
+
+		return false;
+	}
+
 	/**
 	* The gamepad a script names, 1 to 4, as the engine counts them, 0 to 3; when it names none, the first connected
 	*/
@@ -550,7 +577,64 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"GetGamepadButtonUp", [](EGamepadButton p_button, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad && OvCore::Helpers::InputHelpers::GetGamepadButtonUp(*pad, p_button); },
 		"GetGamepadAxis", [](EGamepadAxis p_axis, sol::optional<int> p_pad) { const auto pad = ResolveGamepad(p_pad); return pad ? OvCore::Helpers::InputHelpers::GetGamepadAxis(*pad, p_axis) : 0.0f; },
 		"SetGamepadDeadZone", [](float p_deadZone) { OvCore::Helpers::InputHelpers::SetGamepadDeadZone(p_deadZone); },
-		"GetGamepadDeadZone", []() { return OvCore::Helpers::InputHelpers::GetGamepadDeadZone(); }
+		"GetGamepadDeadZone", []() { return OvCore::Helpers::InputHelpers::GetGamepadDeadZone(); },
+		"GetAction", [](const std::string& p_action) { return FindAction(p_action, "GetAction") && Actions().IsHeld(p_action); },
+		"GetActionDown", [](const std::string& p_action) { return FindAction(p_action, "GetActionDown") && Actions().IsPressed(p_action); },
+		"GetActionUp", [](const std::string& p_action) { return FindAction(p_action, "GetActionUp") && Actions().IsReleased(p_action); },
+		"GetActionValue", [](const std::string& p_action) { return FindAction(p_action, "GetActionValue") ? Actions().GetValue(p_action) : 0.0f; },
+		"GetActionNames", [](sol::this_state p_state) { return sol::as_table(Actions().GetActionNames()); },
+		"GetBindings", [](const std::string& p_action, sol::this_state p_state) -> sol::object
+		{
+			const auto bindings = Actions().GetBindings(p_action);
+			if (!bindings)
+			{
+				return sol::make_object(p_state, sol::lua_nil);
+			}
+
+			std::vector<std::string> names;
+			for (const auto& binding : *bindings)
+			{
+				names.push_back(binding ? OvCore::Input::GetInputName(*binding) : std::string{});
+			}
+
+			return sol::make_object(p_state, sol::as_table(names));
+		},
+		"SetBinding", [](const std::string& p_action, int p_slot, sol::optional<std::string> p_input) -> std::tuple<bool, sol::optional<std::string>>
+		{
+			std::optional<OvCore::Input::InputId> input;
+			if (p_input && !p_input->empty())
+			{
+				input = OvCore::Input::ParseInput(*p_input);
+				if (!input)
+				{
+					return { false, std::format("no input named \"{}\"", *p_input) };
+				}
+			}
+
+			std::string error;
+			if (p_slot < 1 || !Actions().SetBinding(p_action, static_cast<size_t>(p_slot - 1), input, error))
+			{
+				return { false, error.empty() ? std::format("no slot {}: an action has {}", p_slot, OvCore::Input::InputActions::kSlotCount) : error };
+			}
+
+			OvCore::Input::SaveBindings(OVSERVICE(OvTools::Filesystem::SaveStorage), Actions());
+			return { true, sol::nullopt };
+		},
+		"ResetBindings", [](sol::optional<std::string> p_action)
+		{
+			Actions().ResetBindings(p_action ? std::optional<std::string_view>(*p_action) : std::nullopt);
+			OvCore::Input::SaveBindings(OVSERVICE(OvTools::Filesystem::SaveStorage), Actions());
+		},
+		"GetPressedInput", []() -> sol::optional<std::string>
+		{
+			const auto input = Actions().GetPressedInput();
+			return input ? sol::optional<std::string>(OvCore::Input::GetInputName(*input)) : sol::nullopt;
+		},
+		"GetInputName", [](const std::string& p_input)
+		{
+			const auto input = OvCore::Input::ParseInput(p_input);
+			return input ? OvCore::Input::GetInputLabel(*input) : std::string{};
+		}
 	);
 
 	p_luaState.create_named_table("Scenes",

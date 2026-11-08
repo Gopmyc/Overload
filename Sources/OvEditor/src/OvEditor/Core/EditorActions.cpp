@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <OvCore/Input/GameInput.h>
 #include <algorithm>
 #include <charconv>
 #include "OvDebug/Assertion.h"
@@ -986,6 +987,10 @@ void OvEditor::Core::EditorActions::StartPlaying()
 			m_sceneBackup->InsertFirstChild(node);
 			m_context.sceneManager.GetCurrentScene()->OnSerialize(*m_sceneBackup, node);
 			OvCore::Helpers::InputHelpers::ResetGameInputGate();
+
+			// The actions file may have changed since the last session
+			OvCore::Input::LoadProjectActions(m_context.projectSettings, m_context.projectAssetsPath, *m_context.saveStorage, *m_context.inputActions);
+
 			m_panelsManager.GetPanelAs<OvEditor::Panels::GameView>("Game View").Focus();
 			m_context.sceneManager.GetCurrentScene()->Play();
 			SetEditorMode(EEditorMode::PLAY);

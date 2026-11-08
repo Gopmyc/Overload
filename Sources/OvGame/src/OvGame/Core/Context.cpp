@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <OvCore/Input/GameInput.h>
 #include <filesystem>
 
 #include <OvCore/Global/ServiceLocator.h>
@@ -196,6 +197,11 @@ OvGame::Core::Context::Context(const LaunchOptions& p_options) :
 	ServiceLocator::Provide<OvAudio::Core::AudioEngine>(*audioEngine);
 	ServiceLocator::Provide<OvCore::Scripting::ScriptEngine>(*scriptEngine);
 	ServiceLocator::Provide<OvTools::Filesystem::SaveStorage>(*saveStorage);
+
+	/* The project's input actions, and the player's bindings from the save folder */
+	inputActions = std::make_unique<OvCore::Input::InputActions>();
+	OvCore::Input::LoadProjectActions(projectSettings, projectAssetsPath, *saveStorage, *inputActions);
+	ServiceLocator::Provide<OvCore::Input::InputActions>(*inputActions);
 	ServiceLocator::Provide<OvTools::Time::Clock>(clock);
 
 	framebuffer = std::make_unique<baregl::Framebuffer>("Main");

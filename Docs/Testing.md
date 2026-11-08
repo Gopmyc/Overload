@@ -26,6 +26,8 @@ It covers:
 | Lua Json, Lua Storage | The bindings in a bare Lua state: round trips, refused values, the project's limits, the sandbox |
 | Project settings | Layer names and ignored pairs, the save folder's name, the runtime limits and their ranges |
 | Physics layers, queries, engine | Layers by name, bodies that go through each other, casts and overlaps on a column of boxes, a second engine |
+| Json | Values read with their members' order, escapes beyond the first plane, errors with their line and column, nesting, a value written then read back |
+| Input actions | Every input's name and the Lua enum Key, the actions file and its mistakes, actions pressed, held and released over frames, a tap within a frame, a stick's way and a trigger, the input pressed in a frame, swaps, resets, bindings saved and read back |
 | Gamepads | Connection and names, buttons pressed, held and released frame by frame, a pad unplugged, the sticks' disc dead zone and the triggers' range |
 | Physics interpolation | A body drawn between its last two steps and the same physics without it, teleports in and out of the fixed update, a character's position but not its rotation, kinematic and static bodies left alone |
 | Character controller | Landing and standing, slopes it walks and slopes it slides down, walls and the real velocity, steps, drops and ledges, jumps and ceilings, queries, triggers and collision events, layers, teleports, impulses and pushes |
@@ -70,6 +72,7 @@ temporary folder.
 | `Events` | The global `Update` and `LateUpdate` events: their place around the Behaviours' callbacks, their step, an owner that dies, a removal, a callback added while they run |
 | `Shaders` | Every engine shader loads, all its variants compiled; a shader built on `Standard`'s four extension points draws; the fog option on `Standard` and `Unlit` |
 | `Gamepad` | The gamepad API from Lua with no pad connected: the enums, every read false or 0, pads out of range, the dead zone and its range |
+| `InputActions` | The project's actions from Lua: their order and bindings, rebinding with its swaps and refusals, resets, the bindings saved in the save folder, the labels a menu shows |
 | `Interpolation` | Two boxes falling side by side, one interpolated from the scene file: the same physics in the fixed update, the interpolated one between its last two steps on every frame, a teleport from a script |
 | `Character` | A character controller read from the scene file lands and stands, walks through a body of a layer it ignores and through a trigger, climbs a step, is stopped by a wall, jumps and lands, takes an impulse |
 

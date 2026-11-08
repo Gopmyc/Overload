@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <OvCore/Input/GameInput.h>
 #include <tracy/Tracy.hpp>
 
 #include <OvDebug/Logger.h>
@@ -60,6 +61,7 @@ void OvGame::Core::Game::PreUpdate()
 
 	m_context.device->PollEvents();
 	m_context.inputManager->UpdateGamepads();
+	m_context.inputActions->Update(OvCore::Input::GameInputSource{});
 }
 
 void RenderCurrentScene(

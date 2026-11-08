@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <OvCore/Input/GameInput.h>
 #include <filesystem>
 
 #include <OvCore/Global/ServiceLocator.h>
@@ -239,6 +240,11 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	ServiceLocator::Provide<OvAudio::Core::AudioEngine>(*audioEngine);
 	ServiceLocator::Provide<OvCore::Scripting::ScriptEngine>(*scriptEngine);
 	ServiceLocator::Provide<OvTools::Filesystem::SaveStorage>(*saveStorage);
+
+	/* The project's input actions, and the player's bindings from the save folder */
+	inputActions = std::make_unique<OvCore::Input::InputActions>();
+	OvCore::Input::LoadProjectActions(projectSettings, projectAssetsPath, *saveStorage, *inputActions);
+	ServiceLocator::Provide<OvCore::Input::InputActions>(*inputActions);
 	ServiceLocator::Provide<OvTools::Time::Clock>(clock);
 
 	ApplyProjectSettings();
@@ -276,6 +282,7 @@ bool OvEditor::Core::Context::CompleteProjectSettings()
 	added |= projectSettings.Add<int>("samples", 4);
 	added |= projectSettings.Add<int>("build_type", static_cast<int>(FindDefaultBuildType()));
 	added |= projectSettings.Add<std::string>("window_icon", "");
+	added |= projectSettings.Add<std::string>("input_actions", "");
 	return added;
 }
 

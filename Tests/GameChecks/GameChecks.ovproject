@@ -14,3 +14,4 @@ physics_ignored_layer_pairs=Player:Enemy
 storage_max_file_mib=1
 json_max_depth=8
 max_frame_delta=0.05
+input_actions=Settings/InputActions.json
