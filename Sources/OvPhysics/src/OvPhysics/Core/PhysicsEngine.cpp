@@ -429,6 +429,17 @@ bool OvPhysics::Core::PhysicsEngine::Update(float p_deltaTime)
 	return true;
 }
 
+void OvPhysics::Core::PhysicsEngine::Interpolate()
+{
+	// The time gathered toward the next step, as a share of a step
+	const float alpha = std::clamp(m_accumulatedTime / kFixedTimeStep, 0.0f, 1.0f);
+
+	for (PhysicalObject& physicalObject : m_physicalObjects)
+	{
+		physicalObject.ApplyInterpolation(alpha);
+	}
+}
+
 std::optional<RaycastHit> OvPhysics::Core::PhysicsEngine::Raycast(OvMaths::FVector3 p_origin, OvMaths::FVector3 p_direction, float p_distance)
 {
 	if (p_direction == OvMaths::FVector3::Zero)

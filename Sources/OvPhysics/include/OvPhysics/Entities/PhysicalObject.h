@@ -139,6 +139,19 @@ namespace OvPhysics::Entities
 		virtual bool IsCharacter() const;
 
 		/**
+		* Defines if the transform of the physical object is interpolated between its last two physics steps, so that
+		* it moves smoothly at any frame rate. Only a body the physics moves (a dynamic body, a character controller)
+		* is interpolated
+		* @param p_interpolated
+		*/
+		void SetInterpolated(bool p_interpolated);
+
+		/**
+		* Returns true if the transform of the physical object is interpolated between its last two physics steps
+		*/
+		bool IsInterpolated() const;
+
+		/**
 		* Returns a reference to the transform of the physical object
 		*/
 		OvMaths::FTransform& GetTransform();
@@ -266,6 +279,27 @@ namespace OvPhysics::Entities
 		virtual void UpdateBodyTransform();
 		virtual void UpdateFTransform();
 
+		/**
+		* Moves the transform between the last two physics poses, when it is interpolated and nothing else moved it
+		* since the physics did
+		* @param p_alpha (0 at the previous pose, 1 at the last one)
+		*/
+		virtual void ApplyInterpolation(float p_alpha);
+
+		/**
+		* Keeps the pose the physics gave at the end of a step, and the one before
+		* @param p_position
+		* @param p_rotation
+		*/
+		void RecordPhysicsPose(const OvMaths::FVector3& p_position, const OvMaths::FQuaternion& p_rotation);
+
+		/**
+		* Forgets the poses kept: the object starts again from where it is, without moving between two poses
+		* @param p_position
+		* @param p_rotation
+		*/
+		void ResetPhysicsPose(const OvMaths::FVector3& p_position, const OvMaths::FQuaternion& p_rotation);
+
 	private:
 		/* Internal */
 		void CreateBody(const Settings::BodySettings& p_bodySettings);
@@ -293,6 +327,7 @@ namespace OvPhysics::Entities
 		bool					m_trigger = false;
 		bool					m_enabled = true;
 		bool					m_considered = false;
+		bool					m_interpolated = false;
 		ECollisionDetectionMode m_collisionMode = ECollisionDetectionMode::DISCRETE;
 		OvMaths::FVector3		m_linearFactor = OvMaths::FVector3::One;
 		OvMaths::FVector3		m_angularFactor = OvMaths::FVector3::One;
@@ -302,6 +337,13 @@ namespace OvPhysics::Entities
 		OvMaths::FVector3 m_previousScale = { 0.0f, 0.0f, 0.0f };
 		OvMaths::FVector3 m_bodyPosition;
 		OvMaths::FQuaternion m_bodyRotation;
+
+		/* The last two poses the physics gave, for interpolation */
+		bool m_hasPhysicsPose = false;
+		OvMaths::FVector3 m_previousPhysicsPosition;
+		OvMaths::FVector3 m_physicsPosition;
+		OvMaths::FQuaternion m_previousPhysicsRotation;
+		OvMaths::FQuaternion m_physicsRotation;
 		static OvTools::Eventing::Event<PhysicalObject&>	CreatedEvent;
 		static OvTools::Eventing::Event<PhysicalObject&>	DestroyedEvent;
 

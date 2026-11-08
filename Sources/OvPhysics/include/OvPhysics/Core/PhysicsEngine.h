@@ -64,6 +64,13 @@ namespace OvPhysics::Core
 		*/
 		bool Update(float p_deltaTime);
 
+		/**
+		* Moves the transforms of the interpolated objects between their last two physics poses, by the time gathered
+		* toward the next step. Called once a frame, after the fixed update and before the update: the fixed update
+		* sees the poses of the physics, the rest of the frame the interpolated ones
+		*/
+		void Interpolate();
+
 		/* Casts a ray against all Physical Object in the Scene and returns information on what was hit
 		 * @param p_origin
 		 * @param p_end
