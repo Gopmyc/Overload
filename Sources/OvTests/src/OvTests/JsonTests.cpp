@@ -53,7 +53,7 @@ TEST_SUITE("Json")
 
 	TEST_CASE("a bad text fails with where and why")
 	{
-		const auto fails = [](std::string_view p_text, std::string_view p_expected)
+		const auto fails = [](const std::string& p_text, const std::string& p_expected)
 		{
 			std::string error;
 			const auto value = Json::Parse(p_text, error);
