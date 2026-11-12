@@ -195,6 +195,16 @@ function Transform:GetUIAnchorPreset() end
 ---@param anchorPreset AnchorPreset
 function Transform:SetUIAnchorPreset(anchorPreset) end
 
+--- Returns true if the UI element clips its children to its rectangle
+---@return boolean
+function Transform:GetUIClipChildren() end
+
+--- Defines whether the UI element clips its children to its rectangle: what falls outside of it is not drawn, on a
+--- screen space canvas as on a world space one, the element turned or not. A clip inside another is cut by both while
+--- both are upright on the canvas; with one turned, by the innermost
+---@param clip boolean
+function Transform:SetUIClipChildren(clip) end
+
 --- Returns the actor that owns this component
 ---@return Actor
 function Transform:GetOwner() end

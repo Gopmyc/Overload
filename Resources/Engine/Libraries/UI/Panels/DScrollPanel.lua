@@ -5,9 +5,8 @@ local Panel = Resources.GetScript(":Libraries/UI/Panels/Panel.lua")
 Resources.GetScript(":Libraries/UI/Panels/DPanel.lua")
 Resources.GetScript(":Libraries/UI/Panels/DVScrollBar.lua")
 
---- Scrollable area: children are added to an inner canvas, moved by a vertical scroll bar.
---- Children entirely outside the view are hidden; partially visible ones aren't clipped, since the
---- engine has no UI clipping (see Docs/EngineLimitations.md).
+--- Scrollable area: children are added to an inner canvas, moved by a vertical scroll bar. The panel
+--- clips them to its rectangle; those entirely outside the view are also hidden, so they cost nothing.
 ---@class DScrollPanel : DPanel
 local DScrollPanel = {}
 
@@ -31,6 +30,7 @@ function DScrollPanel:Init()
 
 	self.m_Canvas = canvas
 	self.m_ScrollBar = scrollBar
+	self.m_Transform:SetUIClipChildren(true)
 end
 
 --- Returns the panel holding the scrolled children

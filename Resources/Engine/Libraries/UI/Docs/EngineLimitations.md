@@ -4,17 +4,7 @@ Features of the UI library that are missing or incomplete because the engine lac
 not just its Lua binding. Features that only need a binding are listed in
 [LuaExposureGaps.md](LuaExposureGaps.md).
 
-## 1. No clipping of UI elements
-
-- **Feature:** `DScrollPanel` content, and more generally any child overflowing its parent.
-- **Missing primitive:** a clip rectangle, mask or scissor for UI drawables.
-  `SceneRenderer::AppendHierarchyUIDrawables` emits `Image` and `Text` drawables without any clip
-  information.
-- **Impact:** `DScrollPanel` hides the children entirely outside its view, but partially visible
-  children overflow it. Hit-testing is clipped to the parent bounds, so an overflowing part is
-  visible but can't be hovered or clicked.
-
-## 2. No immediate-mode drawing
+## 1. No immediate-mode drawing
 
 - **Feature:** `Paint(width, height)` drawing arbitrary content, as with `surface.Draw*` in Garry's Mod.
 - **Missing primitive:** a UI drawing API (rectangles, outlines, lines, text at a position). UI rendering
@@ -23,7 +13,7 @@ not just its Lua binding. Features that only need a binding are listed in
   configures the components of the panel. Custom shapes such as borders, rounded corners or gradients
   can only be obtained through textures.
 
-## 3. A zero size axis means "intrinsic size"
+## 2. A zero size axis means "intrinsic size"
 
 - **Feature:** panels with a zero width or height.
 - **Missing primitive:** `CTransform::SetUISize` reserves 0 for the intrinsic size of the element
@@ -31,7 +21,7 @@ not just its Lua binding. Features that only need a binding are listed in
 - **Impact:** the library sends 0.001 instead of 0, so an empty panel doesn't grow to the size of its
   image or text.
 
-## 4. No sibling index API
+## 3. No sibling index API
 
 - **Feature:** `SetZPos`.
 - **Missing primitive:** moving an actor to a given index among its siblings (#384). Actors are drawn in
@@ -39,7 +29,7 @@ not just its Lua binding. Features that only need a binding are listed in
 - **Impact:** changing the Z position re-attaches every sibling in order, which fires Attach and Detach
   events and costs O(n) per change.
 
-## 5. Component references aren't checked
+## 4. Component references aren't checked
 
 - **Feature:** panels surviving the destruction of their actors by other scripts.
 - **Missing primitive:** lifetime checks on components. With #862, actors are exposed to Lua as handles
@@ -49,7 +39,7 @@ not just its Lua binding. Features that only need a binding are listed in
   discards its panels once the canvas is destroyed, but destroying the actor of a single panel outside
   `Panel:Remove` leaves its cached components dangling, and isn't supported.
 
-## 6. World space canvases are drawn after the scene
+## 5. World space canvases are drawn after the scene
 
 - **Feature:** world space canvases, and panels in the 3D world (`DWorldPanel`, `DWorldPath`,
   `DWorldArc`, see [WorldSpace.md](WorldSpace.md)).

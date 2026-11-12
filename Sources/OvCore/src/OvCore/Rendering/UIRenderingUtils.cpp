@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 
 #include <OvCore/ECS/Actor.h>
 #include <OvCore/ECS/Components/CTransform.h>
@@ -713,4 +714,131 @@ bool OvCore::Rendering::UIRenderingUtils::ResolveUIGizmoTransform(
 	p_outTransform.rotation = CreateUIRotation(p_outTransform.xWorldAxis, p_outTransform.yWorldAxis);
 	p_outTransform.screenSpace = resolvedElement.screenSpace;
 	return true;
+}
+
+namespace
+{
+	constexpr float kUprightTolerance = 1e-5f;
+
+	/**
+	* The inverse of a placement whose scale may be tiny (a world space canvas is a few thousandths of a metre a unit),
+	* which FMatrix4::Inverse takes for singular: inverted at unit scale, then scaled back
+	*/
+	OvMaths::FMatrix4 InversePlacement(OvMaths::FMatrix4 p_matrix)
+	{
+		OvMaths::FVector3 scale;
+
+		for (uint8_t axis = 0; axis < 3; ++axis)
+		{
+			const float length = std::sqrt(
+				p_matrix(0, axis) * p_matrix(0, axis) +
+				p_matrix(1, axis) * p_matrix(1, axis) +
+				p_matrix(2, axis) * p_matrix(2, axis)
+			);
+
+			(axis == 0 ? scale.x : axis == 1 ? scale.y : scale.z) = length > 0.0f ? 1.0f / length : 1.0f;
+		}
+
+		const OvMaths::FMatrix4 unscale = OvMaths::FMatrix4::Scaling(scale);
+		return unscale * OvMaths::FMatrix4::Inverse(p_matrix * unscale);
+	}
+
+	/**
+	* The element's corners in canvas units, and whether its rectangle is upright on the canvas
+	*/
+	bool GetCanvasRectangle(const OvCore::Rendering::UIRenderingUtils::ResolvedUIElement& p_element, OvMaths::FVector2& p_min, OvMaths::FVector2& p_max)
+	{
+		OvMaths::FMatrix4 toCanvas = InversePlacement(p_element.canvasMatrix) * p_element.frameMatrix;
+		const float halfWidth = p_element.effectiveSize.x * 0.5f;
+		const float halfHeight = p_element.effectiveSize.y * 0.5f;
+
+		p_min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+		p_max = { std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest() };
+
+		for (const float x : { -halfWidth, halfWidth })
+		{
+			for (const float y : { -halfHeight, halfHeight })
+			{
+				const OvMaths::FVector4 corner = toCanvas * OvMaths::FVector4{ x, y, 0.0f, 1.0f };
+				p_min = { std::min(p_min.x, corner.x), std::min(p_min.y, corner.y) };
+				p_max = { std::max(p_max.x, corner.x), std::max(p_max.y, corner.y) };
+			}
+		}
+
+		// Turned or skewed on the canvas, its corners don't make an upright rectangle
+		return std::abs(toCanvas(0, 1)) <= kUprightTolerance && std::abs(toCanvas(1, 0)) <= kUprightTolerance;
+	}
+}
+
+OvCore::Rendering::UIRenderingUtils::UIClip OvCore::Rendering::UIRenderingUtils::CreateUIClip(const ResolvedUIElement& p_element, const UIClip* p_parentClip)
+{
+	UIClip clip;
+
+	if (p_parentClip && p_parentClip->empty)
+	{
+		clip.empty = true;
+		return clip;
+	}
+
+	OvMaths::FVector2 min;
+	OvMaths::FVector2 max;
+	const bool upright = GetCanvasRectangle(p_element, min, max);
+
+	if (upright && (!p_parentClip || p_parentClip->upright))
+	{
+		if (p_parentClip)
+		{
+			min = { std::max(min.x, p_parentClip->min.x), std::max(min.y, p_parentClip->min.y) };
+			max = { std::min(max.x, p_parentClip->max.x), std::min(max.y, p_parentClip->max.y) };
+		}
+
+		clip.upright = true;
+		clip.min = min;
+		clip.max = max;
+		clip.empty = max.x <= min.x || max.y <= min.y;
+
+		if (!clip.empty)
+		{
+			const OvMaths::FVector2 center = (min + max) * 0.5f;
+			const OvMaths::FVector2 halfSize = (max - min) * 0.5f;
+
+			clip.matrix =
+				OvMaths::FMatrix4::Scaling({ 1.0f / halfSize.x, 1.0f / halfSize.y, 1.0f }) *
+				OvMaths::FMatrix4::Translation({ -center.x, -center.y, 0.0f }) *
+				InversePlacement(p_element.canvasMatrix);
+		}
+
+		return clip;
+	}
+
+	// Turned on the canvas, or inside a turned clip: the element's own rectangle, in its own frame
+	clip.empty = p_element.effectiveSize.x <= 0.0f || p_element.effectiveSize.y <= 0.0f;
+
+	if (!clip.empty)
+	{
+		clip.matrix =
+			OvMaths::FMatrix4::Scaling({ 2.0f / p_element.effectiveSize.x, 2.0f / p_element.effectiveSize.y, 1.0f }) *
+			InversePlacement(p_element.frameMatrix);
+	}
+
+	return clip;
+}
+
+bool OvCore::Rendering::UIRenderingUtils::IsOutsideUIClip(const UIClip& p_clip, const ResolvedUIElement& p_element)
+{
+	if (p_clip.empty)
+	{
+		return true;
+	}
+
+	if (!p_clip.upright)
+	{
+		return false;
+	}
+
+	OvMaths::FVector2 min;
+	OvMaths::FVector2 max;
+	GetCanvasRectangle(p_element, min, max);
+
+	return max.x <= p_clip.min.x || min.x >= p_clip.max.x || max.y <= p_clip.min.y || min.y >= p_clip.max.y;
 }
