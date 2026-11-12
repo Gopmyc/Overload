@@ -64,5 +64,11 @@ namespace OvCore::ECS::Components::UI
 		};
 
 		static Output Layout(const Input& p_input);
+
+		/**
+		* Returns the characters of a UTF-8 text. A byte that starts no valid sequence reads as U+FFFD
+		* @param p_text
+		*/
+		static std::vector<uint32_t> DecodeUTF8(std::string_view p_text);
 	};
 }

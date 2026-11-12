@@ -35,6 +35,22 @@ rules of a custom shader are in [Shaders](Shaders.md).
   `Indices` from 0 and counter-clockwise, and optional `Normals`, `TexCoords`, `Tangents`, `Bitangents`), registered
   under a path that needs no file. Built again at the same path, it is replaced in place under every renderer using it.
 
+## UI text
+
+- A `Text` component draws a UTF-8 string with a TrueType font, Roboto (`:Fonts/Roboto-Regular.ttf`) by default.
+- **Glyphs**:
+  - a font keeps one glyph atlas for each whole pixel size it is drawn at, from 1 to 256: a game that uses few sizes
+    keeps few atlases;
+  - Basic Latin and Latin-1 are baked with an atlas; any other character the font has (Latin Extended, Greek,
+    Cyrillic in Roboto) is baked the first time a text needs it, and the atlas grows, up to 4096 pixels a side;
+  - a character the font lacks is drawn as `?`, and a byte that starts no valid UTF-8 sequence as U+FFFD (or `?`
+    when the font lacks that too). Roboto has no CJK and no emoji: a project that needs them sets a font that has
+    them.
+- `Text:GetContentSize()` gives the size the lines take, in canvas pixels, wrapped at the element's width when it has
+  one: what a label sizes itself to.
+- **A custom text shader** samples `u_FontAtlas` at the texture coordinates divided by
+  `textureSize(u_FontAtlas, 0)`. They are in atlas pixels, which stay put when the atlas grows.
+
 ## Textures
 
 - Textures wrap in `REPEAT` by default. A UI texture needs a `.png.meta` that switches it to clamp, or seams appear:

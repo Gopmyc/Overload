@@ -77,9 +77,14 @@ later version of the same major version.
   actions, until it is released, and releases it for the game if it saw it held; `Inputs.ConsumeMouseScroll()` hides
   the frame's scroll, and `Inputs.SetKeyboardCaptured(captured)` every key, for a text field. Every read takes a last
   `includeConsumed` argument, for the code that consumed. The Lua API is now 1.6. See [Docs/Input.md](Docs/Input.md).
+- **Text beyond Latin-1**: a font bakes any character it has the first time a text needs it (Greek and Cyrillic in
+  Roboto), its atlas growing up to 4096 pixels a side; a character it lacks is still drawn as `?`.
+  `Text:GetContentSize()` measures a text. The Lua API is now 1.7. See [Docs/Rendering.md](Docs/Rendering.md).
 
 ### Changed
 
+- **Text texture coordinates are in atlas pixels**: a custom text shader divides them by
+  `textureSize(u_FontAtlas, 0)`, as `Text.ovfx` does, so that a growing atlas moves no glyph.
 - **No audio device is a warning**: the audio engine logs a warning, no longer an error, when it cannot open a
   device. The game runs on without sound, as before.
 - **Ragdolls collide by their layer**: their bodies are on `physics_ragdoll_layer` (15 by default). Going through

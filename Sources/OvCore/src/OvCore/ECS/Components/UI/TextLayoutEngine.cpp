@@ -379,8 +379,12 @@ OvCore::ECS::Components::UI::TextLayoutEngine::Output OvCore::ECS::Components::U
 	float maxY = std::numeric_limits<float>::lowest();
 	bool hasGeometry = false;
 
-	const auto* fallbackGlyph = p_input.font->GetGlyph('?', p_input.fontSize);
 	const auto codePoints = DecodeUTF8(p_input.text);
+
+	// Characters beyond Latin-1 are baked the first time a text needs them
+	p_input.font->EnsureGlyphs(codePoints, p_input.fontSize);
+
+	const auto* fallbackGlyph = p_input.font->GetGlyph('?', p_input.fontSize);
 	const auto wrappedText = WrapTextToWidth(
 		codePoints,
 		*p_input.font,
@@ -506,4 +510,9 @@ OvCore::ECS::Components::UI::TextLayoutEngine::Output OvCore::ECS::Components::U
 	}
 
 	return output;
+}
+
+std::vector<uint32_t> OvCore::ECS::Components::UI::TextLayoutEngine::DecodeUTF8(std::string_view p_text)
+{
+	return ::DecodeUTF8(p_text);
 }

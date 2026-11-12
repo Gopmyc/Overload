@@ -26,6 +26,7 @@ It covers:
 | Lua Json, Lua Storage | The bindings in a bare Lua state: round trips, refused values, the project's limits, the sandbox |
 | Project settings | Layer names and ignored pairs, the save folder's name, the runtime limits and their ranges |
 | Physics layers, queries, engine | Layers by name, bodies that go through each other, casts and overlaps on a column of boxes, a second engine |
+| Fonts | Basic Latin and Latin-1 baked with an atlas, Cyrillic, Greek and Latin Extended baked on demand and once, a character the font lacks, an atlas that grows without moving its glyphs, UTF-8 decoding, a font that is no font |
 | Json | Values read with their members' order, escapes beyond the first plane, errors with their line and column, nesting, a value written then read back |
 | Input actions | Every input's name and the Lua enum Key, the actions file and its mistakes, actions pressed, held and released over frames, a tap within a frame, a stick's way and a trigger, the input pressed in a frame, swaps, resets, bindings saved and read back |
 | Input consumption | A button consumed as it goes down or while held, its release, a tap within a frame, a press afresh, pads, a stick's way until it is back to the centre, the captured keyboard, the scroll, and actions read again within the frame |
@@ -74,6 +75,7 @@ temporary folder.
 | `Shaders` | Every engine shader loads, all its variants compiled; a shader built on `Standard`'s four extension points draws; the fog option on `Standard` and `Unlit` |
 | `Gamepad` | The gamepad API from Lua with no pad connected: the enums, every read false or 0, pads out of range, the dead zone and its range |
 | `InputActions` | The project's actions from Lua: their order and bindings, rebinding with its swaps and refusals, resets, the bindings saved in the save folder, the labels a menu shows |
+| `Text` | UTF-8 text from Lua: Cyrillic and Greek drawn with their own glyphs, a character the font lacks and a broken byte, measured by `GetContentSize`; it also draws them, for a screenshot (`--frames 4 --screenshot`) |
 | `InputConsumption` | Consuming from Lua with no device held: the calls and their refusals, the reads that see what is consumed, the keyboard captured from an `Events.AddUpdate` callback before the Behaviours, across frames |
 | `Interpolation` | Two boxes falling side by side, one interpolated from the scene file: the same physics in the fixed update, the interpolated one between its last two steps on every frame, a teleport from a script |
 | `Character` | A character controller read from the scene file lands and stands, walks through a body of a layer it ignores and through a trigger, climbs a step, is stopped by a wall, jumps and lands, takes an impulse |

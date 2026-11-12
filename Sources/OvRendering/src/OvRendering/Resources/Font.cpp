@@ -5,11 +5,11 @@
 */
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <vector>
 
@@ -20,44 +20,12 @@
 #include <baregl/types/ETextureFilteringMode.h>
 #include <baregl/types/ETextureWrapMode.h>
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-
 namespace
 {
-	constexpr uint32_t kMinimumAtlasSize = 512;
-	constexpr uint32_t kMaximumAtlasSize = 4096;
 	constexpr float kDefaultPixelSize = 32.0f;
 	constexpr float kMinimumPixelSize = 1.0f;
 	constexpr float kMaximumPixelSize = 256.0f;
-	constexpr uint32_t kGlyphPadding = 1;
 	constexpr const char* kFontAtlasUniform = "u_FontAtlas";
-	constexpr size_t kInvalidGlyphIndex = OvRendering::Resources::Font::kGlyphCount;
-
-	size_t ToGlyphIndex(uint32_t p_codePoint)
-	{
-		using Font = OvRendering::Resources::Font;
-
-		if (p_codePoint >= Font::kFirstGlyph && p_codePoint < Font::kFirstGlyph + Font::kBasicLatinGlyphCount)
-		{
-			return p_codePoint - Font::kFirstGlyph;
-		}
-
-		if (p_codePoint >= Font::kFirstLatin1Glyph && p_codePoint < Font::kFirstLatin1Glyph + Font::kLatin1GlyphCount)
-		{
-			return Font::kBasicLatinGlyphCount + p_codePoint - Font::kFirstLatin1Glyph;
-		}
-
-		return kInvalidGlyphIndex;
-	}
-
-	uint32_t ToGlyphCodePoint(size_t p_index)
-	{
-		using Font = OvRendering::Resources::Font;
-		return p_index < Font::kBasicLatinGlyphCount ?
-			Font::kFirstGlyph + static_cast<uint32_t>(p_index) :
-			Font::kFirstLatin1Glyph + static_cast<uint32_t>(p_index - Font::kBasicLatinGlyphCount);
-	}
 
 	uint32_t ToPixelSizeKey(float p_pixelSize)
 	{
@@ -88,53 +56,6 @@ namespace
 		p_material.SetGPUInstances(1);
 	}
 
-	struct BakedFont
-	{
-		bool valid = false;
-		float pixelSize = kDefaultPixelSize;
-		float lineHeight = kDefaultPixelSize;
-		float ascender = kDefaultPixelSize * 0.8f;
-		float descender = -kDefaultPixelSize * 0.2f;
-		uint32_t atlasWidth = 0;
-		uint32_t atlasHeight = 0;
-		std::array<OvRendering::Resources::Font::Glyph, OvRendering::Resources::Font::kGlyphCount> glyphs = {};
-		std::vector<uint8_t> atlasData;
-	};
-
-	struct FreeTypeLibrary
-	{
-		FT_Library handle = nullptr;
-
-		FreeTypeLibrary()
-		{
-			if (FT_Init_FreeType(&handle) != 0)
-			{
-				handle = nullptr;
-			}
-		}
-
-		~FreeTypeLibrary()
-		{
-			if (handle)
-			{
-				FT_Done_FreeType(handle);
-			}
-		}
-	};
-
-	struct FreeTypeFace
-	{
-		FT_Face handle = nullptr;
-
-		~FreeTypeFace()
-		{
-			if (handle)
-			{
-				FT_Done_Face(handle);
-			}
-		}
-	};
-
 	std::vector<uint8_t> ReadFile(const std::filesystem::path& p_path)
 	{
 		std::ifstream file{ p_path, std::ios::binary | std::ios::ate };
@@ -156,181 +77,19 @@ namespace
 		return file ? data : std::vector<uint8_t>{};
 	}
 
-	bool CopyGlyphBitmap(
-		const FT_Bitmap& p_bitmap,
-		uint32_t p_x,
-		uint32_t p_y,
-		uint32_t p_atlasWidth,
-		std::vector<uint8_t>& p_alphaAtlas
-	)
+	/**
+	* The atlas's alpha as the texture holds it: white, with the alpha as coverage
+	*/
+	std::vector<uint8_t> ToRGBA(const std::vector<uint8_t>& p_alpha)
 	{
-		if (p_bitmap.pixel_mode != FT_PIXEL_MODE_GRAY)
+		std::vector<uint8_t> rgba(p_alpha.size() * 4, 255);
+
+		for (size_t i = 0; i < p_alpha.size(); ++i)
 		{
-			return false;
+			rgba[i * 4 + 3] = p_alpha[i];
 		}
 
-		const uint32_t glyphWidth = static_cast<uint32_t>(p_bitmap.width);
-		const uint32_t glyphHeight = static_cast<uint32_t>(p_bitmap.rows);
-		const int32_t pitch = static_cast<int32_t>(p_bitmap.pitch);
-		const uint32_t pitchAbs = static_cast<uint32_t>(pitch >= 0 ? pitch : -pitch);
-
-		for (uint32_t row = 0; row < glyphHeight; ++row)
-		{
-			const uint32_t sourceRow = pitch >= 0 ? row : glyphHeight - 1 - row;
-			const uint8_t* source = p_bitmap.buffer + static_cast<size_t>(sourceRow) * pitchAbs;
-			const size_t destinationOffset = (static_cast<size_t>(p_y) + row) * p_atlasWidth + p_x;
-			std::copy(source, source + glyphWidth, p_alphaAtlas.begin() + destinationOffset);
-		}
-
-		return true;
-	}
-
-	BakedFont BakeFont(const std::filesystem::path& p_realPath, float p_pixelSize)
-	{
-		using namespace OvRendering::Resources;
-
-		BakedFont result;
-
-		FreeTypeLibrary library;
-		if (!library.handle)
-		{
-			OVLOG_WARNING("Unable to initialize FreeType");
-			return result;
-		}
-
-		const auto fontData = ReadFile(p_realPath);
-		if (fontData.empty())
-		{
-			OVLOG_WARNING("Unable to read font: " + p_realPath.string());
-			return result;
-		}
-
-		FreeTypeFace face;
-		if (FT_New_Memory_Face(library.handle, fontData.data(), static_cast<FT_Long>(fontData.size()), 0, &face.handle) != 0)
-		{
-			OVLOG_WARNING("Unable to initialize font: " + p_realPath.string());
-			return result;
-		}
-
-		if (FT_Select_Charmap(face.handle, FT_ENCODING_UNICODE) != 0)
-		{
-			OVLOG_WARNING("Font does not provide a Unicode charmap: " + p_realPath.string());
-			return result;
-		}
-
-		if (FT_Set_Pixel_Sizes(face.handle, 0, static_cast<FT_UInt>(ToPixelSizeKey(p_pixelSize))) != 0)
-		{
-			OVLOG_WARNING("Unable to set font pixel size: " + p_realPath.string());
-			return result;
-		}
-
-		result.pixelSize = static_cast<float>(ToPixelSizeKey(p_pixelSize));
-
-		if (face.handle->size)
-		{
-			result.lineHeight = static_cast<float>(face.handle->size->metrics.height) / 64.0f;
-			result.ascender = static_cast<float>(face.handle->size->metrics.ascender) / 64.0f;
-			result.descender = static_cast<float>(face.handle->size->metrics.descender) / 64.0f;
-		}
-
-		for (uint32_t atlasSize = kMinimumAtlasSize; atlasSize <= kMaximumAtlasSize; atlasSize *= 2)
-		{
-			result.glyphs = {};
-			std::vector<uint8_t> alphaAtlas(static_cast<size_t>(atlasSize) * atlasSize);
-			uint32_t cursorX = 0;
-			uint32_t cursorY = 0;
-			uint32_t rowHeight = 0;
-			bool fits = true;
-
-			for (size_t i = 0; i < Font::kGlyphCount; ++i)
-			{
-				const uint32_t codePoint = ToGlyphCodePoint(i);
-				if (FT_Get_Char_Index(face.handle, codePoint) == 0)
-				{
-					continue;
-				}
-
-				if (FT_Load_Char(face.handle, codePoint, FT_LOAD_RENDER | FT_LOAD_TARGET_NORMAL) != 0)
-				{
-					continue;
-				}
-
-				const FT_GlyphSlot glyphSlot = face.handle->glyph;
-				const FT_Bitmap& bitmap = glyphSlot->bitmap;
-				const uint32_t glyphWidth = static_cast<uint32_t>(bitmap.width);
-				const uint32_t glyphHeight = static_cast<uint32_t>(bitmap.rows);
-				auto& glyph = result.glyphs[i];
-
-				glyph.valid = true;
-				glyph.xOffset = static_cast<float>(glyphSlot->bitmap_left);
-				glyph.yOffset = -static_cast<float>(glyphSlot->bitmap_top);
-				glyph.xAdvance = static_cast<float>(glyphSlot->advance.x) / 64.0f;
-				glyph.width = static_cast<float>(glyphWidth);
-				glyph.height = static_cast<float>(glyphHeight);
-
-				if (glyphWidth == 0 || glyphHeight == 0)
-				{
-					continue;
-				}
-
-				if (glyphWidth + kGlyphPadding > atlasSize)
-				{
-					fits = false;
-					break;
-				}
-
-				if (cursorX + glyphWidth + kGlyphPadding > atlasSize)
-				{
-					cursorX = 0;
-					cursorY += rowHeight + kGlyphPadding;
-					rowHeight = 0;
-				}
-
-				if (cursorY + glyphHeight + kGlyphPadding > atlasSize)
-				{
-					fits = false;
-					break;
-				}
-
-				if (!CopyGlyphBitmap(bitmap, cursorX, cursorY, atlasSize, alphaAtlas))
-				{
-					OVLOG_WARNING("Unsupported glyph bitmap format in font: " + p_realPath.string());
-					return result;
-				}
-
-				glyph.uMin = static_cast<float>(cursorX) / static_cast<float>(atlasSize);
-				glyph.vMin = static_cast<float>(cursorY) / static_cast<float>(atlasSize);
-				glyph.uMax = static_cast<float>(cursorX + glyphWidth) / static_cast<float>(atlasSize);
-				glyph.vMax = static_cast<float>(cursorY + glyphHeight) / static_cast<float>(atlasSize);
-
-				cursorX += glyphWidth + kGlyphPadding;
-				rowHeight = std::max(rowHeight, glyphHeight);
-			}
-
-			if (!fits)
-			{
-				continue;
-			}
-
-			result.atlasWidth = atlasSize;
-			result.atlasHeight = atlasSize;
-			result.atlasData.resize(static_cast<size_t>(atlasSize) * atlasSize * 4);
-
-			for (size_t i = 0; i < alphaAtlas.size(); ++i)
-			{
-				const size_t offset = i * 4;
-				result.atlasData[offset + 0] = 255;
-				result.atlasData[offset + 1] = 255;
-				result.atlasData[offset + 2] = 255;
-				result.atlasData[offset + 3] = alphaAtlas[i];
-			}
-
-			result.valid = true;
-			return result;
-		}
-
-		OVLOG_WARNING("Font atlas is too small for: " + p_realPath.string());
-		return result;
+		return rgba;
 	}
 }
 
@@ -353,6 +112,14 @@ bool OvRendering::Resources::Font::Reload(const std::filesystem::path& p_realPat
 	DestroyAtlasVariants();
 	m_atlasVariants.clear();
 	++m_revision;
+
+	auto fontData = ReadFile(p_realPath);
+	m_fontData = fontData.empty() ? nullptr : std::make_shared<const std::vector<uint8_t>>(std::move(fontData));
+
+	if (!m_fontData)
+	{
+		OVLOG_WARNING("Unable to read font: " + p_realPath.string());
+	}
 
 	return SetActivePixelSize(static_cast<float>(m_activePixelSize));
 }
@@ -464,28 +231,28 @@ float OvRendering::Resources::Font::GetDescender(float p_pixelSize) const
 	return variant ? variant->descender : -static_cast<float>(ToPixelSizeKey(p_pixelSize)) * 0.2f;
 }
 
-const OvRendering::Resources::Font::Glyph* OvRendering::Resources::Font::GetGlyph(uint32_t p_codePoint) const
+bool OvRendering::Resources::Font::EnsureGlyphs(std::span<const uint32_t> p_codePoints, float p_pixelSize)
 {
-	const auto glyphIndex = ToGlyphIndex(p_codePoint);
-	const auto* variant = GetActiveVariant();
-	if (glyphIndex == kInvalidGlyphIndex || !variant || !variant->glyphs[glyphIndex].valid)
+	auto* variant = GetOrCreateVariant(ToPixelSizeKey(p_pixelSize));
+	if (!variant)
 	{
-		return nullptr;
+		return false;
 	}
 
-	return &variant->glyphs[glyphIndex];
+	// The texture is filled again in place: materials that hold it see the new glyphs
+	return !variant->atlas->Bake(p_codePoints) || UploadAtlas(*variant);
+}
+
+const OvRendering::Resources::Font::Glyph* OvRendering::Resources::Font::GetGlyph(uint32_t p_codePoint) const
+{
+	const auto* variant = GetActiveVariant();
+	return variant && variant->atlas ? variant->atlas->GetGlyph(p_codePoint) : nullptr;
 }
 
 const OvRendering::Resources::Font::Glyph* OvRendering::Resources::Font::GetGlyph(uint32_t p_codePoint, float p_pixelSize) const
 {
-	const auto glyphIndex = ToGlyphIndex(p_codePoint);
 	const auto* variant = GetVariant(ToPixelSizeKey(p_pixelSize));
-	if (glyphIndex == kInvalidGlyphIndex || !variant || !variant->glyphs[glyphIndex].valid)
-	{
-		return nullptr;
-	}
-
-	return &variant->glyphs[glyphIndex];
+	return variant && variant->atlas ? variant->atlas->GetGlyph(p_codePoint) : nullptr;
 }
 
 OvRendering::Resources::Texture* OvRendering::Resources::Font::GetAtlasTexture() const
@@ -618,8 +385,7 @@ void OvRendering::Resources::Font::DestroyAtlasVariants()
 	{
 		Loaders::TextureLoader::Destroy(variant.atlasTexture);
 		variant.atlasTexture = nullptr;
-		variant.atlasWidth = 0;
-		variant.atlasHeight = 0;
+		variant.atlas.reset();
 		variant.embeddedMaterial.reset();
 		variant.valid = false;
 	}
@@ -627,56 +393,56 @@ void OvRendering::Resources::Font::DestroyAtlasVariants()
 
 bool OvRendering::Resources::Font::CreateAtlasVariant(uint32_t p_pixelSize)
 {
+	if (!m_fontData)
+	{
+		return false;
+	}
+
+	std::string error;
+	auto atlas = FontAtlas::Create(m_fontData, p_pixelSize, error);
+	if (!atlas)
+	{
+		OVLOG_WARNING(std::format("Unable to bake font {} at {} px: {}", m_realPath.string(), p_pixelSize, error));
+		return false;
+	}
+
+	auto& variant = m_atlasVariants[p_pixelSize];
+	variant.atlas = std::move(atlas);
+
+	if (!UploadAtlas(variant))
+	{
+		variant.atlas.reset();
+		return false;
+	}
+
+	variant.valid = true;
+	variant.pixelSize = variant.atlas->GetPixelSize();
+	variant.lineHeight = variant.atlas->GetLineHeight();
+	variant.ascender = variant.atlas->GetAscender();
+	variant.descender = variant.atlas->GetDescender();
+
+	if (variant.embeddedMaterial && variant.embeddedMaterial->IsValid())
+	{
+		variant.embeddedMaterial->TrySetProperty(kFontAtlasUniform, variant.atlasTexture);
+	}
+
+	return true;
+}
+
+bool OvRendering::Resources::Font::UploadAtlas(AtlasVariant& p_variant)
+{
 	using namespace baregl::types;
 
-	if (m_realPath.empty())
-	{
-		return false;
-	}
+	const uint32_t size = p_variant.atlas->GetSize();
+	const auto pixels = ToRGBA(p_variant.atlas->GetPixels());
 
-	auto bakedFont = BakeFont(m_realPath, static_cast<float>(p_pixelSize));
-	if (!bakedFont.valid)
+	if (p_variant.atlasTexture)
 	{
-		return false;
-	}
-
-	auto it = m_atlasVariants.find(p_pixelSize);
-	if (it == m_atlasVariants.end())
-	{
-		it = m_atlasVariants.emplace(p_pixelSize, AtlasVariant{}).first;
-	}
-
-	auto& variant = it->second;
-
-	if (variant.atlasTexture)
-	{
-		if (variant.atlasWidth == bakedFont.atlasWidth && variant.atlasHeight == bakedFont.atlasHeight)
-		{
-			Loaders::TextureLoader::ReloadFromMemory(
-				*variant.atlasTexture,
-				bakedFont.atlasData.data(),
-				bakedFont.atlasWidth,
-				bakedFont.atlasHeight,
-				ETextureFilteringMode::LINEAR,
-				ETextureFilteringMode::LINEAR,
-				ETextureWrapMode::CLAMP_TO_EDGE,
-				ETextureWrapMode::CLAMP_TO_EDGE,
-				false
-			);
-		}
-		else
-		{
-			Loaders::TextureLoader::Destroy(variant.atlasTexture);
-			variant.atlasTexture = nullptr;
-		}
-	}
-
-	if (!variant.atlasTexture)
-	{
-		variant.atlasTexture = Loaders::TextureLoader::CreateFromMemory(
-			bakedFont.atlasData.data(),
-			bakedFont.atlasWidth,
-			bakedFont.atlasHeight,
+		Loaders::TextureLoader::ReloadFromMemory(
+			*p_variant.atlasTexture,
+			pixels.data(),
+			size,
+			size,
 			ETextureFilteringMode::LINEAR,
 			ETextureFilteringMode::LINEAR,
 			ETextureWrapMode::CLAMP_TO_EDGE,
@@ -684,24 +450,24 @@ bool OvRendering::Resources::Font::CreateAtlasVariant(uint32_t p_pixelSize)
 			false
 		);
 
-		if (!variant.atlasTexture)
-		{
-			OVLOG_WARNING("Unable to create font atlas texture: " + m_realPath.string());
-			return false;
-		}
+		return true;
 	}
 
-	variant.valid = true;
-	variant.pixelSize = bakedFont.pixelSize;
-	variant.lineHeight = bakedFont.lineHeight;
-	variant.ascender = bakedFont.ascender;
-	variant.descender = bakedFont.descender;
-	variant.atlasWidth = bakedFont.atlasWidth;
-	variant.atlasHeight = bakedFont.atlasHeight;
-	variant.glyphs = bakedFont.glyphs;
-	if (variant.embeddedMaterial && variant.embeddedMaterial->IsValid())
+	p_variant.atlasTexture = Loaders::TextureLoader::CreateFromMemory(
+		pixels.data(),
+		size,
+		size,
+		ETextureFilteringMode::LINEAR,
+		ETextureFilteringMode::LINEAR,
+		ETextureWrapMode::CLAMP_TO_EDGE,
+		ETextureWrapMode::CLAMP_TO_EDGE,
+		false
+	);
+
+	if (!p_variant.atlasTexture)
 	{
-		variant.embeddedMaterial->TrySetProperty(kFontAtlasUniform, variant.atlasTexture);
+		OVLOG_WARNING("Unable to create font atlas texture: " + m_realPath.string());
+		return false;
 	}
 
 	return true;
