@@ -30,7 +30,8 @@ OvCore::SceneSystem::Scene::Scene(
 	const std::filesystem::path& p_engineAssetsPath
 ) :
 	m_projectAssetsPath(p_projectAssetsPath),
-	m_engineAssetsPath(p_engineAssetsPath)
+	m_engineAssetsPath(p_engineAssetsPath),
+	m_navigation(std::make_unique<Navigation::NavMesh>())
 {
 
 }
@@ -582,6 +583,11 @@ void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent&
 
 	if (auto result = dynamic_cast<ECS::Components::CParticleSystem*>(&p_compononent))
 		m_fastAccessComponents.particleSystems.erase(std::remove(m_fastAccessComponents.particleSystems.begin(), m_fastAccessComponents.particleSystems.end(), result), m_fastAccessComponents.particleSystems.end());
+}
+
+OvCore::Navigation::NavMesh& OvCore::SceneSystem::Scene::GetNavigation()
+{
+	return *m_navigation;
 }
 
 std::vector<OvCore::ECS::Actor*>& OvCore::SceneSystem::Scene::GetActors()

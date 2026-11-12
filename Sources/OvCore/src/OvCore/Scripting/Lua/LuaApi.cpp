@@ -19,6 +19,7 @@ void BindLuaMath(sol::state& p_state);
 void BindLuaProfiler(sol::state& p_state);
 void BindLuaStorage(sol::state& p_state);
 void BindLuaJson(sol::state& p_state);
+void BindLuaNavigation(sol::state& p_state);
 
 namespace
 {
@@ -88,6 +89,7 @@ void OvCore::Scripting::LuaApi::Bind(sol::state& p_state)
 	BindLuaProfiler(p_state);
 	BindLuaStorage(p_state);
 	BindLuaJson(p_state);
+	BindLuaNavigation(p_state);
 }
 
 std::vector<std::string> OvCore::Scripting::LuaApi::Describe()

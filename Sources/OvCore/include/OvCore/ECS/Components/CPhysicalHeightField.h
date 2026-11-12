@@ -61,6 +61,11 @@ namespace OvCore::ECS::Components
 		float GetSpacing() const;
 
 		/**
+		* Returns the heights, row-major along +X then +Z (empty before SetHeights)
+		*/
+		const std::vector<float>& GetHeights() const;
+
+		/**
 		* Serialize the component (the heights are not: they are made at run time)
 		* @param p_doc
 		* @param p_node

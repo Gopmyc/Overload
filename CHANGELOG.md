@@ -111,6 +111,15 @@ later version of the same major version.
   want with `Emit(count, overrides)`. In the editor: Add Component and Actors > Others > Particle System. The Lua API is
   now 1.11 (`ParticleSystem`, `ParticleShape`, `ParticleSpace`, `Actor:Get`/`Add`/`RemoveParticleSystem`), and the
   shader API 1.1. See [Docs/Particles.md](Docs/Particles.md).
+- **Navigation**: `Navigation.Build([settings])` builds a navigation mesh for the current scene at run time, from its
+  static colliders (height fields, boxes, spheres and capsules, in the collision layers given), for an agent of a
+  radius, a height, a step and a slope. `Navigation.FindPath(from, to)` returns a path's corners, and whether it reaches
+  the end or stops at the nearest point it can; `FindNearestPoint`, `Raycast` along the mesh and `GetRandomPoint`
+  answer the rest. `Navigation.Rebuild(min, max)` builds again the tiles of a box after a door shuts or a wall goes
+  up, and `GetDebugGeometry` gives the mesh to draw. The mesh is the scene's, and goes with it. The Lua API is now
+  1.12. It is built with [Recast & Detour](https://github.com/recastnavigation/recastnavigation) 1.6.0 (zlib licence),
+  a new dependency. On the Adventurers World, about 150000 triangles, it builds in about half a second, and a path takes
+  0.2 ms. See [Docs/Navigation.md](Docs/Navigation.md).
 
 ### Changed
 

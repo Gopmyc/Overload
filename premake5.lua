@@ -67,6 +67,7 @@ group "Dependencies"
 	include "Dependencies/assimp"
 	include "Dependencies/glfw"
 	include "Dependencies/jolt"
+	include "Dependencies/recastnavigation"
 	include "Dependencies/baregl"
 group ""
 

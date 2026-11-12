@@ -137,6 +137,7 @@ Overload depends on a few third-party libraries:
 - [GLFW](https://github.com/glfw/glfw) (Windowing and inputs)
 - [Assimp](https://github.com/assimp/assimp) (3D model loader)
 - [Jolt Physics](https://github.com/jrouwe/JoltPhysics) (Physics)
+- [Recast & Detour](https://github.com/recastnavigation/recastnavigation) (Navigation)
 - [SoLoud](https://github.com/jarikomppa/soloud) (Audio)
 - [Tinyxml2](https://github.com/leethomason/tinyxml2) (XML serializer)
 - [Sol3](https://github.com/ThePhD/sol2) (Lua binding)
