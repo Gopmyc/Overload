@@ -29,17 +29,7 @@ not just its Lua binding. Features that only need a binding are listed in
 - **Impact:** changing the Z position re-attaches every sibling in order, which fires Attach and Detach
   events and costs O(n) per change.
 
-## 4. Component references aren't checked
-
-- **Feature:** panels surviving the destruction of their actors by other scripts.
-- **Missing primitive:** lifetime checks on components. With #862, actors are exposed to Lua as handles
-  checked on every call (`Actor:IsAlive()`, and an error on a destroyed actor), but components
-  (`Transform`, `Image`, `Text`...) are still raw pointers.
-- **Impact:** panels cache their components. The controller checks its canvas actor every frame and
-  discards its panels once the canvas is destroyed, but destroying the actor of a single panel outside
-  `Panel:Remove` leaves its cached components dangling, and isn't supported.
-
-## 5. World space canvases are drawn after the scene
+## 4. World space canvases are drawn after the scene
 
 - **Feature:** world space canvases, and panels in the 3D world (`DWorldPanel`, `DWorldPath`,
   `DWorldArc`, see [WorldSpace.md](WorldSpace.md)).

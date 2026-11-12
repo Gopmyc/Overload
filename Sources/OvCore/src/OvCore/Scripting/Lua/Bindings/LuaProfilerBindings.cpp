@@ -4,7 +4,7 @@
 * @licence: MIT
 */
 
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 #include <tracy/TracyLua.hpp>
 
 void BindLuaProfiler(sol::state& p_luaState)

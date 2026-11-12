@@ -52,7 +52,7 @@
 #include <OvWindowing/Cursor/ECursorShape.h>
 #include <OvWindowing/Inputs/InputManager.h>
 
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 
 namespace
 {

@@ -14,7 +14,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <vector>
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 #include <tracy/Tracy.hpp>
 
 #include <OvDebug/Logger.h>

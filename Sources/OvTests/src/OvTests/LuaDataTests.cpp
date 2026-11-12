@@ -7,7 +7,7 @@
 #include <string>
 
 #include <doctest/doctest.h>
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Scripting/JsonLimits.h>

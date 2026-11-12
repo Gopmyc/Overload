@@ -11,7 +11,7 @@
 
 #include "OvCore/Global/ServiceLocator.h"
 
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 
 namespace
 {

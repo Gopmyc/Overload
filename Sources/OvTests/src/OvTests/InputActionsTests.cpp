@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <doctest/doctest.h>
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 
 #include <OvCore/Input/InputActions.h>
 #include <OvCore/Scripting/Lua/LuaApi.h>
