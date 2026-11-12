@@ -32,6 +32,16 @@ namespace OvCore::Global
 		}
 		
 		/**
+		* Returns true if a service of the given type was provided
+		*/
+		template<typename T>
+		static bool Has()
+		{
+			const auto found = __SERVICES.find(typeid(T).hash_code());
+			return found != __SERVICES.end() && found->second.has_value();
+		}
+
+		/**
 		* Returns a service of the given type (Make sure that your provided the service before calling this method)
 		*/
 		template<typename T>

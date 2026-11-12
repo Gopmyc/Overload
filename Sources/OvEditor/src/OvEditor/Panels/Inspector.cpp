@@ -28,6 +28,7 @@
 #include <OvCore/ECS/Components/CPhysicalHeightField.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
 #include <OvCore/ECS/Components/CPointLight.h>
+#include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
@@ -125,6 +126,7 @@ namespace
 		CreateComponentInfo<CAudioListener>("Audio Listener"),
 		CreateComponentInfo<CPostProcessStack>("Post Process Stack"),
 		CreateComponentInfo<CReflectionProbe>("Reflection Probe"),
+		CreateComponentInfo<CParticleSystem>("Particle System"),
 		CreateComponentInfo<UI::CCanvas>("Canvas"),
 		CreateComponentInfo<UI::CHorizontalLayout>("Horizontal Layout"),
 		CreateComponentInfo<UI::CImage>("Image"),

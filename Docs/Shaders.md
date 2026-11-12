@@ -6,7 +6,8 @@ the `Standard` shader's stages and extension points. Together they make the shad
 
 ## Version
 
-`Common/ShaderApi.ovfxh` defines `SHADER_API_VERSION_MAJOR` and `SHADER_API_VERSION_MINOR`, 1.0 so far. The engine
+`Common/ShaderApi.ovfxh` defines `SHADER_API_VERSION_MAJOR` and `SHADER_API_VERSION_MINOR`, now 1.1: 1.1 added
+`Common/Particles.ovfxh`. The engine
 buffer includes it, so every shader can test them:
 
 ```glsl
@@ -38,6 +39,7 @@ this table against the files: a name added to a public include must be listed he
 | `Common/Utils.ovfxh` | `TileAndOffsetTexCoords(texCoords, tiling, offset)`, `IsOrthographic(projection)`, `DistanceFadeAlpha(fragPos, viewPos, fadeStart, fadeLength)`, `Dithering(alpha, fragCoord)`, `ApplyParallaxOcclusionMapping(texCoords, heightMap, tangentViewPos, tangentFragPos, heightScale, minLayers, maxLayers)`, `ApplyParallaxMapping(texCoords, heightMap, tangentViewPos, tangentFragPos, heightScale)`, `IsParallaxOutOfBounds(texCoords, tiling, offset, projection)`, `ConstructTBN(model, normal, tangent, bitangent)`, `ComputeNormal(texCoords, normal, normalMap, TBN)`, `UnPack(packedFloat)` | `IsMasked` (deprecated) |
 | `Common/Instancing.ovfxh` | `InstanceModelMatrix(instance)`, `InstanceNormalMatrix(instance)`, `InstanceUserMatrix(instance)` | |
 | `Common/Skinning.ovfxh` | `ComputeSkinningMatrix(boneIDs, boneWeights)` | |
+| `Common/Particles.ovfxh` | `Particle`, `ParticleAt(instance)`, `ParticleModelMatrix(particle)` | |
 | `Common/Physics.ovfxh` | `IsPointInAABB(point, center, halfSize)`, `IsPointInSphere(point, center, radius)` | |
 | `Lighting/PBR.ovfxh` | `PBRLightingModel(albedo, metallic, roughness, ao, normal, viewPos, fragPos, shadowMap, lightSpaceMatrix, environmentMap, transmission, refractionIndex)` | `DistributionGGX`, `GeometrySchlickGGX`, `FresnelSchlick`, `GeometrySmith`, `CalculateBRDF` |
 | `Standard/StandardVertex.ovfxh` | `StandardVertex` (extension point) | |
@@ -49,7 +51,10 @@ this table against the files: a name added to a public include must be listed he
 - **The engine binds** `_ShadowMap`, `_LightSpaceMatrix` and `_EnvironmentMap` to a material that receives shadows and
   reflections: a lit shader declares them and passes them to `PBRLightingModel`.
 - `Lighting/Light.ovfxh`, `Lighting/Shadow.ovfxh`, `Lighting/IBL.ovfxh` and the other buffers of `Common/Buffers/`
-  are internal: `PBR.ovfxh` and `Instancing.ovfxh` include them.
+  are internal: `PBR.ovfxh`, `Instancing.ovfxh` and `Particles.ovfxh` include them.
+- **The particles** of a particle system's draw: `ParticleAt(gl_InstanceID)` returns the instance's particle (`alive`,
+  `position` and `velocity` in the world, `size`, `color`, `rotation`, `life`, `seed`), worked out at the system's
+  time; `ParticleModelMatrix(particle)` places a model as it. See [Particles](Particles.md).
 
 ## Building on Standard
 
@@ -118,7 +123,8 @@ process stack sets (see [Rendering](Rendering.md)).
   by side in the drawing order. A value passed from the vertex to the fragment stage per instance is `flat`. A shader
   that reads `ubo_UserMatrix` instead does not declare the capability.
 - A material may ask for many instances of its model (`gpu_instances`), which its vertex shader places from
-  `gl_InstanceID`: a cloud of particles in one draw.
+  `gl_InstanceID`: a cloud of points in one draw. Particles that are born, live and die are a particle system's
+  (see [Particles](Particles.md)).
 - A sky drawn after the opaque geometry pushes its depth just short of the far plane (0.99999); any closer to 1 and the
   depth buffer's rounding drops whole triangles.
 - A shader compiles every variant of its features when it loads, and logs an error for each one that fails: the

@@ -1,0 +1,121 @@
+#pass PICKING_PASS
+
+#shader vertex
+#version 450 core
+
+#include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+#include ":Shaders/Common/Particles.ovfxh"
+
+layout (location = 0) in vec3 geo_Pos;
+layout (location = 1) in vec2 geo_TexCoords;
+
+// Seconds of travel a particle stretches along its way, as seen from the camera: 0 keeps it square, facing the camera
+uniform float u_Stretch = 0.0;
+
+out VS_OUT
+{
+    vec3 FragPos;
+    vec2 TexCoords;
+    flat vec4 Color;
+} vs_out;
+
+void main()
+{
+    const Particle particle = ParticleAt(gl_InstanceID);
+
+    vs_out.TexCoords = geo_TexCoords;
+    vs_out.Color = particle.color;
+
+    if (!particle.alive || particle.size <= 0.0)
+    {
+        // Beyond the far plane: clipped
+        vs_out.FragPos = vec3(0.0);
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+    }
+
+    // The corner from the texture coordinates, so that any quad model will do, turned by the particle's rotation
+    vec2 corner = geo_TexCoords * 2.0 - 1.0;
+    const float s = sin(particle.rotation);
+    const float c = cos(particle.rotation);
+    corner = vec2(c * corner.x - s * corner.y, s * corner.x + c * corner.y);
+
+    vec3 right = vec3(ubo_View[0][0], ubo_View[1][0], ubo_View[2][0]);
+    vec3 up = vec3(ubo_View[0][1], ubo_View[1][1], ubo_View[2][1]);
+    const float halfWidth = particle.size * 0.5;
+    float halfLength = halfWidth;
+
+    if (u_Stretch > 0.0)
+    {
+        const vec3 toEye = normalize(ubo_ViewPos - particle.position);
+        const vec3 along = particle.velocity - toEye * dot(particle.velocity, toEye);
+        const float speed = length(along);
+
+        if (speed > 1e-4)
+        {
+            up = along / speed;
+            right = normalize(cross(up, toEye));
+            halfLength += speed * u_Stretch * 0.5;
+        }
+    }
+
+    vs_out.FragPos = particle.position + right * (corner.x * halfWidth) + up * (corner.y * halfLength);
+    gl_Position = ubo_ViewProjection * vec4(vs_out.FragPos, 1.0);
+}
+
+#shader fragment
+#version 450 core
+
+#include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+#include ":Shaders/Common/Fog.ovfxh"
+
+in VS_OUT
+{
+    vec3 FragPos;
+    vec2 TexCoords;
+    flat vec4 Color;
+} fs_in;
+
+uniform sampler2D u_Texture;
+uniform vec4 u_Tint = vec4(1.0);
+
+// A round particle: the texture (white without one) within a disc, its edge soft over this share of its radius.
+// Off, the whole texture is drawn
+uniform bool u_Disc = true;
+uniform float u_Softness = 1.0;
+
+// Whether the scene's distance fog fades the particles out
+uniform bool u_Fog = true;
+
+#if defined(PICKING_PASS)
+uniform vec4 _PickingColor;
+#endif
+
+out vec4 FRAGMENT_COLOR;
+
+void main()
+{
+    vec4 color = texture(u_Texture, fs_in.TexCoords) * fs_in.Color * u_Tint;
+
+    if (u_Disc)
+    {
+        const float distanceFromCentre = length(fs_in.TexCoords * 2.0 - 1.0);
+        color.a *= 1.0 - smoothstep(1.0 - clamp(u_Softness, 0.001, 1.0), 1.0, distanceFromCentre);
+    }
+
+#if defined(PICKING_PASS)
+    if (color.a < 0.1)
+    {
+        discard;
+    }
+
+    FRAGMENT_COLOR = _PickingColor;
+#else
+    if (u_Fog)
+    {
+        color.a = FogFade(color.a, fs_in.FragPos);
+    }
+
+    FRAGMENT_COLOR = color;
+#endif
+}

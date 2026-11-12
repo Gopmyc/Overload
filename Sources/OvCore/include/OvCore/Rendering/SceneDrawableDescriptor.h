@@ -23,6 +23,7 @@ namespace OvCore::Rendering
 		OvCore::ECS::Actor& actor;
 		EVisibilityFlags visibilityFlags = EVisibilityFlags::NONE;
 		std::optional<OvRendering::Geometry::BoundingSphere> bounds;
+		bool boundsInWorld = false; // The bounds are in the world, instead of the actor's space
 		std::optional<int> drawOrderOverride;
 		bool isUserInterface = false;
 	};

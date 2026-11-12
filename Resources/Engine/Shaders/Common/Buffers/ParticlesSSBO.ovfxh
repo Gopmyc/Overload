@@ -1,0 +1,22 @@
+// The particles of a particle system's draw (see Common/Particles.ovfxh): the system's settings, then a ring of
+// records, one per particle, holding what it was at birth. Laid out as OvCore::Particles::ParticleBufferHeader and
+// ParticleRecord
+struct EngineParticle
+{
+    vec4 positionBirth;         // xyz: position at birth, in the system's space; w: birth, on the system's clock
+    vec4 velocityLifetime;      // xyz: velocity at birth; w: lifetime, 0 for an empty slot
+    vec4 color;                 // Multiplied by the colour over life
+    vec4 sizeRotationSpinSeed;  // x: size multiplier; y: rotation at birth; z: turning speed; w: seed in [0, 1)
+};
+
+layout(std430, binding = 3) readonly buffer ParticlesSSBO
+{
+    mat4 ssbo_ParticleLocalToWorld;    // The emitter's world matrix for a local system, else identity
+    vec4 ssbo_ParticleGravityDrag;     // xyz: gravity; w: drag
+    vec4 ssbo_ParticleColorStart;
+    vec4 ssbo_ParticleColorEnd;
+    vec4 ssbo_ParticleSizeFade;        // x: size at birth; y: size at death; z: fade in; w: fade out (shares of life)
+    vec4 ssbo_ParticleClock;           // x: the system's time, on the clock of the births
+    uvec4 ssbo_ParticleRing;           // x: slots; y: the slot of instance 0; z: instances drawn; w: space
+    EngineParticle ssbo_Particles[];
+};

@@ -13,6 +13,7 @@
 
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
+#include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/ECS/Components/UI/CCanvas.h>
 #include <OvCore/ECS/Components/UI/CImage.h>
@@ -20,6 +21,7 @@
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
 #include <OvCore/Rendering/FrameBuilder.h>
 #include <OvCore/Rendering/InstancingDrawableDescriptor.h>
+#include <OvCore/Rendering/ParticleDrawableDescriptor.h>
 #include <OvCore/Rendering/ReflectionRenderFeature.h>
 #include <OvCore/Rendering/SceneDrawableDescriptor.h>
 #include <OvCore/Rendering/SkinningDrawableDescriptor.h>
@@ -42,6 +44,7 @@ namespace
 		return
 			p_drawable.mesh.has_value() &&
 			!p_drawable.HasDescriptor<SkinningDrawableDescriptor>() &&
+			!p_drawable.HasDescriptor<ParticleDrawableDescriptor>() &&
 			p_drawable.TryGetDescriptor<EngineDrawableDescriptor>(engineDescriptor) &&
 			!engineDescriptor->viewMatrixOverride &&
 			!engineDescriptor->projectionMatrixOverride;
@@ -408,6 +411,67 @@ namespace
 			}
 		}
 	}
+
+	// A particle system is one drawable per mesh (a quad for billboards), with an instance per particle the shader
+	// places from the system's buffer. Only the geometry pass draws it: it casts no shadow and no reflection
+	void AppendParticleDrawables(
+		OvCore::Rendering::FrameBuilder::ParsingResult& p_result,
+		OvCore::SceneSystem::Scene& p_scene
+	)
+	{
+		for (auto* particleSystem : p_scene.GetFastAccessComponents().particleSystems)
+		{
+			auto& owner = particleSystem->owner;
+			if (!owner.IsActive()) continue;
+
+			const auto range = particleSystem->GetEmitter().GetDrawRange();
+			if (range.count == 0) continue;
+
+			auto* material = particleSystem->ResolveMaterial();
+			if (!material) continue;
+
+			const auto bounds = particleSystem->GetWorldBounds();
+
+			const auto append = [&](OvRendering::Resources::IMesh& p_mesh) {
+				OvRendering::Entities::Drawable drawable{
+					.mesh = p_mesh,
+					.material = *material,
+					.stateMask = material->GenerateStateMask(),
+				};
+
+				drawable.gpuInstancesOverride = range.count;
+
+				drawable.AddDescriptor<SceneDrawableDescriptor>({
+					.actor = owner,
+					.visibilityFlags = EVisibilityFlags::GEOMETRY,
+					.bounds = bounds,
+					.boundsInWorld = true
+				});
+
+				// The particles are in the world already: the shader places each one, the model matrix is not used
+				drawable.AddDescriptor<EngineDrawableDescriptor>({
+					OvMaths::FMatrix4::Identity,
+					OvMaths::FMatrix4::Identity
+				});
+
+				drawable.AddDescriptor<ParticleDrawableDescriptor>({ particleSystem });
+
+				p_result.drawables.push_back(std::move(drawable));
+			};
+
+			if (auto* model = particleSystem->GetModel())
+			{
+				for (auto* mesh : model->GetMeshes())
+				{
+					append(*mesh);
+				}
+			}
+			else
+			{
+				append(particleSystem->GetQuad());
+			}
+		}
+	}
 }
 
 OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::Parse(const ParsingInput& p_input)
@@ -502,6 +566,7 @@ OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::
 		}
 	}
 
+	AppendParticleDrawables(result, scene);
 	AppendHierarchyUIDrawables(result, scene, uiFrameResolver);
 
 	return result;
@@ -646,6 +711,11 @@ bool OvCore::Rendering::FrameBuilder::IsInFrustum(
 	}
 
 	auto cullingBounds = desc.bounds.value();
+
+	if (desc.boundsInWorld)
+	{
+		return p_frustum.SphereInFrustum(cullingBounds.position.x, cullingBounds.position.y, cullingBounds.position.z, cullingBounds.radius);
+	}
 
 	OvTools::Utils::OptRef<const SkinningDrawableDescriptor> skinningDescriptor;
 	if (p_drawable.TryGetDescriptor<SkinningDrawableDescriptor>(skinningDescriptor))

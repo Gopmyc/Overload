@@ -19,6 +19,7 @@
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
 #include <OvCore/ECS/Components/CPointLight.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
+#include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
 #include <OvCore/ECS/Components/CSpotLight.h>
 #include <OvCore/ECS/Components/UI/CCanvas.h>
@@ -287,6 +288,7 @@ void OvEditor::Utils::ActorCreationMenu::GenerateActorCreationMenu(OvUI::Widgets
 	others.CreateWidget<MenuItem>("Camera").ClickedEvent += ActorWithComponentCreationHandler<CCamera>(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Post Process Stack").ClickedEvent += ActorWithComponentCreationHandler<CPostProcessStack>(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Reflection Probe").ClickedEvent += ActorWithComponentCreationHandler<CReflectionProbe>(p_parent, p_onItemClicked);
+	others.CreateWidget<MenuItem>("Particle System").ClickedEvent += ActorWithComponentCreationHandler<CParticleSystem>(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Skysphere").ClickedEvent += CreateSkysphereHandler(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Atmosphere").ClickedEvent += CreateAtmosphereHandler(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Character").ClickedEvent += CreateCharacterHandler(p_parent, p_onItemClicked);

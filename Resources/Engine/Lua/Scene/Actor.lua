@@ -162,6 +162,10 @@ function Actor:GetPostProcessStack() end
 ---@return ReflectionProbe|nil
 function Actor:GetReflectionProbe() end
 
+--- Returns the ParticleSystem attached to this actor (If any)
+---@return ParticleSystem|nil
+function Actor:GetParticleSystem() end
+
 --- Returns the Canvas attached to this actor (If any)
 ---@return Canvas|nil
 function Actor:GetCanvas() end
@@ -285,6 +289,11 @@ function Actor:AddPostProcessStack() end
 ---@return ReflectionProbe
 function Actor:AddReflectionProbe() end
 
+--- Adds a ParticleSystem component to the actor and returns it. Added while the scene plays, it plays at once unless
+--- its settings say otherwise (SetPlayOnStart(false) comes too late for that: call Stop)
+---@return ParticleSystem
+function Actor:AddParticleSystem() end
+
 --- Adds a Canvas component to the actor and returns it
 ---@return Canvas
 function Actor:AddCanvas() end
@@ -347,6 +356,8 @@ function Actor:RemoveAudioListener() end
 function Actor:RemovePostProcessStack() end
 --- Removes the ReflectionProbe component from the actor
 function Actor:RemoveReflectionProbe() end
+--- Removes the ParticleSystem component from the actor
+function Actor:RemoveParticleSystem() end
 --- Removes the Canvas component from the actor
 function Actor:RemoveCanvas() end
 --- Removes the Image component from the actor

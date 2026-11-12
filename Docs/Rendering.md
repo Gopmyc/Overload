@@ -13,7 +13,8 @@
 
 - Frustum culling ignores the sign of the scale: a mirrored model (negative X scale) is culled with its bounding sphere
   on the wrong side. Give it custom bounds (`frustum_behaviour` 3) centred on its pivot.
-- A renderer whose vertices are moved far by its shader (particles) also needs custom bounds that hold them all.
+- A renderer whose vertices are moved far by its shader also needs custom bounds that hold them all. A particle system
+  keeps its own (see [Particles](Particles.md)).
 
 ## Blend modes
 
@@ -32,6 +33,10 @@
 - A material saved before blend modes has none, and blends as it always did.
 - A blendable material usually writes no depth (`depth_writing` false). Blended objects are sorted by their centres,
   so two that cross each other would otherwise hide parts of one another. Additive ones add up in any order.
+
+## Particles
+
+Particle systems, drawn by the GPU in one draw each, have a page of their own: [Particles](Particles.md).
 
 ## The post process stack
 

@@ -8,7 +8,7 @@ local oCheck = Check.New("Shaders")
 local nFrame = 0
 
 local tEngineShaders = {
-	"Atmosphere", "Image", "ShadowFallback", "Skysphere", "Standard", "Text", "Unlit",
+	"Atmosphere", "Image", "Particle", "ShadowFallback", "Skysphere", "Standard", "Text", "Unlit",
 	"PostProcess/ApplyExposure", "PostProcess/AutoExposure", "PostProcess/Blit", "PostProcess/Bloom",
 	"PostProcess/BloomDownsampling", "PostProcess/BloomUpsampling", "PostProcess/FXAA", "PostProcess/Luminance",
 	"PostProcess/Tonemapping",

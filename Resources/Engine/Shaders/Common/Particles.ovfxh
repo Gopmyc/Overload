@@ -1,0 +1,103 @@
+#include ":Shaders/Common/Buffers/ParticlesSSBO.ovfxh"
+
+// The particles of a particle system's draw: each instance (gl_InstanceID) is one particle, which ParticleAt works
+// out at the system's time from what it was at birth. A material of a particle system draws with any shader that
+// includes this file after Buffers/EngineUBO.ovfxh: a billboard (:Shaders/Particle.ovfx), or a model placed by
+// ParticleModelMatrix. The engine's particle emitter works particles out the same way on the CPU: keep them in step.
+
+struct Particle
+{
+    bool alive;         // A dead particle must not be drawn: place it out of the clip space, or scale it to nothing
+    vec3 position;      // In the world
+    vec3 velocity;      // In the world
+    float size;         // In units
+    vec4 color;
+    float rotation;     // In radians
+    float life;         // The share of its life it has lived, in [0, 1]
+    float seed;         // In [0, 1), the same for the particle's whole life: for a shader's own variety
+};
+
+Particle ParticleAt(int instance)
+{
+    const uint slot = (ssbo_ParticleRing.y + uint(instance)) % max(ssbo_ParticleRing.x, 1u);
+    const EngineParticle record = ssbo_Particles[slot];
+
+    const float lifetime = record.velocityLifetime.w;
+    const float age = ssbo_ParticleClock.x - record.positionBirth.w;
+
+    Particle particle;
+    particle.alive = lifetime > 0.0 && age >= 0.0 && age < lifetime;
+    particle.life = lifetime > 0.0 ? clamp(age / lifetime, 0.0, 1.0) : 1.0;
+
+    // dv/dt = gravity - drag * v: with drag, the velocity eases towards the terminal one, gravity / drag
+    const vec3 gravity = ssbo_ParticleGravityDrag.xyz;
+    const float drag = ssbo_ParticleGravityDrag.w;
+    const vec3 velocity = record.velocityLifetime.xyz;
+
+    vec3 position;
+    vec3 currentVelocity;
+
+    if (drag > 1e-4)
+    {
+        const vec3 terminal = gravity / drag;
+        const float decay = exp(-drag * age);
+        position = record.positionBirth.xyz + (velocity - terminal) * ((1.0 - decay) / drag) + terminal * age;
+        currentVelocity = (velocity - terminal) * decay + terminal;
+    }
+    else
+    {
+        position = record.positionBirth.xyz + velocity * age + gravity * (0.5 * age * age);
+        currentVelocity = velocity + gravity * age;
+    }
+
+    particle.position = (ssbo_ParticleLocalToWorld * vec4(position, 1.0)).xyz;
+    particle.velocity = mat3(ssbo_ParticleLocalToWorld) * currentVelocity;
+
+    particle.size = mix(ssbo_ParticleSizeFade.x, ssbo_ParticleSizeFade.y, particle.life) * record.sizeRotationSpinSeed.x;
+    particle.color = mix(ssbo_ParticleColorStart, ssbo_ParticleColorEnd, particle.life) * record.color;
+
+    if (ssbo_ParticleSizeFade.z > 0.0)
+    {
+        particle.color.a *= clamp(particle.life / ssbo_ParticleSizeFade.z, 0.0, 1.0);
+    }
+
+    if (ssbo_ParticleSizeFade.w > 0.0)
+    {
+        particle.color.a *= clamp((1.0 - particle.life) / ssbo_ParticleSizeFade.w, 0.0, 1.0);
+    }
+
+    particle.rotation = record.sizeRotationSpinSeed.y + record.sizeRotationSpinSeed.z * age;
+    particle.seed = record.sizeRotationSpinSeed.w;
+
+    return particle;
+}
+
+// Places a model as a particle: at its position, as large as its size, turned by its rotation around an axis of its
+// own (drawn from its seed). A dead particle's matrix is zero, which scales the model to nothing
+mat4 ParticleModelMatrix(Particle particle)
+{
+    if (!particle.alive)
+    {
+        return mat4(0.0);
+    }
+
+    const float around = particle.seed * 6.2831853;
+    const vec3 axis = normalize(vec3(cos(around), 0.6 - particle.seed, sin(around * 3.0)));
+    const float s = sin(particle.rotation);
+    const float c = cos(particle.rotation);
+    const float t = 1.0 - c;
+
+    // Rodrigues' rotation, column by column, scaled
+    const mat3 rotation = mat3(
+        t * axis.x * axis.x + c,          t * axis.x * axis.y + s * axis.z, t * axis.x * axis.z - s * axis.y,
+        t * axis.x * axis.y - s * axis.z, t * axis.y * axis.y + c,          t * axis.y * axis.z + s * axis.x,
+        t * axis.x * axis.z + s * axis.y, t * axis.y * axis.z - s * axis.x, t * axis.z * axis.z + c
+    ) * particle.size;
+
+    return mat4(
+        vec4(rotation[0], 0.0),
+        vec4(rotation[1], 0.0),
+        vec4(rotation[2], 0.0),
+        vec4(particle.position, 1.0)
+    );
+}

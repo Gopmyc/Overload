@@ -103,6 +103,14 @@ later version of the same major version.
 - **Material blend modes**: a blendable material is combined with what is already drawn as alpha (as before), additive
   or premultiplied (`blend_mode` in a `.ovmat`, "Blend Mode" in the material editor, `Material::SetBlendMode` in
   C++). A material saved before them keeps blending as alpha. See [Docs/Rendering.md](Docs/Rendering.md#blend-modes).
+- **GPU particles**: the `ParticleSystem` component emits particles the GPU draws in one draw per mesh. Each is
+  written once at its birth, and the shader works out the rest on the system's clock: rate and bursts, five shapes,
+  gravity and drag, size and colour over life, fades, spin, the world's space or the emitter's, game or real time,
+  seeds. Billboards by default (`:Shaders/Particle.ovfx`, `:Materials/Particle.ovmat`), or any model with a shader
+  that reads the particles through the new public include `Common/Particles.ovfxh`. Scripts burst particles where they
+  want with `Emit(count, overrides)`. In the editor: Add Component and Actors > Others > Particle System. The Lua API is
+  now 1.11 (`ParticleSystem`, `ParticleShape`, `ParticleSpace`, `Actor:Get`/`Add`/`RemoveParticleSystem`), and the
+  shader API 1.1. See [Docs/Particles.md](Docs/Particles.md).
 
 ### Changed
 
