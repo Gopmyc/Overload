@@ -431,6 +431,19 @@ std::vector<std::shared_ptr<OvCore::ECS::Components::AComponent>>& OvCore::ECS::
 	return m_components;
 }
 
+std::shared_ptr<OvCore::ECS::Components::AComponent> OvCore::ECS::Actor::GetComponentShared(const Components::AComponent& p_component) const
+{
+	for (const auto& component : m_components)
+	{
+		if (component.get() == &p_component)
+		{
+			return component;
+		}
+	}
+
+	return nullptr;
+}
+
 OvCore::ECS::Components::Behaviour & OvCore::ECS::Actor::AddBehaviour(const std::string & p_name)
 {
 	m_behaviours.try_emplace(p_name, *this, p_name);

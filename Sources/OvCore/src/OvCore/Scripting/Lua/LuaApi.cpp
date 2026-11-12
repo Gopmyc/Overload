@@ -8,7 +8,7 @@
 #include <set>
 #include <string_view>
 
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 
 #include <OvCore/Scripting/Lua/LuaApi.h>
 

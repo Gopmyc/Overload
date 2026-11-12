@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 
 #include <OvCore/Scripting/JsonLimits.h>
 

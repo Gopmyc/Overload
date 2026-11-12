@@ -65,8 +65,18 @@ binding.
 ## Actors and references
 
 - Lua holds actors as handles: calling a method on a destroyed actor raises `attempt to use a destroyed actor`, and
-  `IsAlive()` tests a handle without raising. Components are not checked the same way: a component kept after its
-  actor is destroyed must not be used.
+  `IsAlive()` tests a handle without raising.
+- **Components are handles too**, checked on every use, whichever way they reached Lua: an actor's `Get*` and `Add*`,
+  a collision or trigger callback, a physics query's hits.
+  - A component removed from its actor, or whose actor was freed, raises `attempt to use a component that was removed,
+    or whose actor was destroyed` when it is used, as self or as an argument.
+  - `Component:IsAlive()` tests a handle without raising.
+  - An actor marked by `Destroy()` keeps its components usable until it is freed at the end of the frame, so its
+    `OnDestroy` still reaches them.
+  - Two handles on one component are equal (`==`), whichever usertype they came as (`GetLight()` and
+    `GetPointLight()`), and stay so once it is gone.
+  - A component method called with `.` instead of `:`, or on a value that is not that component, raises
+    `a method of ... was called on a value that is not one` instead of reading it as one.
 - `FindChild` and `GetParent` return `nil` when there is none. `GetChildren` and `Scene:FindActorsByName/ByTag` return
   plain Lua tables.
 - Every instantiated actor gets a new GUID. An actor property that names another actor of the same prefab follows it:

@@ -4,7 +4,7 @@
 * @licence: MIT
 */
 
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 
 #include <OvDebug/Logger.h>
 #include <OvDebug/Assertion.h>

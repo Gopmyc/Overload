@@ -12,7 +12,7 @@
 #include <tuple>
 #include <vector>
 
-#include <sol/sol.hpp>
+#include <OvCore/Scripting/Lua/LuaComponentRef.h>
 
 #include <OvCore/ECS/Actor.h>  
 #include <OvCore/ECS/Components/CAmbientBoxLight.h>  
@@ -108,8 +108,10 @@ void BindLuaComponents(sol::state& p_luaState)
 	using namespace OvCore::ECS;
 	using namespace OvCore::ECS::Components;
 
+	// Lua holds components through handles checked on every use (LuaComponentRef.h)
 	p_luaState.new_usertype<AComponent>("Component",
-		"GetOwner", [](AComponent& p_component) { return OvCore::Scripting::ActorRef{ p_component.owner.GetGUID() }; }
+		"GetOwner", [](AComponent& p_component) { return OvCore::Scripting::ActorRef{ p_component.owner.GetGUID() }; },
+		"IsAlive", &OvCore::Scripting::LuaComponentIsAlive
 	);
 
 	p_luaState.new_usertype<CTransform>("Transform",
@@ -343,19 +345,19 @@ void BindLuaComponents(sol::state& p_luaState)
 	);
 
 	p_luaState.new_usertype<CPhysicalBox>("PhysicalBox",
-		sol::base_classes, sol::bases<CPhysicalObject>(),
+		sol::base_classes, sol::bases<CPhysicalObject, AComponent>(),
 		"GetSize", &CPhysicalBox::GetSize,
 		"SetSize", &CPhysicalBox::SetSize
 	);
 
 	p_luaState.new_usertype<CPhysicalSphere>("PhysicalSphere",
-		sol::base_classes, sol::bases<CPhysicalObject>(),
+		sol::base_classes, sol::bases<CPhysicalObject, AComponent>(),
 		"GetRadius", &CPhysicalSphere::GetRadius,
 		"SetRadius", &CPhysicalSphere::SetRadius
 	);
 
 	p_luaState.new_usertype<CPhysicalCapsule>("PhysicalCapsule",
-		sol::base_classes, sol::bases<CPhysicalObject>(),
+		sol::base_classes, sol::bases<CPhysicalObject, AComponent>(),
 		"GetRadius", &CPhysicalCapsule::GetRadius,
 		"SetRadius", &CPhysicalCapsule::SetRadius,
 		"GetHeight", &CPhysicalCapsule::GetHeight,
@@ -610,7 +612,7 @@ void BindLuaComponents(sol::state& p_luaState)
 	);
 
 	p_luaState.new_usertype<CPointLight>("PointLight",
-		sol::base_classes, sol::bases<CLight>(),
+		sol::base_classes, sol::bases<CLight, AComponent>(),
 		"GetConstant", &CPointLight::GetConstant,
 		"GetLinear", &CPointLight::GetLinear,
 		"GetQuadratic", &CPointLight::GetQuadratic,
@@ -620,7 +622,7 @@ void BindLuaComponents(sol::state& p_luaState)
 	);
 
 	p_luaState.new_usertype<CSpotLight>("SpotLight",
-		sol::base_classes, sol::bases<CLight>(),
+		sol::base_classes, sol::bases<CLight, AComponent>(),
 		"GetConstant", &CSpotLight::GetConstant,
 		"GetLinear", &CSpotLight::GetLinear,
 		"GetQuadratic", &CSpotLight::GetQuadratic,
@@ -634,13 +636,13 @@ void BindLuaComponents(sol::state& p_luaState)
 	);
 
 	p_luaState.new_usertype<CAmbientBoxLight>("AmbientBoxLight",
-		sol::base_classes, sol::bases<CLight>(),
+		sol::base_classes, sol::bases<CLight, AComponent>(),
 		"GetSize", &CAmbientBoxLight::GetSize,
 		"SetSize", &CAmbientBoxLight::SetSize
 	);
 
 	p_luaState.new_usertype<CAmbientSphereLight>("AmbientSphereLight",
-		sol::base_classes, sol::bases<CLight>(),
+		sol::base_classes, sol::bases<CLight, AComponent>(),
 		"GetRadius", &CAmbientSphereLight::GetRadius,
 		"SetRadius", &CAmbientSphereLight::SetRadius
 	);
@@ -651,7 +653,7 @@ void BindLuaComponents(sol::state& p_luaState)
 	});
 
 	p_luaState.new_usertype<CDirectionalLight>("DirectionalLight",
-		sol::base_classes, sol::bases<CLight>(),
+		sol::base_classes, sol::bases<CLight, AComponent>(),
 		"GetCastShadow", &CDirectionalLight::GetCastShadows,
 		"SetCastShadow", &CDirectionalLight::SetCastShadows,
 		"GetShadowAreaSize", &CDirectionalLight::GetShadowAreaSize,
@@ -800,4 +802,12 @@ void BindLuaComponents(sol::state& p_luaState)
 		"RequestCapture", &CReflectionProbe::RequestCapture,
 		"GetCubemap", &CReflectionProbe::GetCubemap
 	);
+
+	OvCore::Scripting::MarkComponentUsertypes<
+		AComponent, CTransform, CModelRenderer, CMaterialRenderer, CBoneAttachment, CSkinnedMeshRenderer,
+		CPhysicalObject, CPhysicalBox, CPhysicalSphere, CPhysicalCapsule, CPhysicalHeightField, CCharacterController,
+		CCamera, UI::CCanvas, UI::CImage, UI::CLayoutGroup, UI::CHorizontalLayout, UI::CVerticalLayout, UI::CText,
+		CLight, CPointLight, CSpotLight, CAmbientBoxLight, CAmbientSphereLight, CDirectionalLight,
+		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe
+	>(p_luaState.lua_state());
 }

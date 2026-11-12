@@ -328,6 +328,13 @@ namespace OvCore::ECS
 		std::vector<std::shared_ptr<Components::AComponent>>& GetComponents();
 
 		/**
+		* Returns the shared pointer that owns one of the actor's components, or nullptr when the actor has no such
+		* component. A weak pointer taken from it tells when the component is removed, or freed with its actor
+		* @param p_component
+		*/
+		std::shared_ptr<Components::AComponent> GetComponentShared(const Components::AComponent& p_component) const;
+
+		/**
 		* Add a behaviour to the actor
 		* @param p_name
 		*/
