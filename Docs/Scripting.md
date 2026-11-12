@@ -17,6 +17,8 @@
 - Modules outlive a scene change: `Scenes.Load(path)` replaces the actors at the next frame and keeps the Lua state, so
   what a module holds carries into the next scene. A registry of actors must drop the entries it can no longer reach
   (`IsAlive`). The editor rebuilds the state when play starts and stops.
+- The engine ships a standard library of such modules (`require(":Libraries/Std/Init")`): classes, signals, timers,
+  tweens, easing curves, pools and state machines. See [Standard library](StandardLibrary.md).
 - The engine's functions are `userdata` to Lua: `type(Inputs.GetKeyName)` is `"userdata"`, never `"function"`, so a
   `type(...) == "function"` check silently skips them.
 
@@ -113,6 +115,7 @@ binding.
     longer alive;
   - the callbacks live with the Lua state, like the modules: they outlive a scene change, and the editor drops them
     when play starts and stops. They run only while the scene plays.
+  - The standard library's timers and tweens run this way, in `LateUpdate` (see [Standard library](StandardLibrary.md)).
 - A `BoneAttachment` is placed after every script, so a script reading such an actor's place during the frame sees
   where it was the frame before.
 - The frame step handed to the Behaviours is in [0, 0.1] seconds, times the time scale, which is never below 0. A
