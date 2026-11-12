@@ -38,8 +38,9 @@ function Resources.GetSound(path) end
 --- geometry.Normals: x, y, z per vertex (smoothed from the triangles when missing)
 --- geometry.TexCoords: u, v per vertex (zero when missing)
 --- geometry.Tangents, geometry.Bitangents: x, y, z per vertex (zero when missing)
+--- or geometry is a MeshData (DistanceField:Mesh), used as it is
 ---@param path string
----@param geometry {Positions: number[], Indices: integer[], Normals: number[]|nil, TexCoords: number[]|nil, Tangents: number[]|nil, Bitangents: number[]|nil}
+---@param geometry {Positions: number[], Indices: integer[], Normals: number[]|nil, TexCoords: number[]|nil, Tangents: number[]|nil, Bitangents: number[]|nil}|MeshData
 ---@param materialName string|nil name of the model's material slot (default "Material")
 ---@return Model|nil
 ---@return string|nil

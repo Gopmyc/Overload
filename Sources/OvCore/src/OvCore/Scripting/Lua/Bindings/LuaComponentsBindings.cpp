@@ -27,6 +27,7 @@
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>  
 #include <OvCore/ECS/Components/CPhysicalHeightField.h>
 #include <OvCore/ECS/Components/CPhysicalMesh.h>
+#include <OvCore/Helpers/DistanceField.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>  
 #include <OvCore/ECS/Components/CPointLight.h>  
 #include <OvCore/ECS/Components/CPostProcessStack.h>  
@@ -414,6 +415,17 @@ void BindLuaComponents(sol::state& p_luaState)
 	p_luaState.new_usertype<CPhysicalMesh>("PhysicalMesh",
 		sol::base_classes, sol::bases<CPhysicalObject, AComponent>(),
 		"SetTriangles", &SetTriangles,
+		"SetMesh", [](CPhysicalMesh& p_mesh, const OvCore::Helpers::MeshData& p_data) {
+			std::vector<float> positions;
+			positions.reserve(p_data.vertices.size() * 3);
+
+			for (const auto& vertex : p_data.vertices)
+			{
+				positions.insert(positions.end(), { vertex.position[0], vertex.position[1], vertex.position[2] });
+			}
+
+			return p_mesh.SetTriangles(std::move(positions), p_data.indices);
+		},
 		"GetTriangleCount", &CPhysicalMesh::GetTriangleCount
 	);
 

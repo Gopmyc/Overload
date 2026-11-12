@@ -14,6 +14,11 @@ PhysicalMesh = {}
 ---@return string|nil
 function PhysicalMesh:SetTriangles(positions, indices) end
 
+--- Defines the triangles from a MeshData (DistanceField:Mesh), without going through script tables. Returns true
+---@param mesh MeshData
+---@return boolean
+function PhysicalMesh:SetMesh(mesh) end
+
 --- Returns the number of triangles
 ---@return integer
 function PhysicalMesh:GetTriangleCount() end
