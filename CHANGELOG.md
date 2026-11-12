@@ -5,6 +5,14 @@ first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 [Semantic Versioning](https://semver.org/): a script, a shader or a project made for one version keeps working with any
 later version of the same major version.
 
+## [Unreleased]
+
+### Fixed
+
+- **`ReflectionProbe:RequestCapture()` without its argument**: the argument `forceImmediate` is optional, as its
+  definition and the C++ say. The binding required it, so a call without it raised an error in a Debug build and read
+  an undefined value in a Release build.
+
 ## [0.1.0] - 2026-11-07
 
 Adventurer's first version: Overload 1.9 and the changes below.
