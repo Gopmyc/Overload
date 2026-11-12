@@ -6,11 +6,12 @@
 PhysicalHeightField = {}
 
 --- Defines the heights of the field, row-major: along +X first, then +Z (the sample (x, z) is at index
---- z * sampleCount + x + 1). An empty array clears the field, which then collides with nothing. Returns true, or false
---- and why when an argument is invalid (nothing is changed then)
+--- z * sampleCount + x + 1). A height of math.huge is a hole: no triangle touching that sample collides. An empty
+--- array clears the field, which then collides with nothing. Returns true, or false and why when an argument is
+--- invalid (nothing is changed then)
 ---@param sampleCount integer samples per side, from 3 to 4096
 ---@param spacing number distance between two neighbouring samples
----@param heights number[] sampleCount * sampleCount heights, or none
+---@param heights number[] sampleCount * sampleCount heights (math.huge for a hole), or none
 ---@return boolean
 ---@return string|nil
 function PhysicalHeightField:SetHeights(sampleCount, spacing, heights) end

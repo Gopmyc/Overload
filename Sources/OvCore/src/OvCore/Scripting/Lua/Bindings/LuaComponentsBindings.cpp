@@ -86,9 +86,10 @@ namespace
 		for (size_t index = 0; index < size; ++index)
 		{
 			const auto height = table.raw_get<sol::optional<double>>(index + 1);
-			if (!height || !std::isfinite(*height))
+			const bool hole = height && std::isinf(*height) && *height > 0.0;
+			if (!height || (!std::isfinite(*height) && !hole))
 			{
-				return { false, std::format("the height {} is not a finite number", index + 1) };
+				return { false, std::format("the height {} is neither a finite number nor math.huge", index + 1) };
 			}
 
 			heights[index] = static_cast<float>(*height);

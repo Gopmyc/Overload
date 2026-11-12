@@ -4,6 +4,7 @@
 * @licence: MIT
 */
 
+#include <cmath>
 #include <string>
 #include <utility>
 
@@ -55,6 +56,15 @@ bool OvPhysics::Entities::PhysicalHeightField::SetHeights(uint32_t p_sampleCount
 	if (!p_heights.empty() && p_heights.size() != static_cast<size_t>(p_sampleCount) * p_sampleCount)
 	{
 		return false;
+	}
+
+	// A hole: no triangle touching that sample collides
+	for (float& height : p_heights)
+	{
+		if (std::isinf(height) && height > 0.0f)
+		{
+			height = JPH::HeightFieldShapeConstants::cNoCollisionValue;
+		}
 	}
 
 	m_sampleCount = p_sampleCount;

@@ -38,8 +38,9 @@ namespace OvPhysics::Entities
 		virtual ~PhysicalHeightField() override;
 
 		/**
-		* Defines the heights of the field, row-major: along +X first, then +Z. Empty heights collide with nothing.
-		* Returns false, and changes nothing, when there are heights but not p_sampleCount * p_sampleCount of them
+		* Defines the heights of the field, row-major: along +X first, then +Z. Empty heights collide with nothing, and a
+		* height of +infinity is a hole: no triangle touching that sample collides. Returns false, and changes nothing,
+		* when there are heights but not p_sampleCount * p_sampleCount of them
 		* @param p_sampleCount (samples per side)
 		* @param p_spacing (distance between two neighbouring samples)
 		* @param p_heights
