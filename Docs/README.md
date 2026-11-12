@@ -8,6 +8,7 @@ on it. Each page states the behaviour of the current version; [`CHANGELOG.md`](.
 | [Projects](Projects.md) | The project file and its settings |
 | [Command line](CommandLine.md) | Running a project with `OvGame`: options, captures, exit codes |
 | [Scripting](Scripting.md) | The Lua sandbox, modules, Behaviours and their lifecycle, actors and references, update order, time |
+| [Standard library](StandardLibrary.md) | `Class`, `Signal`, `Timers`, `Tween`, `Ease`, `Pool` and `StateMachine`, shipped in Lua with the engine |
 | [Physics](Physics.md) | Bodies, triggers, queries, Jolt specifics, static bodies, height fields, ragdolls |
 | [Rendering](Rendering.md) | Materials and per-renderer values, the post process stack and fog, culling, UI text and fonts |
 | [Shaders](Shaders.md) | The shader API and its version, public includes, `Standard`'s extension points, the fog option, custom shaders |

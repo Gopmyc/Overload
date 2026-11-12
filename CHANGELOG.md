@@ -91,6 +91,10 @@ later version of the same major version.
   `ui_clip_children` in a file, "Clip Children" in the inspector), on a screen or a world space canvas, turned or not;
   a clip inside another shows what both let through. `DScrollPanel` clips its content. The Lua API is now 1.9. See
   [Docs/Rendering.md](Docs/Rendering.md).
+- **A Lua standard library**: `Resources/Engine/Libraries/Std`, loaded with `require(":Libraries/Std/Init")`, gives
+  games what they all write: `Class`, `Signal`, `Timers`, `Tween`, `Ease`, `Pool` and `StateMachine`. Timers and tweens
+  advance by themselves, on game or real time, and what is given an owner ends with that actor. See
+  [Docs/StandardLibrary.md](Docs/StandardLibrary.md).
 - **Checked components in Lua**: a component reaches Lua as a handle checked on every use, as actors are. One that was
   removed, or whose actor was freed, raises a clear error instead of being read through a dangling pointer;
   `Component:IsAlive()` tests it, and two handles on one component are equal. A component method called on a value
