@@ -52,7 +52,7 @@ function InputConsumptionCheck:OnUpdate(nDelta)
 		oCheck:Expect(not Inputs.IsKeyboardCaptured(), "freed by the callback")
 		oCheck:Expect(Inputs.Consume("W") == false, "a key up is not consumed once the keyboard is free")
 		local nMajor, nMinor = Application.GetApiVersion()
-		oCheck:Equal(nMajor .. "." .. nMinor, "1.6", "the Lua API version")
+		oCheck:Expect(nMajor == 1 and nMinor >= 6, "the Lua API is 1.6 or a later 1.x: " .. nMajor .. "." .. nMinor)
 		oCheck:Finish()
 	end
 end

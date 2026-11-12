@@ -150,6 +150,11 @@ namespace OvCore::ECS::Components::UI
 		OvMaths::FVector2 GetSize(const OvMaths::FVector2& p_resolvedSize) const;
 
 		/**
+		* Returns the size the text's lines take, wrapped at the element's width when it has one
+		*/
+		OvMaths::FVector2 GetContentSize() const;
+
+		/**
 		* Serialize the component
 		* @param p_doc
 		* @param p_node

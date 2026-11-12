@@ -6,44 +6,30 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <OvRendering/Data/Material.h>
+#include <OvRendering/Resources/FontAtlas.h>
 
 namespace OvRendering::Resources
 {
 	class Texture;
 
 	/**
-	* Font resource baked into a static glyph atlas
+	* Font resource, with a glyph atlas for each pixel size it is drawn at. Basic Latin and Latin-1 are baked with an
+	* atlas, any other character the font has when a text first needs it (EnsureGlyphs)
 	*/
 	class Font
 	{
 	public:
-		struct Glyph
-		{
-			bool valid = false;
-			float xOffset = 0.0f;
-			float yOffset = 0.0f;
-			float xAdvance = 0.0f;
-			float width = 0.0f;
-			float height = 0.0f;
-			float uMin = 0.0f;
-			float vMin = 0.0f;
-			float uMax = 0.0f;
-			float vMax = 0.0f;
-		};
-
-		static constexpr uint32_t kFirstGlyph = 0x20;
-		static constexpr uint32_t kBasicLatinGlyphCount = 0x7F - kFirstGlyph;
-		static constexpr uint32_t kFirstLatin1Glyph = 0xA0;
-		static constexpr uint32_t kLatin1GlyphCount = 0x100 - kFirstLatin1Glyph;
-		static constexpr uint32_t kGlyphCount = kBasicLatinGlyphCount + kLatin1GlyphCount;
+		// Its texture coordinates are in atlas pixels, which do not move when the atlas grows
+		using Glyph = FontAtlas::Glyph;
 
 		/**
 		* Constructor
@@ -131,6 +117,14 @@ namespace OvRendering::Resources
 		float GetDescender(float p_pixelSize) const;
 
 		/**
+		* Bakes the characters the font has and the atlas of the given pixel size lacks, and uploads the atlas when it
+		* changed. Returns false when the font has no atlas at that size
+		* @param p_codePoints
+		* @param p_pixelSize
+		*/
+		bool EnsureGlyphs(std::span<const uint32_t> p_codePoints, float p_pixelSize);
+
+		/**
 		* Returns the glyph associated with the given Unicode code point
 		* @param p_codePoint
 		*/
@@ -187,9 +181,7 @@ namespace OvRendering::Resources
 			float lineHeight = 32.0f;
 			float ascender = 25.6f;
 			float descender = -6.4f;
-			uint32_t atlasWidth = 0;
-			uint32_t atlasHeight = 0;
-			std::array<Glyph, kGlyphCount> glyphs = {};
+			std::unique_ptr<FontAtlas> atlas;
 			Texture* atlasTexture = nullptr;
 			std::unique_ptr<Data::Material> embeddedMaterial;
 		};
@@ -201,12 +193,14 @@ namespace OvRendering::Resources
 		AtlasVariant* GetOrCreateVariant(uint32_t p_pixelSize);
 		void DestroyAtlasVariants();
 		bool CreateAtlasVariant(uint32_t p_pixelSize);
+		bool UploadAtlas(AtlasVariant& p_variant);
 
 	private:
 		bool m_valid = false;
 		uint32_t m_activePixelSize = 32;
 		uint64_t m_revision = 0;
 		std::filesystem::path m_realPath;
+		std::shared_ptr<const std::vector<uint8_t>> m_fontData;
 		std::unordered_map<uint32_t, AtlasVariant> m_atlasVariants;
 	};
 }

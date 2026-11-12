@@ -32,10 +32,9 @@ would bring to the UI library. Missing engine primitives are listed in
 
 ## 4. Text measurement
 
-- **Exists:** `CText::GetSize()` (bounds of the generated text) and `TextLayoutEngine::Layout`, whose
-  output lists the rectangle of every glyph.
-- **Proposal:** `Text:GetSize()` and a glyph or caret position query, such as
-  `Text:GetCaretPosition(index)`.
+- **Exists:** `Text:GetContentSize()` (the size the lines take, since the Lua API 1.7) and
+  `TextLayoutEngine::Layout`, whose output lists the rectangle of every glyph.
+- **Proposal:** a glyph or caret position query, such as `Text:GetCaretPosition(index)`.
 - **Why:** it enables `SizeToContents` and `GetTextSize` on labels, a caret drawn as a separate panel
   instead of a `|` inserted in the text (which shifts the following characters), placing the caret
   under the cursor on click, and horizontal scrolling of long `DTextEntry` values.

@@ -586,6 +586,7 @@ void BindLuaComponents(sol::state& p_luaState)
 		sol::base_classes, sol::bases<AComponent>(),
 		"GetText", &UI::CText::GetText,
 		"SetText", &UI::CText::SetText,
+		"GetContentSize", &UI::CText::GetContentSize,
 		"GetFontPath", &UI::CText::GetFontPath,
 		"SetFontPath", &UI::CText::SetFontPath,
 		"GetFontSize", &UI::CText::GetFontSize,

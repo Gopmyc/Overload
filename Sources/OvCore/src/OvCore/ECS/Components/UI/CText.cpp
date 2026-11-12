@@ -254,6 +254,12 @@ OvMaths::FVector2 OvCore::ECS::Components::UI::CText::GetSize(const OvMaths::FVe
 	return m_size;
 }
 
+OvMaths::FVector2 OvCore::ECS::Components::UI::CText::GetContentSize() const
+{
+	RebuildLayout();
+	return m_layout.contentSize;
+}
+
 void OvCore::ECS::Components::UI::CText::OnSerialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
 {
 	Helpers::Serializer::SerializeString(p_doc, p_node, "text", m_text);

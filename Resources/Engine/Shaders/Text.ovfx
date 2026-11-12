@@ -26,6 +26,7 @@ out vec4 FRAGMENT_COLOR;
 
 void main()
 {
-    const float alpha = texture(u_FontAtlas, TexCoords).a;
+    // Glyphs are placed in atlas pixels, which stay put when the atlas grows
+    const float alpha = texture(u_FontAtlas, TexCoords / vec2(textureSize(u_FontAtlas, 0))).a;
     FRAGMENT_COLOR = vec4(u_Color.rgb, u_Color.a * alpha);
 }

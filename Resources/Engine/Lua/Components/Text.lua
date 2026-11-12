@@ -26,9 +26,13 @@ function Text:GetOwner() end
 ---@return string
 function Text:GetText() end
 
---- Defines the text content
+--- Defines the text content, in UTF-8. A character the font has no glyph for is drawn as "?"
 ---@param text string
 function Text:SetText(text) end
+
+--- Returns the size the text's lines take, in canvas pixels, wrapped at the element's width when it has one
+---@return Vector2
+function Text:GetContentSize() end
 
 --- Returns the font resource path
 ---@return string
