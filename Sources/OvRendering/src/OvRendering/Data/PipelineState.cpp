@@ -34,3 +34,25 @@ OvRendering::Data::PipelineState::PipelineState() :
 	blendingDestFactor(baregl::types::EBlendingFactor::ONE_MINUS_SRC_ALPHA)
 {
 }
+
+void OvRendering::Data::PipelineState::ApplyBlendMode(Settings::EBlendMode p_blendMode)
+{
+	using namespace baregl::types;
+
+	switch (p_blendMode)
+	{
+	case Settings::EBlendMode::ADDITIVE:
+		blendingSrcFactor = EBlendingFactor::SRC_ALPHA;
+		blendingDestFactor = EBlendingFactor::ONE;
+		blendingEquation = EBlendingEquation::FUNC_ADD;
+		break;
+	case Settings::EBlendMode::PREMULTIPLIED:
+		blendingSrcFactor = EBlendingFactor::ONE;
+		blendingDestFactor = EBlendingFactor::ONE_MINUS_SRC_ALPHA;
+		blendingEquation = EBlendingEquation::FUNC_ADD;
+		break;
+	case Settings::EBlendMode::ALPHA:
+	default:
+		break;
+	}
+}

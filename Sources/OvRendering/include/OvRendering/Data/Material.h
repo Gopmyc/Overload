@@ -21,6 +21,7 @@
 #include <OvRendering/Data/StateMask.h>
 #include <OvRendering/Resources/Shader.h>
 #include <OvRendering/Resources/Texture.h>
+#include <OvRendering/Settings/EBlendMode.h>
 #include <OvRendering/Settings/EProjectionMode.h>
 #include <OvTools/Utils/OptRef.h>
 
@@ -201,6 +202,12 @@ namespace OvRendering::Data
 		void SetBlendable(bool p_blendable);
 
 		/**
+		* Defines how the material's colour is combined with what is already drawn, when it is blendable
+		* @param p_blendMode
+		*/
+		void SetBlendMode(OvRendering::Settings::EBlendMode p_blendMode);
+
+		/**
 		* Defines if the material is used on UI
 		* @param p_blendable
 		*/
@@ -275,6 +282,11 @@ namespace OvRendering::Data
 		* Returns true if the material is blendable
 		*/
 		bool IsBlendable() const;
+
+		/**
+		* Returns how the material's colour is combined with what is already drawn, when it is blendable
+		*/
+		OvRendering::Settings::EBlendMode GetBlendMode() const;
 
 		/**
 		* Returns true if the material will be used on UI
@@ -453,6 +465,7 @@ namespace OvRendering::Data
 		bool m_userInterface = false;
 
 		bool m_blendable = false;
+		OvRendering::Settings::EBlendMode m_blendMode = OvRendering::Settings::EBlendMode::ALPHA;
 		bool m_backfaceCulling = true;
 		bool m_frontfaceCulling = false;
 		bool m_depthTest = true;

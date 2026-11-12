@@ -15,6 +15,24 @@
   on the wrong side. Give it custom bounds (`frustum_behaviour` 3) centred on its pivot.
 - A renderer whose vertices are moved far by its shader (particles) also needs custom bounds that hold them all.
 
+## Blend modes
+
+- A blendable material is drawn in the transparent pass, after the opaque ones, and combined with what is already
+  drawn by its blend mode (`blend_mode` in a `.ovmat`, "Blend Mode" in the material editor):
+
+  | Mode | `blend_mode` | Result | For |
+  | --- | --- | --- | --- |
+  | Alpha | 0 (default) | source × alpha + destination × (1 − alpha) | glass, smoke, fades |
+  | Additive | 1 | source × alpha + destination | light that adds up: sparks, glows, fire |
+  | Premultiplied | 2 | source + destination × (1 − alpha) | a colour already multiplied by its alpha |
+
+- The blend mode does nothing on a material that is not blendable.
+- Alpha keeps the blend function of the pass, which is alpha blending in every scene pass. A post process effect that
+  sets its own, as bloom does, keeps it for its alpha materials.
+- A material saved before blend modes has none, and blends as it always did.
+- A blendable material usually writes no depth (`depth_writing` false). Blended objects are sorted by their centres,
+  so two that cross each other would otherwise hide parts of one another. Additive ones add up in any order.
+
 ## The post process stack
 
 - A scene's render settings live on its post process stack: tonemapping, auto exposure, bloom, FXAA; colour grading

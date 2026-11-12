@@ -1,6 +1,6 @@
 -- The engine's shaders compile, every variant of them (a shader compiles all its variants when it loads, and logs an
 -- error for one that fails); a shader built on Standard's extension points compiles and draws; the fog is a material
--- option of Standard and Unlit
+-- option of Standard and Unlit; an additive and a premultiplied material draw in the transparent pass
 local Check = require("Scripts/Checks/Check")
 
 local ShadersCheck = {}
@@ -51,6 +51,8 @@ function ShadersCheck:OnStart()
 	Object("Fogged", ":Models/Sphere.fbx", "Materials/Standard.ovmat", Vector3.new(-3, 1, 14))
 	Object("NotFogged", ":Models/Sphere.fbx", "Materials/StandardNoFog.ovmat", Vector3.new(3, 1, 14))
 	Object("UnlitFogged", ":Models/Cube.fbx", "Materials/UnlitFog.ovmat", Vector3.new(0, 0.5, 18))
+	Object("Additive", ":Models/Cube.fbx", "Materials/Additive.ovmat", Vector3.new(-2.2, 1.6, 2), Vector3.new(1.6, 1.6, 0.1))
+	Object("Premultiplied", ":Models/Cube.fbx", "Materials/Premultiplied.ovmat", Vector3.new(2.2, 1.6, 2), Vector3.new(1.6, 1.6, 0.1))
 end
 
 function ShadersCheck:OnUpdate(nDelta)
@@ -62,7 +64,7 @@ function ShadersCheck:OnUpdate(nDelta)
 		end
 		oCheck:Expect(Resources.GetShader("Shaders/Hooked.ovfx") ~= nil, "a shader built on Standard's extension points loads")
 	elseif nFrame == 10 then
-		-- Ten frames drawn: every pass (shadows, depth pre-pass, opaque) has used the materials above
+		-- Ten frames drawn: every pass (shadows, depth pre-pass, opaque, transparent) has used the materials above
 		oCheck:Finish()
 	end
 end

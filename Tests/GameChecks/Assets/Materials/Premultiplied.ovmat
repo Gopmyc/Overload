@@ -1,0 +1,18 @@
+<root>
+    <shader>:Shaders/Unlit.ovfx</shader>
+    <settings>
+        <cast_shadows>false</cast_shadows>
+        <receive_shadows>false</receive_shadows>
+        <blendable>true</blendable>
+        <blend_mode>2</blend_mode>
+        <backface_culling>true</backface_culling>
+        <depth_test>true</depth_test>
+        <depth_writing>false</depth_writing>
+        <color_writing>true</color_writing>
+        <gpu_instances>1</gpu_instances>
+        <draw_order>1000</draw_order>
+    </settings>
+    <uniforms>
+        <uniform><name>u_Diffuse</name><value><x>0.1</x><y>0.3</y><z>0.5</z><w>0.5</w></value></uniform>
+    </uniforms>
+</root>

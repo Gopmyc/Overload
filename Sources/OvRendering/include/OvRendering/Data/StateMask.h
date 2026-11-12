@@ -25,6 +25,7 @@ namespace OvRendering::Data
 				uint8_t depthTest : 1;
 				uint8_t backfaceCulling : 1;
 				uint8_t frontfaceCulling : 1;
+				uint8_t blendMode : 2; // A Settings::EBlendMode, used when blendable
 			};
 
 			uint8_t mask;

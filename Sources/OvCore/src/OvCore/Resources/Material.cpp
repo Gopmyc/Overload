@@ -10,6 +10,7 @@
 #include <baregl/types/EUniformType.h>
 
 #include <OvCore/Resources/Material.h>
+#include <OvDebug/Logger.h>
 
 void OvCore::Resources::Material::OnSerialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
 {
@@ -25,6 +26,7 @@ void OvCore::Resources::Material::OnSerialize(tinyxml2::XMLDocument& p_doc, tiny
 	Serializer::SerializeBoolean(p_doc, settingsNode, "support_orthographic", m_supportOrthographic);
 	Serializer::SerializeBoolean(p_doc, settingsNode, "support_perspective", m_supportPerspective);
 	Serializer::SerializeBoolean(p_doc, settingsNode, "blendable", m_blendable);
+	Serializer::SerializeInt(p_doc, settingsNode, "blend_mode", static_cast<int>(m_blendMode));
 	Serializer::SerializeBoolean(p_doc, settingsNode, "backface_culling", m_backfaceCulling);
 	Serializer::SerializeBoolean(p_doc, settingsNode, "frontface_culling", m_frontfaceCulling);
 	Serializer::SerializeBoolean(p_doc, settingsNode, "depth_test", m_depthTest);
@@ -134,6 +136,22 @@ void OvCore::Resources::Material::OnDeserialize(tinyxml2::XMLDocument& p_doc, ti
 		Serializer::DeserializeBoolean(p_doc, settingsNode, "support_orthographic", m_supportOrthographic);
 		Serializer::DeserializeBoolean(p_doc, settingsNode, "support_perspective", m_supportPerspective);
 		Serializer::DeserializeBoolean(p_doc, settingsNode, "blendable", m_blendable);
+
+		// A material saved before blend modes has none, and blends as it always did
+		m_blendMode = OvRendering::Settings::EBlendMode::ALPHA;
+		if (settingsNode->FirstChildElement("blend_mode"))
+		{
+			const int blendMode = Serializer::DeserializeInt(p_doc, settingsNode, "blend_mode");
+
+			if (blendMode >= 0 && blendMode < OvRendering::Settings::kBlendModeCount)
+			{
+				m_blendMode = static_cast<OvRendering::Settings::EBlendMode>(blendMode);
+			}
+			else
+			{
+				OVLOG_WARNING("Material \"" + path + "\": unknown blend_mode " + std::to_string(blendMode) + ", ALPHA is used");
+			}
+		}
 		Serializer::DeserializeBoolean(p_doc, settingsNode, "backface_culling", m_backfaceCulling);
 		Serializer::DeserializeBoolean(p_doc, settingsNode, "frontface_culling", m_frontfaceCulling);
 		Serializer::DeserializeBoolean(p_doc, settingsNode, "depth_test", m_depthTest);

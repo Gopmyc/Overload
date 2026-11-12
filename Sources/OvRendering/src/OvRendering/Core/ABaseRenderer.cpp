@@ -180,6 +180,7 @@ void OvRendering::Core::ABaseRenderer::Blit(
 		blit.stateMask.depthWriting = false;
 		blit.stateMask.colorWriting = true;
 		blit.stateMask.blendable = false;
+		blit.stateMask.blendMode = static_cast<uint8_t>(OvRendering::Settings::EBlendMode::ALPHA);
 		blit.stateMask.frontfaceCulling = false;
 		blit.stateMask.backfaceCulling = false;
 		blit.stateMask.depthTest = false;
@@ -219,6 +220,12 @@ void OvRendering::Core::ABaseRenderer::DrawEntity(
 	p_pso.depthWriting = p_drawable.stateMask.depthWriting;
 	p_pso.colorWriting.mask = p_drawable.stateMask.colorWriting ? 0xFF : 0x00;
 	p_pso.blending = p_drawable.stateMask.blendable;
+
+	if (p_pso.blending)
+	{
+		p_pso.ApplyBlendMode(static_cast<OvRendering::Settings::EBlendMode>(p_drawable.stateMask.blendMode));
+	}
+
 	p_pso.culling = p_drawable.stateMask.frontfaceCulling || p_drawable.stateMask.backfaceCulling;
 	p_pso.depthTest = p_drawable.stateMask.depthTest;
 
