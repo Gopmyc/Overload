@@ -23,26 +23,7 @@ not just its Lua binding. Features that only need a binding are listed in
   configures the components of the panel. Custom shapes such as borders, rounded corners or gradients
   can only be obtained through textures.
 
-## 3. No character input and no key repeat
-
-- **Feature:** typing in `DTextEntry`.
-- **Missing primitive:** character events (#848). `OvWindowing::Window` doesn't bind the GLFW character
-  callback, and `InputManager` only records key presses and releases, without repeat.
-- **Impact:** `Core/Keyboard.lua` derives characters from key codes with a US QWERTY layout and Shift.
-  Other keyboard layouts, AltGr, dead keys, accents, IME and the Caps Lock state aren't supported. Key
-  repeat is emulated by the controller (0.4 s delay, then every 0.05 s).
-
-## 4. Inputs aren't consumed
-
-- **Feature:** keeping UI input away from gameplay.
-- **Missing primitive:** none any more. Since the Lua API 1.6, `Inputs.Consume`, `Inputs.ConsumeMouseScroll` and
-  `Inputs.SetKeyboardCaptured` hide an input from gameplay (see the engine's `Docs/Input.md`), but the controller
-  doesn't call them yet.
-- **Impact:** game scripts still receive the keys and clicks meant for the UI. For instance, typing in
-  a `DTextEntry` also triggers gameplay key bindings. Games have to check
-  `controller:GetFocusedPanel()` and `controller:GetHoveredPanel()` themselves.
-
-## 5. A zero size axis means "intrinsic size"
+## 3. A zero size axis means "intrinsic size"
 
 - **Feature:** panels with a zero width or height.
 - **Missing primitive:** `CTransform::SetUISize` reserves 0 for the intrinsic size of the element
@@ -50,7 +31,7 @@ not just its Lua binding. Features that only need a binding are listed in
 - **Impact:** the library sends 0.001 instead of 0, so an empty panel doesn't grow to the size of its
   image or text.
 
-## 6. No sibling index API
+## 4. No sibling index API
 
 - **Feature:** `SetZPos`.
 - **Missing primitive:** moving an actor to a given index among its siblings (#384). Actors are drawn in
@@ -58,18 +39,7 @@ not just its Lua binding. Features that only need a binding are listed in
 - **Impact:** changing the Z position re-attaches every sibling in order, which fires Attach and Detach
   events and costs O(n) per change.
 
-## 7. UI updates need a Behaviour of the project
-
-- **Feature:** a controller that updates itself once `UI.CreateController()` has been called.
-- **Missing primitive:** a per-frame hook for Lua code outside Behaviours, or Behaviours loaded from the
-  engine assets. `LuaScriptEngineBase::AddBehaviour` always resolves the script against the project
-  assets (`projectAssetsPath / name`), and no update event is exposed to Lua.
-- **Impact:** `controller:Update(deltaTime)` must be called from `OnUpdate` of a project Behaviour,
-  attached to any actor. The canvas actor created by the controller doesn't depend on that actor: if
-  the actor is destroyed without calling `controller:Destroy()` in `OnDestroy`, the UI stays on screen
-  without updating. `controller:Destroy()` is safe in `OnDestroy`, including while the scene unloads.
-
-## 8. Component references aren't checked
+## 5. Component references aren't checked
 
 - **Feature:** panels surviving the destruction of their actors by other scripts.
 - **Missing primitive:** lifetime checks on components. With #862, actors are exposed to Lua as handles
@@ -79,7 +49,7 @@ not just its Lua binding. Features that only need a binding are listed in
   discards its panels once the canvas is destroyed, but destroying the actor of a single panel outside
   `Panel:Remove` leaves its cached components dangling, and isn't supported.
 
-## 9. World space canvases are drawn after the scene
+## 6. World space canvases are drawn after the scene
 
 - **Feature:** world space canvases, and panels in the 3D world (`DWorldPanel`, `DWorldPath`,
   `DWorldArc`, see [WorldSpace.md](WorldSpace.md)).

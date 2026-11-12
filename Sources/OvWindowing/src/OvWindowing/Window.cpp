@@ -39,6 +39,7 @@ OvWindowing::Window::Window(const Context::Device& p_device, const Settings::Win
 
 	/* Callback binding */
 	BindKeyCallback();
+	BindCharacterCallback();
 	BindMouseCallback();
 	BindScrollCallback();
 	BindIconifyCallback();
@@ -399,10 +400,27 @@ void OvWindowing::Window::BindKeyCallback() const
 
 			if (p_action == GLFW_RELEASE)
 				windowInstance->KeyReleasedEvent.Invoke(p_key);
+
+			if (p_action == GLFW_REPEAT)
+				windowInstance->KeyRepeatedEvent.Invoke(p_key);
 		}
 	};
 
 	glfwSetKeyCallback(m_glfwWindow, keyCallback);
+}
+
+void OvWindowing::Window::BindCharacterCallback() const
+{
+	// Bound with the window, before ImGui installs its own callbacks: ImGui chains to this one, so both get the text
+	auto characterCallback = [](GLFWwindow* p_window, unsigned int p_codePoint)
+	{
+		if (Window* windowInstance = FindInstance(p_window))
+		{
+			windowInstance->CharacterEvent.Invoke(static_cast<uint32_t>(p_codePoint));
+		}
+	};
+
+	glfwSetCharCallback(m_glfwWindow, characterCallback);
 }
 
 void OvWindowing::Window::BindMouseCallback() const

@@ -76,6 +76,21 @@ namespace OvCore::Helpers
 		static bool GetKeyUp(OvWindowing::Inputs::EKey p_key, bool p_includeConsumed = false);
 
 		/**
+		* Returns how many times the system repeated the key held down during the frame, as the game sees it: what a
+		* text field moves its caret by
+		* @param p_key
+		* @param p_includeConsumed
+		*/
+		static int GetKeyRepeatCount(OvWindowing::Inputs::EKey p_key, bool p_includeConsumed = false);
+
+		/**
+		* Returns the characters typed during the frame, in UTF-8, as the keyboard's layout and the system's input
+		* method make them. Hidden while the keyboard is captured, unless p_includeConsumed: what captured it reads them
+		* @param p_includeConsumed
+		*/
+		static std::string GetTypedText(bool p_includeConsumed = false);
+
+		/**
 		* Returns true while the mouse button is held, as the game sees it
 		* @param p_button
 		*/

@@ -8,8 +8,9 @@ would bring to the UI library. Missing engine primitives are listed in
 
 - **Done:** `LuaScriptEngine::CreateContext` opens them, with `coroutine`, and the generated
   `.luarc.json` enables them (#246). None of them gives access to files or to the operating system.
-- **Left for the library:** `DTextEntry` could now split a text into UTF-8 characters, and
-  `Core/Array.lua`, which reimplements insertion, removal and sorting, could be removed.
+- **Done in the library:** `DTextEntry` splits its text into UTF-8 characters.
+- **Left for the library:** `Core/Array.lua`, which reimplements insertion, removal and sorting, could
+  be removed.
 
 ## 2. Resolved canvas scale and size
 

@@ -17,6 +17,8 @@ OvWindowing::Inputs::InputManager::InputManager(Window& p_window) :
 	m_mouseButtonPressedListener = m_window.MouseButtonPressedEvent.AddListener(std::bind(&InputManager::OnMouseButtonPressed, this, std::placeholders::_1));
 	m_mouseButtonReleasedListener = m_window.MouseButtonReleasedEvent.AddListener(std::bind(&InputManager::OnMouseButtonReleased, this, std::placeholders::_1));
 	m_mouseScrollListener = m_window.MouseScrollEvent.AddListener(std::bind(&InputManager::OnMouseScroll, this, std::placeholders::_1, std::placeholders::_2));
+	m_keyRepeatedListener = m_window.KeyRepeatedEvent.AddListener(std::bind(&InputManager::OnKeyRepeated, this, std::placeholders::_1));
+	m_characterListener = m_window.CharacterEvent.AddListener(std::bind(&InputManager::OnCharacter, this, std::placeholders::_1));
 }
 
 OvWindowing::Inputs::InputManager::~InputManager()
@@ -26,6 +28,8 @@ OvWindowing::Inputs::InputManager::~InputManager()
 	m_window.MouseButtonPressedEvent.RemoveListener(m_mouseButtonPressedListener);
 	m_window.MouseButtonReleasedEvent.RemoveListener(m_mouseButtonReleasedListener);
 	m_window.MouseScrollEvent.RemoveListener(m_mouseScrollListener);
+	m_window.KeyRepeatedEvent.RemoveListener(m_keyRepeatedListener);
+	m_window.CharacterEvent.RemoveListener(m_characterListener);
 }
 
 OvWindowing::Inputs::EKeyState OvWindowing::Inputs::InputManager::GetKeyState(EKey p_key) const
@@ -106,6 +110,12 @@ void OvWindowing::Inputs::InputManager::ClearEvents()
 
 	m_scrollData = { 0.0, 0.0 };
 	m_mousePosition.reset();
+	m_typedInput.Clear();
+}
+
+const OvWindowing::Inputs::TypedInput& OvWindowing::Inputs::InputManager::GetTypedInput() const
+{
+	return m_typedInput;
 }
 
 void OvWindowing::Inputs::InputManager::UpdateGamepads()
@@ -174,4 +184,14 @@ void OvWindowing::Inputs::InputManager::OnMouseScroll(double p_xOffset, double p
 {
 	m_scrollData.first += p_xOffset;
 	m_scrollData.second += p_yOffset;
+}
+
+void OvWindowing::Inputs::InputManager::OnKeyRepeated(int p_key)
+{
+	m_typedInput.AddKeyRepeat(static_cast<EKey>(p_key));
+}
+
+void OvWindowing::Inputs::InputManager::OnCharacter(uint32_t p_codePoint)
+{
+	m_typedInput.AddCharacter(p_codePoint);
 }

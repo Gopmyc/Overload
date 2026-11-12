@@ -36,10 +36,9 @@ plate:GetTransform():SetWorldPosition(Vector3.new(0, 1.5, 3))
 
 self.ui = UI.CreateController(plate)
 self.ui:SetCamera(Scenes.GetCurrentScene():FindActorByName("Main Camera"))
-
--- From OnLateUpdate, once the camera has moved
-self.ui:Update(deltaTime)
 ```
+
+The controller updates itself after every Behaviour's `OnLateUpdate`, once the camera has moved.
 
 Panels are created and laid out as on any canvas, in canvas units with the origin at the top-left.
 

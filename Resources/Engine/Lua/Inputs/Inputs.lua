@@ -24,6 +24,20 @@ function Inputs.GetKeyUp(key, includeConsumed) end
 ---@return boolean
 function Inputs.GetKey(key, includeConsumed) end
 
+--- Returns how many times the system repeated the key held down during the current frame (0 most frames): what a text
+--- field moves its caret or deletes by, at the system's repeat delay and rate
+---@param key Key
+---@param includeConsumed? boolean
+---@return integer
+function Inputs.GetKeyRepeatCount(key, includeConsumed) end
+
+--- Returns the characters typed during the current frame, in UTF-8, as the keyboard's layout and the system's input
+--- method make them: accents, dead keys and AltGr included. An empty string most frames; hidden while the keyboard is
+--- captured, unless includeConsumed
+---@param includeConsumed? boolean
+---@return string
+function Inputs.GetTypedText(includeConsumed) end
+
 --- Returns the name of a printable key in the keyboard's current layout, as it prints it (the "z" of a French
 --- keyboard where the key is Key.W), or an empty string for a key that prints nothing
 ---@param key Key
