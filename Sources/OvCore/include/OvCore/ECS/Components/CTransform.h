@@ -52,6 +52,7 @@ namespace OvCore::ECS::Components
 			OvMaths::FVector2 size = OvMaths::FVector2::Zero;
 			OvMaths::FVector2 pivot = OvMaths::FVector2::Zero;
 			EUIAnchorPreset anchorPreset = EUIAnchorPreset::CENTER;
+			bool clipChildren = false;
 		};
 
 		/**
@@ -309,6 +310,17 @@ namespace OvCore::ECS::Components
 		* Return the anchor preset used to resolve the element against its parent
 		*/
 		EUIAnchorPreset GetUIAnchorPreset() const;
+
+		/**
+		* Defines whether the element clips its children to its rectangle: what falls outside of it is not drawn
+		* @param p_clip
+		*/
+		void SetUIClipChildren(bool p_clip);
+
+		/**
+		* Returns true if the element clips its children to its rectangle
+		*/
+		bool GetUIClipChildren() const;
 
 		/**
 		* Check if the horizontal anchored position can be edited, which isn't the case when the

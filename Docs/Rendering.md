@@ -51,6 +51,21 @@ rules of a custom shader are in [Shaders](Shaders.md).
 - **A custom text shader** samples `u_FontAtlas` at the texture coordinates divided by
   `textureSize(u_FontAtlas, 0)`. They are in atlas pixels, which stay put when the atlas grows.
 
+## UI clipping
+
+- An element with `Transform:SetUIClipChildren(true)` ("Clip Children" in the inspector) hides what its descendants
+  draw outside its rectangle. It is not clipped itself, and a canvas below it starts afresh.
+- **Clips inside clips**: upright elements of a canvas show what all their clips let through. A turned element, or one
+  inside a turned clip, clips to its own rectangle: the innermost cuts.
+- The test is made by the `Image` and `Text` shaders, pixel by pixel, rather than by a scissor rectangle: it holds on a
+  world space canvas, on a turned element, and in the editor's views. A drawable entirely outside an upright clip is not
+  drawn at all.
+- **A custom image or text shader** clips when it declares `uniform mat4 u_ClipMatrix` and `uniform bool
+  u_ClipEnabled`, takes `(u_ClipMatrix * ubo_Model * vec4(geo_Pos, 1.0)).xy` to the fragment stage, and discards there
+  when it is enabled and either coordinate is beyond -1 or 1, as `Image.ovfx` does. Without them, its drawables are
+  only left out when entirely outside.
+- **Limit**: the editor's picking still sees the clipped part of an element.
+
 ## Textures
 
 - Textures wrap in `REPEAT` by default. A UI texture needs a `.png.meta` that switches it to clamp, or seams appear:

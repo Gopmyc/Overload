@@ -325,4 +325,36 @@ namespace OvCore::Rendering::UIRenderingUtils
 		ResolvedUIGizmoTransform& p_outTransform
 	);
 
+	/**
+	* What an element that clips its children (CTransform::GetUIClipChildren) lets through: its rectangle, crossed with
+	* the clip it is inside when both are upright rectangles of the canvas
+	*/
+	struct UIClip
+	{
+		// Takes a point of the space the elements' model matrices send their vertices to, into [-1, 1] on X and Y
+		// inside the clip
+		OvMaths::FMatrix4 matrix = OvMaths::FMatrix4::Identity;
+
+		// Whether the clip is an upright rectangle of the canvas, from min to max in canvas units
+		bool upright = false;
+		OvMaths::FVector2 min = OvMaths::FVector2::Zero;
+		OvMaths::FVector2 max = OvMaths::FVector2::Zero;
+
+		// Nothing is inside: what it clips is not drawn
+		bool empty = false;
+	};
+
+	/**
+	* Returns the clip an element puts on its children
+	* @param p_element
+	* @param p_parentClip (the clip the element is inside, if any)
+	*/
+	UIClip CreateUIClip(const ResolvedUIElement& p_element, const UIClip* p_parentClip);
+
+	/**
+	* Returns true if the element lies entirely outside the clip, which is only known for an upright clip
+	* @param p_clip
+	* @param p_element
+	*/
+	bool IsOutsideUIClip(const UIClip& p_clip, const ResolvedUIElement& p_element);
 }

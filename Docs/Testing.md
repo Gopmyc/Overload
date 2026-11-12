@@ -27,6 +27,7 @@ It covers:
 | Project settings | Layer names and ignored pairs, the save folder's name, the runtime limits and their ranges |
 | Physics layers, queries, engine | Layers by name, bodies that go through each other, casts and overlaps on a column of boxes, a second engine |
 | Typed input | Typed characters kept in UTF-8 from one to four bytes, control characters and values that are no character left out, repeats counted per key, a frame forgetting both |
+| UI clip | An upright element's rectangle, a clip inside a clip and clips that don't meet, a turned element, a world space canvas scaled down, an element entirely outside, the property saved only when set and read back |
 | Fonts | Basic Latin and Latin-1 baked with an atlas, Cyrillic, Greek and Latin Extended baked on demand and once, a character the font lacks, an atlas that grows without moving its glyphs, UTF-8 decoding, a font that is no font |
 | Json | Values read with their members' order, escapes beyond the first plane, errors with their line and column, nesting, a value written then read back |
 | Input actions | Every input's name and the Lua enum Key, the actions file and its mistakes, actions pressed, held and released over frames, a tap within a frame, a stick's way and a trigger, the input pressed in a frame, swaps, resets, bindings saved and read back |
@@ -78,6 +79,7 @@ temporary folder.
 | `InputActions` | The project's actions from Lua: their order and bindings, rebinding with its swaps and refusals, resets, the bindings saved in the save folder, the labels a menu shows |
 | `UIInput` | The UI library with the engine's input: the controller updating itself once a frame and older manual `Update` calls ignored; the keyboard captured while a text entry has the focus, freed when it loses it, when consumption is off and when its controller goes, across two controllers; a text entry editing UTF-8 characters and refusing those `AllowInput` refuses |
 | `Text` | UTF-8 text from Lua: Cyrillic and Greek drawn with their own glyphs, a character the font lacks and a broken byte, measured by `GetContentSize`; it also draws them, for a screenshot (`--frames 4 --screenshot`) |
+| `UIClip` | Clipping from Lua: the property, off by default, and the UI library's scroll panel clipping its content; it also draws, for a screenshot, a panel with children past its edges, a clip inside a clip, a turned panel, a world space canvas and a scroll panel with an item half out of view |
 | `InputConsumption` | Consuming from Lua with no device held: the calls and their refusals, the reads that see what is consumed, the keyboard captured from an `Events.AddUpdate` callback before the Behaviours, across frames |
 | `Interpolation` | Two boxes falling side by side, one interpolated from the scene file: the same physics in the fixed update, the interpolated one between its last two steps on every frame, a teleport from a script |
 | `Character` | A character controller read from the scene file lands and stands, walks through a body of a layer it ignores and through a trigger, climbs a step, is stopped by a wall, jumps and lands, takes an impulse |

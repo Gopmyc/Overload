@@ -87,6 +87,10 @@ later version of the same major version.
   layout guessed from the keys, and repeats at the system's rate. The controller keeps from gameplay a click that
   lands on a panel, the wheel over a panel, and the keyboard while a panel has the focus (`SetConsumesInput(false)`
   lets them through). It updates itself, after every `OnLateUpdate`.
+- **UI clipping**: a UI element clips what its children draw to its rectangle (`Transform:SetUIClipChildren(true)`,
+  `ui_clip_children` in a file, "Clip Children" in the inspector), on a screen or a world space canvas, turned or not;
+  a clip inside another shows what both let through. `DScrollPanel` clips its content. The Lua API is now 1.9. See
+  [Docs/Rendering.md](Docs/Rendering.md).
 
 ### Changed
 

@@ -331,6 +331,16 @@ OvCore::ECS::Components::CTransform::EUIAnchorPreset OvCore::ECS::Components::CT
 	return GetUIDataOrDefault().anchorPreset;
 }
 
+void OvCore::ECS::Components::CTransform::SetUIClipChildren(bool p_clip)
+{
+	GetOrCreateUIData().clipChildren = p_clip;
+}
+
+bool OvCore::ECS::Components::CTransform::GetUIClipChildren() const
+{
+	return GetUIDataOrDefault().clipChildren;
+}
+
 bool OvCore::ECS::Components::CTransform::IsHorizontalUIPositionEditable() const
 {
 	return
@@ -358,6 +368,12 @@ void OvCore::ECS::Components::CTransform::OnSerialize(tinyxml2::XMLDocument& p_d
 		OvCore::Helpers::Serializer::SerializeVec2(p_doc, p_node, "ui_size", GetUISize());
 		OvCore::Helpers::Serializer::SerializeVec2(p_doc, p_node, "ui_pivot", GetUIPivot());
 		OvCore::Helpers::Serializer::SerializeInt(p_doc, p_node, "ui_anchor_preset", static_cast<int>(GetUIAnchorPreset()));
+
+		// Written only when set, so that the scenes saved before it read and write the same
+		if (GetUIClipChildren())
+		{
+			OvCore::Helpers::Serializer::SerializeBoolean(p_doc, p_node, "ui_clip_children", true);
+		}
 	}
 }
 
@@ -410,6 +426,18 @@ void OvCore::ECS::Components::CTransform::OnDeserialize(tinyxml2::XMLDocument & 
 		auto anchorPreset = static_cast<int>(GetUIAnchorPreset());
 		OvCore::Helpers::Serializer::DeserializeInt(p_doc, p_node, "ui_anchor_preset", anchorPreset);
 		SetUIAnchorPreset(ToUIAnchorPreset(anchorPreset));
+	}
+
+	if (uiEnabled)
+	{
+		bool clipChildren = false;
+
+		if (p_node->FirstChildElement("ui_clip_children"))
+		{
+			OvCore::Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "ui_clip_children", clipChildren);
+		}
+
+		SetUIClipChildren(clipChildren);
 	}
 }
 
@@ -558,6 +586,13 @@ void OvCore::ECS::Components::CTransform::OnInspector(OvUI::Internal::WidgetCont
 			SetUIAnchorPreset(ToUIAnchorPreset(p_choice));
 			updateTransform2DEditability();
 		};
+
+		OvCore::Helpers::GUIDrawer::DrawBoolean(
+			p_root,
+			"Clip Children",
+			[this]() { return GetUIClipChildren(); },
+			[this](bool p_value) { SetUIClipChildren(p_value); }
+		);
 	}
 	else
 	{

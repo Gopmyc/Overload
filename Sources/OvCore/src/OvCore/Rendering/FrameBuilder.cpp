@@ -5,6 +5,8 @@
 */
 
 #include <algorithm>
+#include <cstring>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <tracy/Tracy.hpp>
@@ -61,10 +63,12 @@ namespace
 		const OvMaths::FMatrix4& p_uiProjectionMatrix,
 		const OvMaths::FVector2& p_elementSize,
 		bool& p_outDepthTested,
+		std::optional<OvCore::Rendering::UIRenderingUtils::ResolvedUIElement>& p_outElement,
 		bool p_preserveAspect = false
 	)
 	{
 		p_outDepthTested = false;
+		p_outElement.reset();
 
 		EngineDrawableDescriptor descriptor{
 			.modelMatrix = p_owner.transform.GetFTransform().GetWorldMatrix(),
@@ -112,9 +116,65 @@ namespace
 			p_outDepthTested =
 				resolvedElement.canvas &&
 				resolvedElement.canvas->GetRenderMode() == OvCore::ECS::Components::UI::CCanvas::ERenderMode::WORLD_SPACE;
+
+			p_outElement = resolvedElement;
 		}
 
 		return descriptor;
+	}
+
+	/**
+	* Sets a material property only when its value changes, so that an unchanged clip uploads nothing
+	*/
+	void SetClipProperty(OvRendering::Data::Material& p_material, const std::string& p_name, const OvRendering::Data::MaterialPropertyType& p_value)
+	{
+		const auto property = p_material.GetProperty(p_name);
+		if (!property.has_value())
+		{
+			return;
+		}
+
+		const auto& current = property.value().value;
+		bool same = false;
+
+		if (const auto* currentBool = std::get_if<bool>(&current); currentBool && std::holds_alternative<bool>(p_value))
+		{
+			same = *currentBool == std::get<bool>(p_value);
+		}
+		else if (const auto* currentMatrix = std::get_if<OvMaths::FMatrix4>(&current); currentMatrix && std::holds_alternative<OvMaths::FMatrix4>(p_value))
+		{
+			same = std::memcmp(currentMatrix->data, std::get<OvMaths::FMatrix4>(p_value).data, sizeof(currentMatrix->data)) == 0;
+		}
+
+		if (!same)
+		{
+			p_material.TrySetProperty(p_name, p_value);
+		}
+	}
+
+	/**
+	* Gives the drawable's material the clip it is drawn inside, if any. Returns false when the element lies entirely
+	* outside it, and is not to be drawn
+	*/
+	bool ApplyUIClip(
+		OvRendering::Data::Material& p_material,
+		const OvCore::Rendering::UIRenderingUtils::UIClip* p_clip,
+		const std::optional<OvCore::Rendering::UIRenderingUtils::ResolvedUIElement>& p_element
+	)
+	{
+		if (p_clip && (p_clip->empty || (p_element && OvCore::Rendering::UIRenderingUtils::IsOutsideUIClip(*p_clip, *p_element))))
+		{
+			return false;
+		}
+
+		SetClipProperty(p_material, "u_ClipEnabled", p_clip != nullptr);
+
+		if (p_clip)
+		{
+			SetClipProperty(p_material, "u_ClipMatrix", p_clip->matrix);
+		}
+
+		return true;
 	}
 
 	void AppendImageDrawable(
@@ -122,6 +182,7 @@ namespace
 		OvCore::ECS::Components::UI::CImage& p_image,
 		const OvCore::Rendering::UIRenderingUtils::UIFrameResolver& p_uiFrameResolver,
 		const OvMaths::FMatrix4& p_uiProjectionMatrix,
+		const OvCore::Rendering::UIRenderingUtils::UIClip* p_clip,
 		int p_drawOrder
 	)
 	{
@@ -144,6 +205,7 @@ namespace
 		});
 
 		bool depthTested = false;
+		std::optional<OvCore::Rendering::UIRenderingUtils::ResolvedUIElement> element;
 
 		drawable.AddDescriptor<EngineDrawableDescriptor>(
 			CreateUIDrawableDescriptor(
@@ -152,9 +214,15 @@ namespace
 				p_uiProjectionMatrix,
 				p_image.GetIntrinsicSize(),
 				depthTested,
+				element,
 				p_image.GetPreserveAspect()
 			)
 		);
+
+		if (!ApplyUIClip(*material, p_clip, element))
+		{
+			return;
+		}
 
 		drawable.stateMask.depthTest = drawable.stateMask.depthTest || depthTested;
 
@@ -166,6 +234,7 @@ namespace
 		OvCore::ECS::Components::UI::CText& p_text,
 		const OvCore::Rendering::UIRenderingUtils::UIFrameResolver& p_uiFrameResolver,
 		const OvMaths::FMatrix4& p_uiProjectionMatrix,
+		const OvCore::Rendering::UIRenderingUtils::UIClip* p_clip,
 		int p_drawOrder
 	)
 	{
@@ -206,6 +275,7 @@ namespace
 		});
 
 		bool depthTested = false;
+		std::optional<OvCore::Rendering::UIRenderingUtils::ResolvedUIElement> element;
 
 		drawable.AddDescriptor<EngineDrawableDescriptor>(
 			CreateUIDrawableDescriptor(
@@ -213,9 +283,15 @@ namespace
 				p_uiFrameResolver,
 				p_uiProjectionMatrix,
 				renderedTextSize,
-				depthTested
+				depthTested,
+				element
 			)
 		);
+
+		if (!ApplyUIClip(*material, p_clip, element))
+		{
+			return;
+		}
 
 		drawable.stateMask.depthTest = drawable.stateMask.depthTest || depthTested;
 
@@ -228,6 +304,7 @@ namespace
 		const OvCore::Rendering::UIRenderingUtils::UIFrameResolver& p_uiFrameResolver,
 		const OvCore::ECS::Components::UI::CCanvas* p_canvas,
 		const OvMaths::FMatrix4& p_uiProjectionMatrix,
+		const OvCore::Rendering::UIRenderingUtils::UIClip* p_clip,
 		int& p_drawOrder
 	)
 	{
@@ -236,9 +313,11 @@ namespace
 			return;
 		}
 
+		// A canvas has a space of its own: a clip from around it does not apply inside
 		if (auto* canvas = p_actor.GetComponent<OvCore::ECS::Components::UI::CCanvas>())
 		{
 			p_canvas = canvas;
+			p_clip = nullptr;
 		}
 
 		if (p_canvas)
@@ -250,6 +329,7 @@ namespace
 					*image,
 					p_uiFrameResolver,
 					p_uiProjectionMatrix,
+					p_clip,
 					p_drawOrder++
 				);
 			}
@@ -261,8 +341,28 @@ namespace
 					*text,
 					p_uiFrameResolver,
 					p_uiProjectionMatrix,
+					p_clip,
 					p_drawOrder++
 				);
+			}
+		}
+
+		// An element that clips its children passes them its rectangle, crossed with the clip it is inside
+		std::optional<OvCore::Rendering::UIRenderingUtils::UIClip> childrenClip;
+
+		if (p_canvas && p_actor.transform.GetUIClipChildren() && p_actor.transform.HasActiveUIData())
+		{
+			OvCore::Rendering::UIRenderingUtils::ResolvedUIElement element;
+
+			if (p_uiFrameResolver.ResolveElement(p_actor, p_uiFrameResolver.GetElementSize(p_actor), element))
+			{
+				childrenClip = OvCore::Rendering::UIRenderingUtils::CreateUIClip(element, p_clip);
+
+				// Nothing of them can show
+				if (childrenClip->empty)
+				{
+					return;
+				}
 			}
 		}
 
@@ -276,6 +376,7 @@ namespace
 					p_uiFrameResolver,
 					p_canvas,
 					p_uiProjectionMatrix,
+					childrenClip ? &childrenClip.value() : p_clip,
 					p_drawOrder
 				);
 			}
@@ -301,6 +402,7 @@ namespace
 					p_uiFrameResolver,
 					nullptr,
 					uiProjectionMatrix,
+					nullptr,
 					drawOrder
 				);
 			}

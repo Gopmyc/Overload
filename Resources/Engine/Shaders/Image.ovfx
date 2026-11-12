@@ -7,10 +7,15 @@ layout (location = 0) in vec3 geo_Pos;
 layout (location = 1) in vec2 geo_TexCoords;
 
 out vec2 TexCoords;
+out vec2 ClipPosition;
+
+// From where the element is drawn to its clip, [-1, 1] inside it
+uniform mat4 u_ClipMatrix = mat4(1.0);
 
 void main()
 {
     TexCoords = geo_TexCoords;
+    ClipPosition = (u_ClipMatrix * ubo_Model * vec4(geo_Pos, 1.0)).xy;
     gl_Position = ubo_Projection * ubo_View * ubo_Model * vec4(geo_Pos, 1.0);
 }
 
@@ -18,6 +23,9 @@ void main()
 #version 450 core
 
 in vec2 TexCoords;
+in vec2 ClipPosition;
+
+uniform bool u_ClipEnabled = false;
 
 uniform sampler2D u_Image;
 uniform vec4 u_Tint = vec4(1.0);
@@ -26,5 +34,11 @@ out vec4 FRAGMENT_COLOR;
 
 void main()
 {
+    // Outside the rectangle of a parent that clips its children
+    if (u_ClipEnabled && (abs(ClipPosition.x) > 1.0 || abs(ClipPosition.y) > 1.0))
+    {
+        discard;
+    }
+
     FRAGMENT_COLOR = texture(u_Image, TexCoords) * u_Tint;
 }

@@ -156,7 +156,9 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetUIPivot", [](CTransform& p_this) -> FVector2 { return p_this.GetUIPivot(); },
 		"SetUIPivot", &CTransform::SetUIPivot,
 		"GetUIAnchorPreset", &CTransform::GetUIAnchorPreset,
-		"SetUIAnchorPreset", &CTransform::SetUIAnchorPreset
+		"SetUIAnchorPreset", &CTransform::SetUIAnchorPreset,
+		"GetUIClipChildren", &CTransform::GetUIClipChildren,
+		"SetUIClipChildren", &CTransform::SetUIClipChildren
 	);
 
 	p_luaState.new_enum<OvCore::ECS::Components::CModelRenderer::EFrustumBehaviour>("FrustumBehaviour", {
