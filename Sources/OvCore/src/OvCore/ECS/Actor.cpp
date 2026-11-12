@@ -22,6 +22,7 @@
 #include <OvCore/ECS/Components/CPhysicalBox.h>
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>
 #include <OvCore/ECS/Components/CPhysicalHeightField.h>
+#include <OvCore/ECS/Components/CPhysicalMesh.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
 #include <OvCore/ECS/Components/CPointLight.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
@@ -658,6 +659,7 @@ void OvCore::ECS::Actor::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::
 				else if (IsType<CPhysicalSphere>(componentType)) component = &AddComponent<CPhysicalSphere>();
 				else if (IsType<CPhysicalCapsule>(componentType)) component = &AddComponent<CPhysicalCapsule>();
 				else if (IsType<CPhysicalHeightField>(componentType)) component = &AddComponent<CPhysicalHeightField>();
+				else if (IsType<CPhysicalMesh>(componentType)) component = &AddComponent<CPhysicalMesh>();
 				else if (IsType<CModelRenderer>(componentType)) component = &AddComponent<CModelRenderer>();
 				else if (IsType<CCamera>(componentType)) component = &AddComponent<CCamera>();
 				else if (IsType<CMaterialRenderer>(componentType)) component = &AddComponent<CMaterialRenderer>();
