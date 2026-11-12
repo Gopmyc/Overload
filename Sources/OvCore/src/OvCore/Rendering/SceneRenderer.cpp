@@ -11,6 +11,7 @@
 #include <OvCore/Rendering/EngineBufferRenderFeature.h>
 #include <OvCore/Rendering/EngineDrawableDescriptor.h>
 #include <OvCore/Rendering/FrameBuilder.h>
+#include <OvCore/Rendering/ParticleRenderFeature.h>
 #include <OvCore/Rendering/PostProcessRenderPass.h>
 #include <OvCore/Rendering/ReflectionRenderFeature.h>
 #include <OvCore/Rendering/ReflectionRenderPass.h>
@@ -247,6 +248,7 @@ OvCore::Rendering::SceneRenderer::SceneRenderer(OvRendering::Context::Driver& p_
 	AddFeature<EngineBufferRenderFeature, ALWAYS>();
 	AddFeature<LightingRenderFeature, ALWAYS>();
 	AddFeature<SkinningRenderFeature, ALWAYS>();
+	AddFeature<ParticleRenderFeature, ALWAYS>();
 
 	AddFeature<ReflectionRenderFeature, WHITELIST_ONLY>()
 		.Include<OpaqueRenderPass>()

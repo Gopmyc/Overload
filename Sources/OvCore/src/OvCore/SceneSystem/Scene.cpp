@@ -165,6 +165,21 @@ void OvCore::SceneSystem::Scene::LateUpdate(float p_deltaTime)
 	LateUpdateEvent.Invoke(p_deltaTime);
 
 	UpdateBoneAttachments();
+	UpdateParticleSystems(p_deltaTime);
+}
+
+void OvCore::SceneSystem::Scene::UpdateParticleSystems(float p_deltaTime)
+{
+	ZoneScoped;
+
+	// Simulating adds or removes no component: the list can be walked as it is
+	for (auto particleSystem : m_fastAccessComponents.particleSystems)
+	{
+		if (particleSystem->owner.IsActive())
+		{
+			particleSystem->Simulate(p_deltaTime);
+		}
+	}
 }
 
 void OvCore::SceneSystem::Scene::UpdateBoneAttachments()
@@ -540,6 +555,9 @@ void OvCore::SceneSystem::Scene::OnComponentAdded(ECS::Components::AComponent& p
 
 	if (auto result = dynamic_cast<ECS::Components::CBoneAttachment*>(&p_compononent))
 		m_fastAccessComponents.boneAttachments.push_back(result);
+
+	if (auto result = dynamic_cast<ECS::Components::CParticleSystem*>(&p_compononent))
+		m_fastAccessComponents.particleSystems.push_back(result);
 }
 
 void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent& p_compononent)
@@ -561,6 +579,9 @@ void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent&
 
 	if (auto result = dynamic_cast<ECS::Components::CBoneAttachment*>(&p_compononent))
 		m_fastAccessComponents.boneAttachments.erase(std::remove(m_fastAccessComponents.boneAttachments.begin(), m_fastAccessComponents.boneAttachments.end(), result), m_fastAccessComponents.boneAttachments.end());
+
+	if (auto result = dynamic_cast<ECS::Components::CParticleSystem*>(&p_compononent))
+		m_fastAccessComponents.particleSystems.erase(std::remove(m_fastAccessComponents.particleSystems.begin(), m_fastAccessComponents.particleSystems.end(), result), m_fastAccessComponents.particleSystems.end());
 }
 
 std::vector<OvCore::ECS::Actor*>& OvCore::SceneSystem::Scene::GetActors()

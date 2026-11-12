@@ -1,0 +1,26 @@
+#pass SHADOW_PASS
+
+// Models as particles: Standard, lit, each instance placed as one of its particle system's particles. The in-game
+// checks draw cubes with it, and Docs/Particles.md shows it as the example
+
+#shader vertex
+#version 450 core
+
+#define STANDARD_VERTEX
+#include ":Shaders/Standard/StandardVertex.ovfxh"
+#include ":Shaders/Common/Particles.ovfxh"
+
+void StandardVertex(inout vec3 worldPosition, inout vec3 worldNormal, vec2 texCoords)
+{
+    // The engine draws a particle system's models with an identity model matrix: the vertex is the model's own
+    const mat4 placement = ParticleModelMatrix(ParticleAt(gl_InstanceID));
+    worldPosition = (placement * vec4(worldPosition, 1.0)).xyz;
+
+    const vec3 normal = mat3(placement) * worldNormal;
+    worldNormal = dot(normal, normal) > 0.0 ? normalize(normal) : worldNormal;
+}
+
+#shader fragment
+#version 450 core
+
+#include ":Shaders/Standard/StandardFragment.ovfxh"

@@ -18,6 +18,7 @@
 #include <OvCore/ECS/Components/CCamera.h>
 #include <OvCore/ECS/Components/CLight.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
+#include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
 #include <OvTools/Eventing/Event.h>
@@ -43,6 +44,7 @@ namespace OvCore::SceneSystem
 			std::vector<ECS::Components::CPostProcessStack*> postProcessStacks;
 			std::vector<ECS::Components::CReflectionProbe*> reflectionProbes;
 			std::vector<ECS::Components::CBoneAttachment*> boneAttachments;
+			std::vector<ECS::Components::CParticleSystem*> particleSystems;
 		};
 
 		/**
@@ -132,6 +134,12 @@ namespace OvCore::SceneSystem
 		* has run.
 		*/
 		void UpdateBoneAttachments();
+
+		/**
+		* Moves every particle system's clock on, once the actors are where the frame leaves them
+		* @param p_deltaTime
+		*/
+		void UpdateParticleSystems(float p_deltaTime);
 
 		/**
 		* Create an actor with a default name and return a reference to it.

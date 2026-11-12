@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <limits>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -29,6 +30,7 @@
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>  
 #include <OvCore/ECS/Components/CPhysicalHeightField.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>  
+#include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CPointLight.h>  
 #include <OvCore/ECS/Components/CPostProcessStack.h>  
 #include <OvCore/ECS/Components/CReflectionProbe.h>  
@@ -46,6 +48,59 @@
 
 namespace
 {
+	using OvCore::ECS::Components::CParticleSystem;
+	using OvCore::Particles::ParticleSettings;
+
+	// A setting of a particle system, read from and written to a copy of its settings
+	template<typename F>
+	void ChangeParticleSettings(CParticleSystem& p_system, F&& p_change)
+	{
+		ParticleSettings settings = p_system.GetSettings();
+		p_change(settings);
+		p_system.SetSettings(settings);
+	}
+
+	uint32_t ToParticleCount(double p_count, const char* p_function)
+	{
+		if (!std::isfinite(p_count) || p_count < 0.0 || std::floor(p_count) != p_count || p_count > ParticleSettings::kMaxParticles)
+		{
+			throw sol::error(std::format("ParticleSystem:{} takes a whole number from 0 to {}", p_function, ParticleSettings::kMaxParticles));
+		}
+
+		return static_cast<uint32_t>(p_count);
+	}
+
+	// The overrides of ParticleSystem:Emit, from a table: a key it does not know raises an error, a misspelt key
+	// would otherwise be silently dropped
+	OvCore::Particles::ParticleOverrides ToParticleOverrides(const sol::table& p_table)
+	{
+		OvCore::Particles::ParticleOverrides overrides;
+
+		for (const auto& [key, value] : p_table)
+		{
+			const auto name = key.is<std::string>() ? key.as<std::string>() : std::string{};
+
+			const auto expect = [&]<typename T>(const char* p_type) -> T
+			{
+				if (!value.is<T>())
+				{
+					throw sol::error(std::format("ParticleSystem:Emit: '{}' must be a {}", name, p_type));
+				}
+				return value.as<T>();
+			};
+
+			if (name == "position") overrides.position = expect.operator()<OvMaths::FVector3>("Vector3");
+			else if (name == "direction") overrides.direction = expect.operator()<OvMaths::FVector3>("Vector3");
+			else if (name == "color") overrides.color = expect.operator()<OvMaths::FVector4>("Vector4");
+			else if (name == "speed") overrides.speed = expect.operator()<float>("number");
+			else if (name == "size") overrides.size = expect.operator()<float>("number");
+			else if (name == "lifetime") overrides.lifetime = expect.operator()<float>("number");
+			else throw sol::error(std::format("ParticleSystem:Emit: unknown override '{}' (position, direction, color, speed, size, lifetime)", name));
+		}
+
+		return overrides;
+	}
+
 	constexpr uint32_t kMinimumHeightFieldSampleCount = 3;
 	constexpr uint32_t kMaximumHeightFieldSampleCount = 4096;
 
@@ -803,11 +858,116 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetCubemap", &CReflectionProbe::GetCubemap
 	);
 
+	p_luaState.new_enum<OvCore::Particles::EParticleShape>("ParticleShape", {
+		{ "POINT", OvCore::Particles::EParticleShape::POINT },
+		{ "SPHERE", OvCore::Particles::EParticleShape::SPHERE },
+		{ "HEMISPHERE", OvCore::Particles::EParticleShape::HEMISPHERE },
+		{ "CONE", OvCore::Particles::EParticleShape::CONE },
+		{ "BOX", OvCore::Particles::EParticleShape::BOX }
+	});
+
+	p_luaState.new_enum<OvCore::Particles::EParticleSpace>("ParticleSpace", {
+		{ "WORLD", OvCore::Particles::EParticleSpace::WORLD },
+		{ "LOCAL", OvCore::Particles::EParticleSpace::LOCAL }
+	});
+
+	p_luaState.new_usertype<CParticleSystem>("ParticleSystem",
+		sol::base_classes, sol::bases<AComponent>(),
+		"Play", &CParticleSystem::Play,
+		"Stop", &CParticleSystem::Stop,
+		"Clear", &CParticleSystem::Clear,
+		"IsPlaying", &CParticleSystem::IsPlaying,
+		"GetAliveCount", &CParticleSystem::GetAliveCount,
+		"Emit", [](CParticleSystem& p_this, double p_count, sol::optional<sol::table> p_overrides) {
+			const uint32_t count = ToParticleCount(p_count, "Emit");
+			return p_this.Emit(count, p_overrides ? ToParticleOverrides(*p_overrides) : OvCore::Particles::ParticleOverrides{});
+		},
+		"GetModel", &CParticleSystem::GetModel,
+		"SetModel", [](CParticleSystem& p_this, OvRendering::Resources::Model* p_model) { p_this.SetModel(p_model); },
+		"GetMaterial", &CParticleSystem::GetMaterial,
+		"SetMaterial", [](CParticleSystem& p_this, OvCore::Resources::Material* p_material) { p_this.SetMaterial(p_material); },
+		"GetMaxParticles", [](CParticleSystem& p_this) { return p_this.GetSettings().maxParticles; },
+		"SetMaxParticles", [](CParticleSystem& p_this, double p_count) {
+			const uint32_t count = ToParticleCount(p_count, "SetMaxParticles");
+			ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.maxParticles = count; });
+		},
+		"GetRate", [](CParticleSystem& p_this) { return p_this.GetSettings().rate; },
+		"SetRate", [](CParticleSystem& p_this, float p_rate) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.rate = p_rate; }); },
+		"GetBursts", [](CParticleSystem& p_this, sol::this_state p_state) {
+			sol::state_view lua(p_state);
+			sol::table bursts = lua.create_table();
+			for (const auto& burst : p_this.GetSettings().bursts)
+			{
+				bursts.add(lua.create_table_with("time", burst.time, "count", burst.count));
+			}
+			return bursts;
+		},
+		"SetBursts", [](CParticleSystem& p_this, sol::table p_bursts) {
+			std::vector<OvCore::Particles::ParticleBurst> bursts;
+			for (size_t i = 1; i <= p_bursts.size(); ++i)
+			{
+				const sol::optional<sol::table> entry = p_bursts[i];
+				const sol::optional<float> time = entry ? (*entry)["time"] : sol::optional<float>{};
+				const sol::optional<double> count = entry ? (*entry)["count"] : sol::optional<double>{};
+				if (!time || !count)
+				{
+					throw sol::error(std::format("ParticleSystem:SetBursts: burst {} must be a table {{ time = seconds, count = particles }}", i));
+				}
+				bursts.push_back({ *time, ToParticleCount(*count, "SetBursts") });
+			}
+			ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.bursts = std::move(bursts); });
+		},
+		"GetDuration", [](CParticleSystem& p_this) { return p_this.GetSettings().duration; },
+		"SetDuration", [](CParticleSystem& p_this, float p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.duration = p_value; }); },
+		"IsLooping", [](CParticleSystem& p_this) { return p_this.GetSettings().looping; },
+		"SetLooping", [](CParticleSystem& p_this, bool p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.looping = p_value; }); },
+		"GetPlayOnStart", [](CParticleSystem& p_this) { return p_this.GetSettings().playOnStart; },
+		"SetPlayOnStart", [](CParticleSystem& p_this, bool p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.playOnStart = p_value; }); },
+		"GetLifetime", [](CParticleSystem& p_this) { return std::make_tuple(p_this.GetSettings().lifetimeMin, p_this.GetSettings().lifetimeMax); },
+		"SetLifetime", [](CParticleSystem& p_this, float p_min, sol::optional<float> p_max) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.lifetimeMin = p_min; s.lifetimeMax = p_max.value_or(p_min); }); },
+		"GetSpeed", [](CParticleSystem& p_this) { return std::make_tuple(p_this.GetSettings().speedMin, p_this.GetSettings().speedMax); },
+		"SetSpeed", [](CParticleSystem& p_this, float p_min, sol::optional<float> p_max) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.speedMin = p_min; s.speedMax = p_max.value_or(p_min); }); },
+		"GetShape", [](CParticleSystem& p_this) { return p_this.GetSettings().shape; },
+		"SetShape", [](CParticleSystem& p_this, OvCore::Particles::EParticleShape p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.shape = p_value; }); },
+		"GetShapeRadius", [](CParticleSystem& p_this) { return p_this.GetSettings().shapeRadius; },
+		"SetShapeRadius", [](CParticleSystem& p_this, float p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.shapeRadius = p_value; }); },
+		"GetShapeAngle", [](CParticleSystem& p_this) { return p_this.GetSettings().shapeAngle; },
+		"SetShapeAngle", [](CParticleSystem& p_this, float p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.shapeAngle = p_value; }); },
+		"GetShapeSize", [](CParticleSystem& p_this) { return p_this.GetSettings().shapeSize; },
+		"SetShapeSize", [](CParticleSystem& p_this, const OvMaths::FVector3& p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.shapeSize = p_value; }); },
+		"GetGravity", [](CParticleSystem& p_this) { return p_this.GetSettings().gravity; },
+		"SetGravity", [](CParticleSystem& p_this, const OvMaths::FVector3& p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.gravity = p_value; }); },
+		"GetDrag", [](CParticleSystem& p_this) { return p_this.GetSettings().drag; },
+		"SetDrag", [](CParticleSystem& p_this, float p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.drag = p_value; }); },
+		"GetSize", [](CParticleSystem& p_this) { return std::make_tuple(p_this.GetSettings().sizeStart, p_this.GetSettings().sizeEnd); },
+		"SetSize", [](CParticleSystem& p_this, float p_start, sol::optional<float> p_end) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.sizeStart = p_start; s.sizeEnd = p_end.value_or(p_start); }); },
+		"GetColor", [](CParticleSystem& p_this) { return std::make_tuple(p_this.GetSettings().colorStart, p_this.GetSettings().colorEnd); },
+		"SetColor", [](CParticleSystem& p_this, const OvMaths::FVector4& p_start, sol::optional<OvMaths::FVector4> p_end) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.colorStart = p_start; s.colorEnd = p_end.value_or(p_start); }); },
+		"GetFade", [](CParticleSystem& p_this) { return std::make_tuple(p_this.GetSettings().fadeIn, p_this.GetSettings().fadeOut); },
+		"SetFade", [](CParticleSystem& p_this, float p_in, float p_out) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.fadeIn = p_in; s.fadeOut = p_out; }); },
+		"GetSpin", [](CParticleSystem& p_this) { return std::make_tuple(p_this.GetSettings().spinMin, p_this.GetSettings().spinMax); },
+		"SetSpin", [](CParticleSystem& p_this, float p_min, sol::optional<float> p_max) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.spinMin = p_min; s.spinMax = p_max.value_or(p_min); }); },
+		"HasRandomRotation", [](CParticleSystem& p_this) { return p_this.GetSettings().randomRotation; },
+		"SetRandomRotation", [](CParticleSystem& p_this, bool p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.randomRotation = p_value; }); },
+		"GetSpace", [](CParticleSystem& p_this) { return p_this.GetSettings().space; },
+		"SetSpace", [](CParticleSystem& p_this, OvCore::Particles::EParticleSpace p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.space = p_value; }); },
+		"IsUnscaled", [](CParticleSystem& p_this) { return p_this.GetSettings().unscaled; },
+		"SetUnscaled", [](CParticleSystem& p_this, bool p_value) { ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.unscaled = p_value; }); },
+		"GetSeed", [](CParticleSystem& p_this) { return p_this.GetSettings().seed; },
+		"SetSeed", [](CParticleSystem& p_this, double p_seed) {
+			if (!std::isfinite(p_seed) || p_seed < 0.0 || std::floor(p_seed) != p_seed || p_seed > std::numeric_limits<uint32_t>::max())
+			{
+				throw sol::error("ParticleSystem:SetSeed takes a whole number from 0 to 4294967295");
+			}
+			ChangeParticleSettings(p_this, [&](ParticleSettings& s) { s.seed = static_cast<uint32_t>(p_seed); });
+		}
+	);
+
 	OvCore::Scripting::MarkComponentUsertypes<
 		AComponent, CTransform, CModelRenderer, CMaterialRenderer, CBoneAttachment, CSkinnedMeshRenderer,
 		CPhysicalObject, CPhysicalBox, CPhysicalSphere, CPhysicalCapsule, CPhysicalHeightField, CCharacterController,
 		CCamera, UI::CCanvas, UI::CImage, UI::CLayoutGroup, UI::CHorizontalLayout, UI::CVerticalLayout, UI::CText,
 		CLight, CPointLight, CSpotLight, CAmbientBoxLight, CAmbientSphereLight, CDirectionalLight,
-		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe
+		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe, CParticleSystem
 	>(p_luaState.lua_state());
 }
