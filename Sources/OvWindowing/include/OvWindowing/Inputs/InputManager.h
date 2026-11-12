@@ -11,6 +11,7 @@
 #include <unordered_set>
 
 #include <OvWindowing/Inputs/Gamepads.h>
+#include <OvWindowing/Inputs/TypedInput.h>
 #include <OvWindowing/Inputs/EMouseButton.h>
 #include <OvWindowing/Inputs/EMouseButtonState.h>
 #include <OvWindowing/Inputs/EKey.h>
@@ -91,6 +92,12 @@ namespace OvWindowing::Inputs
 		std::pair<double, double> GetMouseScroll() const;
 
 		/**
+		* Returns what the keyboard typed during the frame: characters in UTF-8, and the system's repetitions of keys
+		* held down
+		*/
+		const TypedInput& GetTypedInput() const;
+
+		/**
 		* Clear any event occured
 		* @note Should be called at the end of every game tick
 		*/
@@ -120,6 +127,8 @@ namespace OvWindowing::Inputs
 		void OnMouseButtonPressed(int p_button);
 		void OnMouseButtonReleased(int p_button);
 		void OnMouseScroll(double p_xOffset, double p_yOffset);
+		void OnKeyRepeated(int p_key);
+		void OnCharacter(uint32_t p_codePoint);
 
 	private:
 		Window& m_window;
@@ -129,6 +138,8 @@ namespace OvWindowing::Inputs
 		OvTools::Eventing::ListenerID m_mouseButtonPressedListener;
 		OvTools::Eventing::ListenerID m_mouseButtonReleasedListener;
 		OvTools::Eventing::ListenerID m_mouseScrollListener;
+		OvTools::Eventing::ListenerID m_keyRepeatedListener;
+		OvTools::Eventing::ListenerID m_characterListener;
 
 		std::unordered_set<EKey> m_keyPressed;
 		std::unordered_set<EKey> m_keyReleased;
@@ -139,6 +150,7 @@ namespace OvWindowing::Inputs
 		std::pair<double, double> m_scrollData;
 
 		Gamepads m_gamepads;
+		TypedInput m_typedInput;
 
 		mutable std::optional<std::pair<double, double>> m_mousePosition;
 		mutable Cursor::ECursorMode m_mousePositionMode = Cursor::ECursorMode::NORMAL;

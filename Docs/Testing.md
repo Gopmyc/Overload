@@ -26,6 +26,7 @@ It covers:
 | Lua Json, Lua Storage | The bindings in a bare Lua state: round trips, refused values, the project's limits, the sandbox |
 | Project settings | Layer names and ignored pairs, the save folder's name, the runtime limits and their ranges |
 | Physics layers, queries, engine | Layers by name, bodies that go through each other, casts and overlaps on a column of boxes, a second engine |
+| Typed input | Typed characters kept in UTF-8 from one to four bytes, control characters and values that are no character left out, repeats counted per key, a frame forgetting both |
 | Fonts | Basic Latin and Latin-1 baked with an atlas, Cyrillic, Greek and Latin Extended baked on demand and once, a character the font lacks, an atlas that grows without moving its glyphs, UTF-8 decoding, a font that is no font |
 | Json | Values read with their members' order, escapes beyond the first plane, errors with their line and column, nesting, a value written then read back |
 | Input actions | Every input's name and the Lua enum Key, the actions file and its mistakes, actions pressed, held and released over frames, a tap within a frame, a stick's way and a trigger, the input pressed in a frame, swaps, resets, bindings saved and read back |
@@ -75,6 +76,7 @@ temporary folder.
 | `Shaders` | Every engine shader loads, all its variants compiled; a shader built on `Standard`'s four extension points draws; the fog option on `Standard` and `Unlit` |
 | `Gamepad` | The gamepad API from Lua with no pad connected: the enums, every read false or 0, pads out of range, the dead zone and its range |
 | `InputActions` | The project's actions from Lua: their order and bindings, rebinding with its swaps and refusals, resets, the bindings saved in the save folder, the labels a menu shows |
+| `UIInput` | The UI library with the engine's input: the controller updating itself once a frame and older manual `Update` calls ignored; the keyboard captured while a text entry has the focus, freed when it loses it, when consumption is off and when its controller goes, across two controllers; a text entry editing UTF-8 characters and refusing those `AllowInput` refuses |
 | `Text` | UTF-8 text from Lua: Cyrillic and Greek drawn with their own glyphs, a character the font lacks and a broken byte, measured by `GetContentSize`; it also draws them, for a screenshot (`--frames 4 --screenshot`) |
 | `InputConsumption` | Consuming from Lua with no device held: the calls and their refusals, the reads that see what is consumed, the keyboard captured from an `Events.AddUpdate` callback before the Behaviours, across frames |
 | `Interpolation` | Two boxes falling side by side, one interpolated from the scene file: the same physics in the fixed update, the interpolated one between its last two steps on every frame, a teleport from a script |

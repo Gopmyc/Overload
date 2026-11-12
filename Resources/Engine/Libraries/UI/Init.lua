@@ -12,11 +12,11 @@
 ---     button.DoClick = function() Debug.Log("Play") end
 --- end
 ---
---- function Menu:OnUpdate(deltaTime)
----     self.ui:Update(deltaTime)
---- end
----
 --- function Menu:OnDestroy() if self.ui then self.ui:Destroy() end end
+---
+--- The controller updates itself every frame, after every Behaviour's OnLateUpdate, and keeps from
+--- gameplay the clicks, the wheel and the keys it takes, before any Behaviour reads them
+--- (controller:SetConsumesInput(false) lets them through).
 ---
 --- A canvas can be a plane of the 3D world, in perspective and hidden by what stands in front of it
 --- (see Docs/WorldSpace.md):

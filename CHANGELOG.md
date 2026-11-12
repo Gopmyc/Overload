@@ -80,9 +80,19 @@ later version of the same major version.
 - **Text beyond Latin-1**: a font bakes any character it has the first time a text needs it (Greek and Cyrillic in
   Roboto), its atlas growing up to 4096 pixels a side; a character it lacks is still drawn as `?`.
   `Text:GetContentSize()` measures a text. The Lua API is now 1.7. See [Docs/Rendering.md](Docs/Rendering.md).
+- **Typed text**: `Inputs.GetTypedText()` gives the characters typed during the frame, in UTF-8, as the keyboard's
+  layout makes them (accents, dead keys, AltGr), and `Inputs.GetKeyRepeatCount(key)` the system's repeats of a key held
+  down. The Lua API is now 1.8. See [Docs/Input.md](Docs/Input.md).
+- **The UI library takes its input**: `DTextEntry` takes the characters typed, any the font has, instead of a US
+  layout guessed from the keys, and repeats at the system's rate. The controller keeps from gameplay a click that
+  lands on a panel, the wheel over a panel, and the keyboard while a panel has the focus (`SetConsumesInput(false)`
+  lets them through). It updates itself, after every `OnLateUpdate`.
 
 ### Changed
 
+- **The UI controller updates itself**: a `controller:Update(deltaTime)` from a Behaviour now changes nothing after
+  the frame the controller is created in, and can be removed. Panel callbacks run after every `OnLateUpdate`; a
+  gameplay script that read clicks meant for the UI no longer sees them.
 - **Text texture coordinates are in atlas pixels**: a custom text shader divides them by
   `textureSize(u_FontAtlas, 0)`, as `Text.ovfx` does, so that a growing atlas moves no glyph.
 - **No audio device is a warning**: the audio engine logs a warning, no longer an error, when it cannot open a

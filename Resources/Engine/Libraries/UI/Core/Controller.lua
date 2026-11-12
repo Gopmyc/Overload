@@ -8,14 +8,29 @@ local WorldSpace = Resources.GetScript(":Libraries/UI/Core/WorldSpace.lua")
 Resources.GetScript(":Libraries/UI/Panels/Panel.lua")
 
 --- Owns a canvas and the panels created on it. Dispatches inputs and runs the think, layout and
---- paint passes. Must be updated every frame from a Behaviour, e.g. in OnUpdate.
+--- paint passes. It updates itself every frame, after every Behaviour's OnLateUpdate (once the camera
+--- has moved), and keeps from gameplay the input it takes, before any Behaviour reads it (see
+--- SetConsumesInput).
 ---@class UIController
 local Controller = {}
 Controller.__index = Controller
 
-local kRepeatDelay = 0.4
-local kRepeatInterval = 0.05
 local kMaxLayoutPasses = 4
+
+-- The names Inputs.Consume gives the mouse buttons the controller reads
+local kMouseButtonInputs = {
+	[MouseButton.BUTTON_LEFT] = "MOUSE_LEFT",
+	[MouseButton.BUTTON_RIGHT] = "MOUSE_RIGHT",
+	[MouseButton.BUTTON_MIDDLE] = "MOUSE_MIDDLE"
+}
+
+-- The controllers whose focused panel takes the keyboard: it stays captured while any does
+local keyboardCapturers = {}
+
+local function UpdateKeyboardCapture(self)
+	keyboardCapturers[self] = (self.m_ConsumesInput and self.m_Focused ~= nil) or nil
+	Inputs.SetKeyboardCaptured(next(keyboardCapturers) ~= nil)
+end
 
 local function IsInSubtree(panel, root)
 	while panel do
@@ -338,12 +353,8 @@ local function ReleaseMouseButton(self, button)
 	end
 end
 
-local function UpdateMouse(self)
-	if not self.m_ViewportVisible then
-		SetHoveredPanel(self, nil)
-		return
-	end
-
+-- Returns the cursor in canvas space, and whether it is over the canvas, seen through the world view
+local function LocateCursor(self)
 	local mouse = Inputs.GetMousePos()
 	local x, y, inside
 
@@ -356,9 +367,6 @@ local function UpdateMouse(self)
 
 		if view then
 			x, y, front = RayToCanvas(self, view, mouse.x, mouse.y)
-		elseif not self.m_CameraWarningLogged then
-			Debug.LogWarning("UI: a world space canvas can't be hovered until controller:SetCamera is called")
-			self.m_CameraWarningLogged = true
 		end
 
 		-- A ray missing the plane keeps the cursor where it was, so a drag doesn't jump
@@ -373,6 +381,21 @@ local function UpdateMouse(self)
 		inside = inViewport
 	end
 
+	return x, y, inside
+end
+
+local function UpdateMouse(self)
+	if not self.m_ViewportVisible then
+		SetHoveredPanel(self, nil)
+		return
+	end
+
+	if CanvasSpace.IsWorldSpace(self.m_Canvas) and not self.m_WorldView and not self.m_CameraWarningLogged then
+		Debug.LogWarning("UI: a world space canvas can't be hovered until controller:SetCamera is called")
+		self.m_CameraWarningLogged = true
+	end
+
+	local x, y, inside = LocateCursor(self)
 	local moved = x ~= self.m_CursorX or y ~= self.m_CursorY
 	local root = self.m_Root
 
@@ -400,10 +423,10 @@ local function UpdateMouse(self)
 
 	for i = 1, #self.m_MouseButtons do
 		local button = self.m_MouseButtons[i]
-		local pressed, released = Inputs.GetMouseButtonDown(button), Inputs.GetMouseButtonUp(button)
+		local pressed, released = Inputs.GetMouseButtonDown(button, true), Inputs.GetMouseButtonUp(button, true)
 
 		-- Pressed and released within the frame: still held means the release came first
-		if pressed and released and Inputs.GetMouseButton(button) then
+		if pressed and released and Inputs.GetMouseButton(button, true) then
 			ReleaseMouseButton(self, button)
 			PressMouseButton(self, button)
 		else
@@ -417,7 +440,7 @@ local function UpdateMouse(self)
 		end
 	end
 
-	local scroll = Inputs.GetMouseScroll()
+	local scroll = Inputs.GetMouseScroll(true)
 
 	if scroll.y ~= 0 then
 		local panel = self.m_Hovered
@@ -430,13 +453,13 @@ end
 
 -- Returns false when the callback moved or removed the focus
 local function ReleaseKey(self, focused, key)
-	self.m_HeldKeys[key] = nil
 	focused:OnKeyCodeReleased(key)
 
 	return self.m_Focused == focused
 end
 
-local function UpdateKeyboard(self, deltaTime)
+-- The keyboard is captured while a panel has the focus: every read sees through the capture
+local function UpdateKeyboard(self)
 	local focused = self.m_Focused
 
 	if not focused then
@@ -447,11 +470,10 @@ local function UpdateKeyboard(self, deltaTime)
 
 	for i = 1, #keys do
 		local key = keys[i]
-		local down, up = Inputs.GetKeyDown(key), Inputs.GetKeyUp(key)
-		local pressed = false
+		local down, up = Inputs.GetKeyDown(key, true), Inputs.GetKeyUp(key, true)
 
 		-- Pressed and released within the frame: still held means the release came first
-		if down and up and Inputs.GetKey(key) then
+		if down and up and Inputs.GetKey(key, true) then
 			if not ReleaseKey(self, focused, key) then
 				return
 			end
@@ -459,21 +481,11 @@ local function UpdateKeyboard(self, deltaTime)
 			up = false
 		end
 
-		if down then
-			self.m_HeldKeys[key] = kRepeatDelay
-			pressed = true
-		elseif self.m_HeldKeys[key] then
-			if Inputs.GetKey(key) then
-				local remaining = self.m_HeldKeys[key] - deltaTime
-				pressed = remaining <= 0
-				self.m_HeldKeys[key] = pressed and kRepeatInterval or remaining
-			else
-				self.m_HeldKeys[key] = nil
-			end
-		end
+		-- A key held down repeats at the system's delay and rate
+		local presses = (down and 1 or 0) + Inputs.GetKeyRepeatCount(key, true)
 
 		-- A callback moving or removing the focus stops the dispatch for this frame
-		if pressed then
+		for _ = 1, presses do
 			focused:OnKeyCodePressed(key)
 
 			if self.m_Focused ~= focused then
@@ -484,6 +496,46 @@ local function UpdateKeyboard(self, deltaTime)
 		if up and not ReleaseKey(self, focused, key) then
 			return
 		end
+	end
+
+	-- The characters typed, as the keyboard's layout and the system's input method make them
+	local text = Inputs.GetTypedText(true)
+
+	if text ~= "" then
+		for _, codePoint in utf8.codes(text) do
+			focused:OnTextTyped(utf8.char(codePoint))
+
+			if self.m_Focused ~= focused then
+				return
+			end
+		end
+	end
+end
+
+-- Before every Behaviour, so that gameplay never reads them: a click that lands on a panel, until it is
+-- released, and the wheel over a panel. The panels are where the last update placed them, as drawn
+local function ConsumeInput(self)
+	local root = self.m_Root
+
+	if not self.m_ConsumesInput or not root or not self.m_ViewportVisible or not self.m_CanvasActor:IsAlive() then
+		return
+	end
+
+	local x, y, inside = LocateCursor(self)
+
+	-- A disabled panel blocks the cursor (false): what lands on it is the UI's too
+	if not inside or HitTest(root, root:ParentToLocal(x, y)) == nil then
+		return
+	end
+
+	for button, input in pairs(kMouseButtonInputs) do
+		if Inputs.GetMouseButtonDown(button, true) then
+			Inputs.Consume(input)
+		end
+	end
+
+	if Inputs.GetMouseScroll(true).y ~= 0 then
+		Inputs.ConsumeMouseScroll()
 	end
 end
 
@@ -512,16 +564,58 @@ end
 local function Release(self)
 	ResetCursorShape(self)
 
+	if self.m_UpdateCallback then
+		Events.Remove(self.m_UpdateCallback)
+		Events.Remove(self.m_ConsumeCallback)
+		self.m_UpdateCallback = nil
+		self.m_ConsumeCallback = nil
+	end
+
 	self.m_Root = nil
 	self.m_Hovered = nil
 	self.m_Focused = nil
+	UpdateKeyboardCapture(self)
 	self.m_Pressed = {}
-	self.m_HeldKeys = {}
 	self.m_CanvasActor = nil
 	self.m_Canvas = nil
 	self.m_Camera = nil
 	self.m_WorldView = nil
 	self.m_CanvasFrame = nil
+end
+
+-- Processes inputs, then runs Think, PerformLayout and Paint on the panels that need it
+local function UpdateFrame(self, deltaTime)
+	local root = self.m_Root
+
+	if not root then
+		return
+	end
+
+	if not self.m_CanvasActor:IsAlive() then
+		Debug.LogWarning("UI: the canvas actor was destroyed without calling controller:Destroy(), its panels are discarded")
+		root:Discard()
+		Release(self)
+		return
+	end
+
+	UpdateViewportSize(self)
+	UpdateRootSize(self)
+	self.m_CanvasFrame = nil
+	self.m_WorldView = CreateWorldView(self)
+	UpdateWorld(self, root, self.m_WorldView, deltaTime)
+	UpdateMouse(self)
+	UpdateKeyboard(self)
+	Think(root, deltaTime)
+
+	for _ = 1, kMaxLayoutPasses do
+		if not Layout(root) then
+			break
+		end
+	end
+
+	PlaceInWorld(self, root, deltaTime)
+	Paint(root)
+	UpdateCursorShape(self)
 end
 
 --- Creates a controller on the given actor Canvas, or on a new canvas actor owned by the controller
@@ -544,12 +638,20 @@ function Controller.New(canvasActor)
 	self.m_MouseButtons = { MouseButton.BUTTON_LEFT, MouseButton.BUTTON_RIGHT, MouseButton.BUTTON_MIDDLE }
 	self.m_CursorX, self.m_CursorY = 0, 0
 	self.m_Pressed = {}
-	self.m_HeldKeys = {}
+	self.m_ConsumesInput = true
 	self.m_GeometryVersion = 0 -- Stamps the changes of a panel's geometry (see DModelPanel:IsPlacementStale)
 	self.m_Root = Registry.Create(self, "Panel", nil)
 	self.m_Root:SetMouseInputEnabled(false)
 	UpdateViewportSize(self)
 	UpdateRootSize(self)
+
+	-- What the UI takes is consumed before gameplay reads it; the panels are updated after every
+	-- OnLateUpdate, once the camera has moved
+	self.m_ConsumeCallback = Events.AddUpdate(function() ConsumeInput(self) end)
+	self.m_UpdateCallback = Events.AddLateUpdate(function(deltaTime)
+		self.m_UpdatesItself = true
+		UpdateFrame(self, deltaTime)
+	end)
 
 	return self
 end
@@ -561,40 +663,15 @@ function Controller:GetViewportSize()
 	return self.m_ViewportWidth, self.m_ViewportHeight
 end
 
---- Processes inputs, then runs Think, PerformLayout and Paint on the panels that need it
+--- Processes inputs, then runs Think, PerformLayout and Paint on the panels that need it. The
+--- controller does it itself every frame, after every Behaviour's OnLateUpdate: a call from a
+--- Behaviour only counts until then, in the frame the controller is created, so code written for
+--- older versions keeps working.
 ---@param deltaTime number
 function Controller:Update(deltaTime)
-	local root = self.m_Root
-
-	if not root then
-		return
+	if not self.m_UpdatesItself then
+		UpdateFrame(self, deltaTime)
 	end
-
-	if not self.m_CanvasActor:IsAlive() then
-		Debug.LogWarning("UI: the canvas actor was destroyed without calling controller:Destroy(), its panels are discarded")
-		root:Discard()
-		Release(self)
-		return
-	end
-
-	UpdateViewportSize(self)
-	UpdateRootSize(self)
-	self.m_CanvasFrame = nil
-	self.m_WorldView = CreateWorldView(self)
-	UpdateWorld(self, root, self.m_WorldView, deltaTime)
-	UpdateMouse(self)
-	UpdateKeyboard(self, deltaTime)
-	Think(root, deltaTime)
-
-	for _ = 1, kMaxLayoutPasses do
-		if not Layout(root) then
-			break
-		end
-	end
-
-	PlaceInWorld(self, root, deltaTime)
-	Paint(root)
-	UpdateCursorShape(self)
 end
 
 --- Defines the camera used to place panels in the 3D world, usually the camera rendering the scene.
@@ -805,7 +882,7 @@ function Controller:SetFocusedPanel(panel)
 	end
 
 	self.m_Focused = panel
-	self.m_HeldKeys = {}
+	UpdateKeyboardCapture(self)
 
 	if previous and previous:IsValid() then
 		previous:InvalidatePaint()
@@ -816,6 +893,20 @@ function Controller:SetFocusedPanel(panel)
 		panel:InvalidatePaint()
 		panel:OnFocusChanged(true)
 	end
+end
+
+--- Defines whether the controller keeps from gameplay the input it takes, true by default: a click
+--- that lands on a panel (until it is released), the wheel over a panel, and the whole keyboard
+--- while a panel has the keyboard focus (see Inputs.Consume and Inputs.SetKeyboardCaptured)
+---@param consumes boolean
+function Controller:SetConsumesInput(consumes)
+	self.m_ConsumesInput = consumes and true or false
+	UpdateKeyboardCapture(self)
+end
+
+---@return boolean
+function Controller:GetConsumesInput()
+	return self.m_ConsumesInput
 end
 
 --- Clears the hover, focus and mouse capture held by the panel or one of its children

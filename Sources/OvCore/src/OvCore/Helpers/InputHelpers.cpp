@@ -353,6 +353,31 @@ bool OvCore::Helpers::InputHelpers::GetKeyUp(EKey p_key, bool p_includeConsumed)
 	return (__RELEASED_KEYS.contains(p_key) && !hidden) || ReleasedByConsumption(KeyInput(p_key), 0, p_includeConsumed) || (__GAME_INPUT_OPEN && !__IGNORED_KEYS.contains(p_key) && !hidden && Manager().IsKeyReleased(p_key));
 }
 
+int OvCore::Helpers::InputHelpers::GetKeyRepeatCount(EKey p_key, bool p_includeConsumed)
+{
+	const bool visible = __GAME_INPUT_OPEN && !__IGNORED_KEYS.contains(p_key) && !Hidden(KeyInput(p_key), 0, p_includeConsumed);
+	return visible ? Manager().GetTypedInput().GetRepeatCount(p_key) : 0;
+}
+
+std::string OvCore::Helpers::InputHelpers::GetTypedText(bool p_includeConsumed)
+{
+	if (!__GAME_INPUT_OPEN || (!p_includeConsumed && __CONSUMPTION.IsKeyboardCaptured()))
+	{
+		return {};
+	}
+
+	// A printable key held when the gate opened repeats its character for the system: the text waits until it is up
+	for (const EKey key : __IGNORED_KEYS)
+	{
+		if (key == EKey::KEY_SPACE || !Manager().GetKeyName(key).empty())
+		{
+			return {};
+		}
+	}
+
+	return Manager().GetTypedInput().GetText();
+}
+
 bool OvCore::Helpers::InputHelpers::GetMouseButton(EMouseButton p_button, bool p_includeConsumed)
 {
 	return __GAME_INPUT_OPEN && !__IGNORED_BUTTONS.contains(p_button) && !Hidden(MouseInput(p_button), 0, p_includeConsumed) && IsHeld(p_button);

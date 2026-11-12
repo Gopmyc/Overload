@@ -814,6 +814,11 @@ function Panel:OnKeyCodePressed(key) end
 ---@param key Key
 function Panel:OnKeyCodeReleased(key) end
 
+--- Called for each character typed while the panel has the keyboard focus, as the keyboard's
+--- layout and the system's input method make it (an accent, a dead key, AltGr)
+---@param character string (one character, in UTF-8)
+function Panel:OnTextTyped(character) end
+
 function Panel:OnCursorEntered() end
 
 function Panel:OnCursorExited() end

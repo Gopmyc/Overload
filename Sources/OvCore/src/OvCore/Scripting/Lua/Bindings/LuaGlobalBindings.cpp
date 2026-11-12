@@ -561,6 +561,8 @@ void BindLuaGlobal(sol::state& p_luaState)
 		"GetKeyUp", [](EKey p_key, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetKeyUp(p_key, p_includeConsumed.value_or(false)); },
 		"GetKey", [](EKey p_key, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetKey(p_key, p_includeConsumed.value_or(false)); },
 		"GetKeyName", [](EKey p_key) { return OVSERVICE(InputManager).GetKeyName(p_key); },
+		"GetKeyRepeatCount", [](EKey p_key, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetKeyRepeatCount(p_key, p_includeConsumed.value_or(false)); },
+		"GetTypedText", [](sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetTypedText(p_includeConsumed.value_or(false)); },
 		"GetMouseButtonDown", [](EMouseButton p_button, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetMouseButtonDown(p_button, p_includeConsumed.value_or(false)); },
 		"GetMouseButtonUp", [](EMouseButton p_button, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetMouseButtonUp(p_button, p_includeConsumed.value_or(false)); },
 		"GetMouseButton", [](EMouseButton p_button, sol::optional<bool> p_includeConsumed) { return OvCore::Helpers::InputHelpers::GetMouseButton(p_button, p_includeConsumed.value_or(false)); },

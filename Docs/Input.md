@@ -5,6 +5,17 @@
   case, and `""` for the others.
 - Mouse buttons are `MouseButton.BUTTON_LEFT`, `BUTTON_RIGHT`, `BUTTON_MIDDLE`, or `BUTTON_1` to `BUTTON_8`.
 
+## Typed text
+
+- `Inputs.GetTypedText()` gives the characters typed during the frame, in UTF-8, as the keyboard's layout and the
+  system's input method make them: accents, dead keys, AltGr, any script. Most frames it is `""`. A text field reads
+  this, not the keys: `Key` names physical keys, whatever they print.
+- `Inputs.GetKeyRepeatCount(key)` gives how many times the system repeated a key held down during the frame, at the
+  system's delay and rate: what a text field moves its caret or deletes by.
+- In the editor, both follow the Game View's focus as the keys do. While a key that was held when the Game View took
+  the focus stays down, no text is given, so that its repeats do not type into the game.
+- While the keyboard is captured (see below), both read as empty, unless given `includeConsumed = true`.
+
 ## Actions
 
 Gameplay reads actions ("Jump", "Attack") rather than keys, so that the player can rebind them and play with a keyboard,
@@ -78,8 +89,8 @@ A UI keeps from gameplay the input it takes: the click on a button, the keys typ
 - Consume before gameplay reads: in an `Events.AddUpdate` callback, which runs before every Behaviour (see
   [Scripting](Scripting.md)). The actions, read once a frame before the scripts, leave out at once what is consumed.
 - In the editor, each play session starts with nothing consumed and the keyboard free.
-- The engine's UI library does not consume yet: gameplay still checks whether the UI holds the focus before reading
-  input (see the UI library's `EngineLimitations.md`).
+- The engine's UI library consumes what it takes: a click that lands on a panel, the wheel over a panel, and the whole
+  keyboard while a panel has the keyboard focus. `controller:SetConsumesInput(false)` lets them through.
 
 ## Gamepads
 

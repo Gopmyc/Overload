@@ -28,6 +28,8 @@ namespace OvWindowing
 		/* Inputs events */
 		OvTools::Eventing::Event<int> KeyPressedEvent;
 		OvTools::Eventing::Event<int> KeyReleasedEvent;
+		OvTools::Eventing::Event<int> KeyRepeatedEvent;
+		OvTools::Eventing::Event<uint32_t> CharacterEvent;
 		OvTools::Eventing::Event<int> MouseButtonPressedEvent;
 		OvTools::Eventing::Event<int> MouseButtonReleasedEvent;
 		OvTools::Eventing::Event<double, double> MouseScrollEvent;
@@ -301,6 +303,7 @@ namespace OvWindowing
 
 		/* Callbacks binding */
 		void BindKeyCallback() const;
+		void BindCharacterCallback() const;
 		void BindMouseCallback() const;
 		void BindScrollCallback() const;
 		void BindResizeCallback() const;

@@ -1,19 +1,33 @@
 local Array = Resources.GetScript(":Libraries/UI/Core/Array.lua")
-local Keyboard = Resources.GetScript(":Libraries/UI/Core/Keyboard.lua")
 local Registry = Resources.GetScript(":Libraries/UI/Core/Registry.lua")
 local Skin = Resources.GetScript(":Libraries/UI/Core/Skin.lua")
 
 Resources.GetScript(":Libraries/UI/Panels/DLabel.lua")
 
---- Editable single line text field. The caret is rendered as a character inserted in the text, since
---- text can't be measured from Lua (see Docs/LuaExposureGaps.md).
+--- Editable single line text field. It takes the characters the keyboard types, any the font has.
+--- The caret is rendered as a character inserted in the text, since the position of a character
+--- can't be queried from Lua (see Docs/LuaExposureGaps.md).
 ---@class DTextEntry : DLabel
 local DTextEntry = {}
 
 local kCaret = "|"
 
--- The value is stored as a list of characters. Without the string library, a text given to SetText
--- can't be split, so it is kept as a single entry, edited as a whole.
+-- The value is stored as a list of characters, one UTF-8 character each
+local function Split(text)
+	local characters = {}
+
+	-- A text that is not valid UTF-8 can't be split: it is kept as one entry, edited as a whole
+	if not utf8.len(text) then
+		return text == "" and {} or { text }
+	end
+
+	for _, codePoint in utf8.codes(text) do
+		characters[#characters + 1] = utf8.char(codePoint)
+	end
+
+	return characters
+end
+
 local function RebuildValue(self)
 	local text = ""
 
@@ -62,7 +76,7 @@ function DTextEntry:SetText(text)
 		return
 	end
 
-	self.m_Characters = text == "" and {} or { text }
+	self.m_Characters = Split(text)
 	self.m_Caret = #self.m_Characters
 	self.m_Text = text
 	self:RefreshText()
@@ -160,14 +174,15 @@ function DTextEntry:OnKeyCodePressed(key)
 		MoveCaret(self, #self.m_Characters)
 	elseif key == Key.ENTER or key == Key.KP_ENTER then
 		self:OnEnter(self.m_Text)
-	else
-		local character = Keyboard.ToCharacter(key)
+	end
+end
 
-		if character and not self:AllowInput(character) then
-			self.m_Caret = self.m_Caret + 1
-			Array.InsertAt(self.m_Characters, self.m_Caret, character)
-			OnValueEdited(self)
-		end
+---@param character string
+function DTextEntry:OnTextTyped(character)
+	if not self:AllowInput(character) then
+		self.m_Caret = self.m_Caret + 1
+		Array.InsertAt(self.m_Characters, self.m_Caret, character)
+		OnValueEdited(self)
 	end
 end
 
