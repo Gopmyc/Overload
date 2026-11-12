@@ -15,6 +15,7 @@
 #include <OvRendering/Resources/Parsers/EmbeddedAssetPath.h>
 #include <OvTools/Utils/SystemCalls.h>
 
+#include <OvUI/Plugins/DataDispatcher.h>
 #include <OvUI/Styling/Style.h>
 #include <OvUI/Widgets/Buttons/Button.h>
 #include <OvUI/Widgets/Layout/Columns.h>
@@ -317,6 +318,19 @@ void OvEditor::Panels::MaterialEditor::GenerateMaterialSettingsContent()
 	m_materialPipelineStateColumns->RemoveAllWidgets(); // Ensure that the m_materialADvancedSettingsColumns is empty
 
 	GUIDrawer::DrawBoolean(*m_materialPipelineStateColumns, "Blendable", std::bind(&OvCore::Resources::Material::IsBlendable, m_target), std::bind(&OvCore::Resources::Material::SetBlendable, m_target, std::placeholders::_1));
+
+	{
+		GUIDrawer::CreateTitle(*m_materialPipelineStateColumns, "Blend Mode");
+		auto& blendMode = m_materialPipelineStateColumns->CreateWidget<OvUI::Widgets::Selection::ComboBox>(static_cast<int>(m_target->GetBlendMode()));
+		blendMode.choices.emplace(static_cast<int>(OvRendering::Settings::EBlendMode::ALPHA), "Alpha");
+		blendMode.choices.emplace(static_cast<int>(OvRendering::Settings::EBlendMode::ADDITIVE), "Additive");
+		blendMode.choices.emplace(static_cast<int>(OvRendering::Settings::EBlendMode::PREMULTIPLIED), "Premultiplied");
+		auto& dispatcher = blendMode.AddPlugin<OvUI::Plugins::DataDispatcher<int>>();
+		auto* target = m_target;
+		dispatcher.RegisterGatherer([target]() { return static_cast<int>(target->GetBlendMode()); });
+		dispatcher.RegisterProvider([target](int p_choice) { target->SetBlendMode(static_cast<OvRendering::Settings::EBlendMode>(p_choice)); });
+	}
+
 	GUIDrawer::DrawBoolean(*m_materialPipelineStateColumns, "Back-face Culling", std::bind(&OvCore::Resources::Material::HasBackfaceCulling, m_target), std::bind(&OvCore::Resources::Material::SetBackfaceCulling, m_target, std::placeholders::_1));
 	GUIDrawer::DrawBoolean(*m_materialPipelineStateColumns, "Front-face Culling", std::bind(&OvCore::Resources::Material::HasFrontfaceCulling, m_target), std::bind(&OvCore::Resources::Material::SetFrontfaceCulling, m_target, std::placeholders::_1));
 	GUIDrawer::DrawBoolean(*m_materialPipelineStateColumns, "Depth Test", std::bind(&OvCore::Resources::Material::HasDepthTest, m_target), std::bind(&OvCore::Resources::Material::SetDepthTest, m_target, std::placeholders::_1));

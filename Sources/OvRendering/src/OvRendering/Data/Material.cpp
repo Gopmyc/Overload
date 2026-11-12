@@ -442,6 +442,11 @@ void OvRendering::Data::Material::SetBlendable(bool p_transparent)
 	m_blendable = p_transparent;
 }
 
+void OvRendering::Data::Material::SetBlendMode(OvRendering::Settings::EBlendMode p_blendMode)
+{
+	m_blendMode = p_blendMode;
+}
+
 void OvRendering::Data::Material::SetUserInterface(bool p_userInterface)
 {
 	m_userInterface = p_userInterface;
@@ -507,6 +512,11 @@ bool OvRendering::Data::Material::IsBlendable() const
 	return m_blendable;
 }
 
+OvRendering::Settings::EBlendMode OvRendering::Data::Material::GetBlendMode() const
+{
+	return m_blendMode;
+}
+
 bool OvRendering::Data::Material::IsUserInterface() const
 {
 	return m_userInterface;
@@ -568,6 +578,7 @@ const OvRendering::Data::StateMask OvRendering::Data::Material::GenerateStateMas
 	stateMask.depthWriting = m_depthWriting;
 	stateMask.colorWriting = m_colorWriting;
 	stateMask.blendable = m_blendable;
+	stateMask.blendMode = static_cast<uint8_t>(m_blendMode);
 	stateMask.depthTest = m_depthTest;
 	stateMask.frontfaceCulling = m_frontfaceCulling;
 	stateMask.backfaceCulling = m_backfaceCulling;

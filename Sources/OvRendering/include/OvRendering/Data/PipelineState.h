@@ -20,6 +20,8 @@
 #include <baregl/types/ERasterizationMode.h>
 #include <baregl/types/ERenderingCapability.h>
 
+#include <OvRendering/Settings/EBlendMode.h>
+
 namespace OvRendering::Data
 {
 	/**
@@ -31,6 +33,13 @@ namespace OvRendering::Data
 	struct PipelineState
 	{
 		PipelineState();
+
+		/**
+		* Sets the blend function of a blend mode. ALPHA keeps the one this state has, which is alpha blending unless
+		* a pass sets its own (as bloom does)
+		* @param p_blendMode
+		*/
+		void ApplyBlendMode(Settings::EBlendMode p_blendMode);
 
 		union
 		{

@@ -100,6 +100,9 @@ later version of the same major version.
   `Component:IsAlive()` tests it, and two handles on one component are equal. A component method called on a value
   that is not that component (`light.SetIntensity(2)`) raises an error instead of reading it as one. The Lua API is
   now 1.10. See [Docs/Scripting.md](Docs/Scripting.md).
+- **Material blend modes**: a blendable material is combined with what is already drawn as alpha (as before), additive
+  or premultiplied (`blend_mode` in a `.ovmat`, "Blend Mode" in the material editor, `Material::SetBlendMode` in
+  C++). A material saved before them keeps blending as alpha. See [Docs/Rendering.md](Docs/Rendering.md#blend-modes).
 
 ### Changed
 

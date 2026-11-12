@@ -28,6 +28,7 @@ It covers:
 | Physics layers, queries, engine | Layers by name, bodies that go through each other, casts and overlaps on a column of boxes, a second engine |
 | Typed input | Typed characters kept in UTF-8 from one to four bytes, control characters and values that are no character left out, repeats counted per key, a frame forgetting both |
 | Standard library | `Class` inheritance and final names, `Signal` order and changes during an emit, `Pool` takes and evictions, `StateMachine` enter and exit, `Ease` curves and approach, `Timers` and `Tween` advancing on game time by themselves, failures dropped alone, wrong arguments refused |
+| Blend modes | Each mode's blend function, alpha keeping a pass's own; the mode in a material's state mask beside the other settings; saved and read back, a material saved before it and a value no mode has read as alpha |
 | Component references | Handles that work through a member function, a lambda and a base usertype's method; a removed component and a freed actor's raising a clear error and testing as gone, the UI ones as well; equality whatever the usertype, once gone too; a self that is another userdata, nil or another component refused with a clear error |
 | UI clip | An upright element's rectangle, a clip inside a clip and clips that don't meet, a turned element, a world space canvas scaled down, an element entirely outside, the property saved only when set and read back |
 | Fonts | Basic Latin and Latin-1 baked with an atlas, Cyrillic, Greek and Latin Extended baked on demand and once, a character the font lacks, an atlas that grows without moving its glyphs, UTF-8 decoding, a font that is no font |
@@ -76,7 +77,7 @@ temporary folder.
 | `Queries` | `Physics.CastRay`, `CastSphere`, `OverlapSphere`, `OverlapBox`, layer masks and triggers, from Lua |
 | `Settings` | The project file reaches the game: layer names and ignored pairs, `json_max_depth`, `storage_max_file_mib`, `max_frame_delta` |
 | `Events` | The global `Update` and `LateUpdate` events: their place around the Behaviours' callbacks, their step, an owner that dies, a removal, a callback added while they run |
-| `Shaders` | Every engine shader loads, all its variants compiled; a shader built on `Standard`'s four extension points draws; the fog option on `Standard` and `Unlit` |
+| `Shaders` | Every engine shader loads, all its variants compiled; a shader built on `Standard`'s four extension points draws; the fog option on `Standard` and `Unlit`; an additive and a premultiplied material drawn in the transparent pass |
 | `Gamepad` | The gamepad API from Lua with no pad connected: the enums, every read false or 0, pads out of range, the dead zone and its range |
 | `InputActions` | The project's actions from Lua: their order and bindings, rebinding with its swaps and refusals, resets, the bindings saved in the save folder, the labels a menu shows |
 | `UIInput` | The UI library with the engine's input: the controller updating itself once a frame and older manual `Update` calls ignored; the keyboard captured while a text entry has the focus, freed when it loses it, when consumption is off and when its controller goes, across two controllers; a text entry editing UTF-8 characters and refusing those `AllowInput` refuses |
