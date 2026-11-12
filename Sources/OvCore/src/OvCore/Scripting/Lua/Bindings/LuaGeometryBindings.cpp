@@ -126,7 +126,9 @@ void BindLuaGeometry(sol::state& p_luaState)
 	p_luaState.new_usertype<DistanceField>("DistanceField",
 		sol::constructors<DistanceField()>(),
 		"SetSeed", [](DistanceField& p_field, double p_seed) { p_field.SetSeed(static_cast<uint32_t>(static_cast<int64_t>(p_seed))); },
-		"SetNoise", [](DistanceField& p_field, float p_amplitude, float p_frequency, sol::optional<uint32_t> p_octaves) { p_field.SetNoise(p_amplitude, p_frequency, p_octaves.value_or(2)); },
+		"SetNoise", [](DistanceField& p_field, float p_amplitude, float p_frequency, sol::optional<uint32_t> p_octaves, sol::optional<float> p_floorShare) {
+			p_field.SetNoise(p_amplitude, p_frequency, p_octaves.value_or(2), p_floorShare.value_or(0.2f));
+		},
 		"SetBlend", &DistanceField::SetBlend,
 		"AddTube", [](DistanceField& p_field, const FVector3& p_from, const FVector3& p_to, float p_fromRadius, float p_toRadius, sol::optional<float> p_floor, sol::optional<float> p_squash) {
 			p_field.AddTube(p_from, p_to, p_fromRadius, p_toRadius, p_floor.value_or(1.0f), p_squash.value_or(1.0f));

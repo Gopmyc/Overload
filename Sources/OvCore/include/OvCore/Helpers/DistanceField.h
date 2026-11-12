@@ -30,7 +30,9 @@ namespace OvCore::Helpers
 	* A signed distance field of empty spaces carved in solid ground: negative where it is empty, positive in the
 	* solid, about the distance to the surface between them. The empty spaces are tubes (a segment with a radius at each
 	* end, squashed and cut flat at the bottom so that a body walks on it) and ellipsoids (cut flat too), blended
-	* together over the blend radius and roughened by a fractal value noise; pillars stay solid inside them.
+	* together over the blend radius and roughened by a fractal value noise, its full depth on the walls and ceilings
+	* but only the floor share of it on the floors (within a metre and a half above the nearest space's floor), so
+	* that they stay walkable; pillars stay solid inside them, roughened too.
 	*
 	* With a ground (a square grid of heights split as a physical height field is), the empty spaces only count under a
 	* cover of solid below it, but at its openings: discs where the cover lifts and the air above the ground counts as
@@ -64,7 +66,7 @@ namespace OvCore::Helpers
 		* @param p_frequency
 		* @param p_octaves
 		*/
-		void SetNoise(float p_amplitude, float p_frequency, uint32_t p_octaves);
+		void SetNoise(float p_amplitude, float p_frequency, uint32_t p_octaves, float p_floorShare = 0.2f);
 
 		/**
 		* Defines over how many metres two empty spaces blend into one
@@ -165,7 +167,7 @@ namespace OvCore::Helpers
 		void BuildGrid() const;
 		void Gather(const OvMaths::FVector3& p_min, const OvMaths::FVector3& p_max, std::vector<uint32_t>& p_out) const;
 		float Evaluate(const OvMaths::FVector3& p_point, const std::vector<uint32_t>& p_candidates) const;
-		float GetDistance(const Primitive& p_primitive, const OvMaths::FVector3& p_point) const;
+		float GetDistance(const Primitive& p_primitive, const OvMaths::FVector3& p_point, float* p_floor = nullptr) const;
 		float GetNoise(const OvMaths::FVector3& p_point) const;
 		float GetOpening(float p_x, float p_z, bool& p_inside) const;
 		float GetOpenness(const OvMaths::FVector3& p_point) const;
@@ -176,6 +178,7 @@ namespace OvCore::Helpers
 		float m_noiseAmplitude = 0.0f;
 		float m_noiseFrequency = 0.1f;
 		uint32_t m_noiseOctaves = 1;
+		float m_floorShare = 0.2f;
 		float m_blend = 0.0f;
 
 		std::vector<Primitive> m_primitives;

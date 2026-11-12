@@ -114,11 +114,12 @@ void OvCore::Helpers::DistanceField::SetSeed(uint32_t p_seed)
 	m_seed = p_seed;
 }
 
-void OvCore::Helpers::DistanceField::SetNoise(float p_amplitude, float p_frequency, uint32_t p_octaves)
+void OvCore::Helpers::DistanceField::SetNoise(float p_amplitude, float p_frequency, uint32_t p_octaves, float p_floorShare)
 {
 	m_noiseAmplitude = std::max(p_amplitude, 0.0f);
 	m_noiseFrequency = std::max(p_frequency, 0.0f);
 	m_noiseOctaves = std::clamp(p_octaves, 1u, 6u);
+	m_floorShare = std::clamp(p_floorShare, 0.0f, 1.0f);
 	m_gridDirty = true;
 }
 
@@ -264,7 +265,7 @@ void OvCore::Helpers::DistanceField::Gather(const FVector3& p_min, const FVector
 	std::sort(p_out.begin(), p_out.end());
 }
 
-float OvCore::Helpers::DistanceField::GetDistance(const Primitive& p_primitive, const FVector3& p_point) const
+float OvCore::Helpers::DistanceField::GetDistance(const Primitive& p_primitive, const FVector3& p_point, float* p_floor) const
 {
 	switch (p_primitive.kind)
 	{
@@ -278,10 +279,16 @@ float OvCore::Helpers::DistanceField::GetDistance(const Primitive& p_primitive, 
 		const float squash = p_primitive.squash;
 		const float dx = p_point.x - centre.x, dy = (p_point.y - centre.y) / squash, dz = p_point.z - centre.z;
 		float distance = (std::sqrt(dx * dx + dy * dy + dz * dz) - radius) * squash;
+		const float floor = centre.y - radius * squash * p_primitive.floor;
 
 		if (p_primitive.floor < 1.0f)
 		{
-			distance = std::max(distance, (centre.y - radius * squash * p_primitive.floor) - p_point.y);
+			distance = std::max(distance, floor - p_point.y);
+		}
+
+		if (p_floor != nullptr)
+		{
+			*p_floor = floor;
 		}
 
 		return distance;
@@ -292,10 +299,16 @@ float OvCore::Helpers::DistanceField::GetDistance(const Primitive& p_primitive, 
 		const FVector3 local = p_point - p_primitive.a;
 		const float k = std::sqrt((local.x / radii.x) * (local.x / radii.x) + (local.y / radii.y) * (local.y / radii.y) + (local.z / radii.z) * (local.z / radii.z));
 		float distance = (k - 1.0f) * std::min({ radii.x, radii.y, radii.z });
+		const float floor = p_primitive.a.y - radii.y * p_primitive.floor;
 
 		if (p_primitive.floor < 1.0f)
 		{
-			distance = std::max(distance, (p_primitive.a.y - radii.y * p_primitive.floor) - p_point.y);
+			distance = std::max(distance, floor - p_point.y);
+		}
+
+		if (p_floor != nullptr)
+		{
+			*p_floor = floor;
 		}
 
 		return distance;
@@ -411,6 +424,8 @@ float OvCore::Helpers::DistanceField::GetOpenness(const FVector3& p_point) const
 float OvCore::Helpers::DistanceField::Evaluate(const FVector3& p_point, const std::vector<uint32_t>& p_candidates) const
 {
 	float value = kSolid;
+	float nearest = kSolid;
+	float floor = 0.0f;
 	bool empty = false;
 
 	for (const uint32_t index : p_candidates)
@@ -422,25 +437,33 @@ float OvCore::Helpers::DistanceField::Evaluate(const FVector3& p_point, const st
 			continue;
 		}
 
-		const float distance = GetDistance(primitive, p_point);
+		float primitiveFloor = 0.0f;
+		const float distance = GetDistance(primitive, p_point, &primitiveFloor);
 		value = empty ? SmoothMin(value, distance, m_blend) : distance;
 		empty = true;
+
+		if (distance < nearest)
+		{
+			nearest = distance;
+			floor = primitiveFloor;
+		}
 	}
 
 	if (empty)
 	{
-		if (m_noiseAmplitude > 0.0f)
-		{
-			value += m_noiseAmplitude * GetNoise(p_point);
-		}
+		// The noise in full on the walls, a share of it on the floor of the nearest space
+		const float noise = m_noiseAmplitude > 0.0f ? m_noiseAmplitude * GetNoise(p_point) : 0.0f;
+		const float onFloor = std::clamp((p_point.y - floor) / 1.5f, 0.0f, 1.0f);
+
+		value += noise * Mix(m_floorShare, 1.0f, onFloor);
 
 		for (const uint32_t index : p_candidates)
 		{
 			const auto& primitive = m_primitives[index];
 
-			if (primitive.kind == Primitive::EKind::PILLAR && Inside(p_point, primitive.boundsMin, primitive.boundsMax))
+			if (primitive.kind == Primitive::EKind::PILLAR && Inside(p_point, primitive.boundsMin - FVector3{ m_noiseAmplitude, 0.0f, m_noiseAmplitude }, primitive.boundsMax + FVector3{ m_noiseAmplitude, 0.0f, m_noiseAmplitude }))
 			{
-				value = std::max(value, -GetDistance(primitive, p_point));
+				value = std::max(value, -(GetDistance(primitive, p_point) + noise));
 			}
 		}
 	}

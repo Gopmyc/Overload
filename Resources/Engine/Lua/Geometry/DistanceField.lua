@@ -18,11 +18,13 @@ function DistanceField.new() end
 ---@param seed integer
 function DistanceField:SetSeed(seed) end
 
---- Defines the noise roughening the surfaces
+--- Defines the noise roughening the surfaces: in full on the walls and ceilings, floorShare of it on the floors (within
+--- a metre and a half above the nearest space's floor), and on the pillars too
 ---@param amplitude number metres at most
 ---@param frequency number waves a metre
 ---@param octaves integer|nil 1 to 6 (2)
-function DistanceField:SetNoise(amplitude, frequency, octaves) end
+---@param floorShare number|nil 0 to 1 (0.2)
+function DistanceField:SetNoise(amplitude, frequency, octaves, floorShare) end
 
 --- Defines over how many metres two empty spaces blend into one
 ---@param radius number
