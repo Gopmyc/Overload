@@ -568,10 +568,23 @@ OvRendering::Entities::Drawable OvCore::Rendering::FrameBuilder::Prepare(
 		material;
 
 	// Copy the parsed drawable to avoid modifying the original one.
-	auto drawable = p_filteredDrawable.drawable.get();
+	const auto& parsedDrawable = p_filteredDrawable.drawable.get();
+	auto drawable = parsedDrawable;
 	drawable.material = targetMaterial;
 	drawable.stateMask = targetMaterial.GenerateStateMask();
 	drawable.pass = p_input.pass;
+
+	// A UI element on a world space canvas is depth-tested against the scene, though its material, made for the
+	// screen, is not (see CreateUIDrawableDescriptor): it keeps that when drawn with its own material
+	if (
+		&targetMaterial == &material &&
+		parsedDrawable.stateMask.depthTest &&
+		parsedDrawable.HasDescriptor<SceneDrawableDescriptor>() &&
+		parsedDrawable.GetDescriptor<SceneDrawableDescriptor>().isUserInterface
+	)
+	{
+		drawable.stateMask.depthTest = true;
+	}
 
 	// Skinning is only applied if both the resolved and target materials support it.
 	if (

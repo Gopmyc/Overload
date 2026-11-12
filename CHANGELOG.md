@@ -5,6 +5,14 @@ first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 [Semantic Versioning](https://semver.org/): a script, a shader or a project made for one version keeps working with any
 later version of the same major version.
 
+## [Unreleased]
+
+### Fixed
+
+- **World space UI behind the scene**: a world space canvas is depth-tested against the scene, as
+  `Libraries/UI/Docs/WorldSpace.md` says, so a wall in front of it hides it. The depth test it asked for was lost
+  when its drawables were prepared for the UI pass, and it was drawn over everything.
+
 ## [0.1.0] - 2026-11-07
 
 Adventurer's first version: Overload 1.9 and the changes below.
