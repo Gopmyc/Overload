@@ -64,8 +64,10 @@ function ReflectionProbe:SetBoxProjection(enabled) end
 ---@return boolean
 function ReflectionProbe:IsBoxProjectionEnabled() end
 
---- Requests the cubemap to be updated
-function ReflectionProbe:RequestCapture() end
+--- Requests the cubemap to be updated: over the next frames, at the probe's capture speed, or all six faces at once
+--- when forceImmediate is true
+---@param forceImmediate? boolean
+function ReflectionProbe:RequestCapture(forceImmediate) end
 
 --- Returns the last complete cubemap captured by the reflection probe
 ---@return Texture|nil
