@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -21,6 +22,7 @@
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
+#include <OvCore/Navigation/NavMesh.h>
 #include <OvTools/Eventing/Event.h>
 #include <OvTools/Utils/OptRef.h>
 
@@ -248,6 +250,11 @@ namespace OvCore::SceneSystem
 		const FastAccessComponents& GetFastAccessComponents() const;
 
 		/**
+		* Returns the scene's navigation mesh, built from its static colliders by Navigation.Build, and freed with it
+		*/
+		Navigation::NavMesh& GetNavigation();
+
+		/**
 		* Serialize the scene
 		* @param p_doc
 		* @param p_root
@@ -282,5 +289,6 @@ namespace OvCore::SceneSystem
 		FastAccessComponents m_fastAccessComponents;
 		std::filesystem::path m_projectAssetsPath;
 		std::filesystem::path m_engineAssetsPath;
+		std::unique_ptr<Navigation::NavMesh> m_navigation;
 	};
 }

@@ -24,6 +24,8 @@ project "OvCore"
 		dependdir .. "baregl/include",
 		dependdir .. "ImGui/include",
 		dependdir .. "lua/include",
+		dependdir .. "recastnavigation/Recast/Include",
+		dependdir .. "recastnavigation/Detour/Include",
 		dependdir .. "sol/include",
 		dependdir .. "tinyxml2/include",
 		dependdir .. "tracy",

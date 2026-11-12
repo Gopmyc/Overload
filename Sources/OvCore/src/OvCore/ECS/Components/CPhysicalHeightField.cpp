@@ -51,6 +51,11 @@ float OvCore::ECS::Components::CPhysicalHeightField::GetSpacing() const
 	return GetPhysicalObjectAs<PhysicalHeightField>().GetSpacing();
 }
 
+const std::vector<float>& OvCore::ECS::Components::CPhysicalHeightField::GetHeights() const
+{
+	return GetPhysicalObjectAs<PhysicalHeightField>().GetHeights();
+}
+
 void OvCore::ECS::Components::CPhysicalHeightField::OnSerialize(tinyxml2::XMLDocument & p_doc, tinyxml2::XMLNode * p_node)
 {
 	CPhysicalObject::OnSerialize(p_doc, p_node);
