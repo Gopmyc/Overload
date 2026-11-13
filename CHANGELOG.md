@@ -132,6 +132,15 @@ later version of the same major version.
   that cannot play says why, naming the bone (`GetAnimationSourceError`, the warning, the inspector). The same rig plays
   as before, bit for bit. In C++, `OvCore::Animation::Retarget`. The Lua API is now 1.14. See
   [Docs/Animation.md](Docs/Animation.md#clips-on-other-rigs).
+- **Look at**: the `LookAt` component turns a chain of bones (the spine, the neck, the head), each its share, towards an
+  actor or a point, over the animation: within yaw and pitch bounds, on a critically damped spring, holding its
+  direction as the body turns, faded in and out by a weight. In C++, `OvCore::Animation::LookAtSolver`. See
+  [Docs/Animation.md](Docs/Animation.md#look-at).
+- **Spring bones**: the `SpringBones` component swings chains of bones (hair, capes, tails) as the body moves, in
+  groups with their own settings, linked side by side like a cape's columns, against capsules on the body's bones and
+  a ground; out of sight it rests, and a jump starts it again from rest. In C++, `OvCore::Animation::SpringSolver`.
+  Both apply after the scripts, from the frame's pose, before the bone attachments. The Lua API is now 1.15. See
+  [Docs/Animation.md](Docs/Animation.md#spring-bones).
 
 ### Changed
 

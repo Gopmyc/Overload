@@ -549,7 +549,8 @@ OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::
 			drawable.AddDescriptor<SceneDrawableDescriptor>({
 				.actor = modelRenderer->owner,
 				.visibilityFlags = materialRenderer->GetVisibilityFlags(),
-				.bounds = bounds
+				.bounds = bounds,
+				.skinnedMeshRenderer = skinnedRenderer
 			});
 
 			drawable.AddDescriptor<EngineDrawableDescriptor>({
@@ -645,11 +646,11 @@ OvCore::Rendering::FrameBuilder::FilteringResult OvCore::Rendering::FrameBuilder
 			}
 		}
 
-		// A skinned mesh some pass draws is visible: one set to update only when visible goes on being worked out
-		OvTools::Utils::OptRef<const SkinningDrawableDescriptor> skinning;
-		if (drawable.TryGetDescriptor<SkinningDrawableDescriptor>(skinning) && skinning->renderer)
+		// A model with a skinned mesh renderer some pass draws is visible, whether its bones move it this frame or not:
+		// one set to update only when visible goes on being worked out, and its spring bones go on swinging
+		if (desc.skinnedMeshRenderer)
 		{
-			skinning->renderer->NotifyDrawn();
+			desc.skinnedMeshRenderer->NotifyDrawn();
 		}
 
 		// Calculate distance to camera for sorting

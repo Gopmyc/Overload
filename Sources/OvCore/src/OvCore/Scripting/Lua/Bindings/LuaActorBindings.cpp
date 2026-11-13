@@ -27,7 +27,9 @@
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
 #include <OvCore/ECS/Components/CPointLight.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
+#include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
+#include <OvCore/ECS/Components/CSpringBones.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/ECS/Components/CSpotLight.h>
@@ -160,6 +162,8 @@ void BindLuaActor(sol::state& p_luaState)
 		"GetPostProcessStack", [](ActorRef& r) { return r.Resolve().GetComponent<CPostProcessStack>(); },
 		"GetReflectionProbe", [](ActorRef& r) { return r.Resolve().GetComponent<CReflectionProbe>(); },
 		"GetParticleSystem", [](ActorRef& r) { return r.Resolve().GetComponent<CParticleSystem>(); },
+		"GetLookAt", [](ActorRef& r) { return r.Resolve().GetComponent<CLookAt>(); },
+		"GetSpringBones", [](ActorRef& r) { return r.Resolve().GetComponent<CSpringBones>(); },
 		"GetCanvas", [](ActorRef& r) { return r.Resolve().GetComponent<UI::CCanvas>(); },
 		"GetHorizontalLayout", [](ActorRef& r) { return r.Resolve().GetComponent<UI::CHorizontalLayout>(); },
 		"GetImage", [](ActorRef& r) { return r.Resolve().GetComponent<UI::CImage>(); },
@@ -223,6 +227,8 @@ void BindLuaActor(sol::state& p_luaState)
 		"AddPostProcessStack", [](ActorRef& r) -> CPostProcessStack& { return r.Resolve().AddComponent<CPostProcessStack>(); },
 		"AddReflectionProbe", [](ActorRef& r) -> CReflectionProbe& { return r.Resolve().AddComponent<CReflectionProbe>(); },
 		"AddParticleSystem", [](ActorRef& r) -> CParticleSystem& { return r.Resolve().AddComponent<CParticleSystem>(); },
+		"AddLookAt", [](ActorRef& r) -> CLookAt& { return r.Resolve().AddComponent<CLookAt>(); },
+		"AddSpringBones", [](ActorRef& r) -> CSpringBones& { return r.Resolve().AddComponent<CSpringBones>(); },
 		"AddCanvas", [](ActorRef& r) -> UI::CCanvas& { return r.Resolve().AddComponent<UI::CCanvas>(); },
 		"AddHorizontalLayout", [](ActorRef& r) -> UI::CHorizontalLayout& { return r.Resolve().AddComponent<UI::CHorizontalLayout>(); },
 		"AddImage", [](ActorRef& r) -> UI::CImage& { return r.Resolve().AddComponent<UI::CImage>(); },
@@ -251,6 +257,8 @@ void BindLuaActor(sol::state& p_luaState)
 		"RemovePostProcessStack", [](ActorRef& r) { return r.Resolve().RemoveComponent<CPostProcessStack>(); },
 		"RemoveReflectionProbe", [](ActorRef& r) { return r.Resolve().RemoveComponent<CReflectionProbe>(); },
 		"RemoveParticleSystem", [](ActorRef& r) { return r.Resolve().RemoveComponent<CParticleSystem>(); },
+		"RemoveLookAt", [](ActorRef& r) { return r.Resolve().RemoveComponent<CLookAt>(); },
+		"RemoveSpringBones", [](ActorRef& r) { return r.Resolve().RemoveComponent<CSpringBones>(); },
 		"RemoveCanvas", [](ActorRef& r) { return r.Resolve().RemoveComponent<UI::CCanvas>(); },
 		"RemoveHorizontalLayout", [](ActorRef& r) { return r.Resolve().RemoveComponent<UI::CHorizontalLayout>(); },
 		"RemoveImage", [](ActorRef& r) { return r.Resolve().RemoveComponent<UI::CImage>(); },

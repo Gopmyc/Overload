@@ -165,9 +165,42 @@ void OvCore::SceneSystem::Scene::LateUpdate(float p_deltaTime)
 
 	LateUpdateEvent.Invoke(p_deltaTime);
 
+	UpdateAnimationConstraints(p_deltaTime);
 	UpdateSkinnedMeshes();
 	UpdateBoneAttachments();
 	UpdateParticleSystems(p_deltaTime);
+}
+
+void OvCore::SceneSystem::Scene::UpdateAnimationConstraints(float p_deltaTime)
+{
+	ZoneScoped;
+
+	if (m_fastAccessComponents.lookAts.empty() && m_fastAccessComponents.springBones.empty())
+	{
+		return;
+	}
+
+	// Each frame starts again from the pose the clips and the scripts left
+	for (auto skinnedMeshRenderer : m_fastAccessComponents.skinnedMeshRenderers)
+	{
+		skinnedMeshRenderer->ClearConstraintRotations();
+	}
+
+	for (auto lookAt : m_fastAccessComponents.lookAts)
+	{
+		if (lookAt->owner.IsActive())
+		{
+			lookAt->Apply(*this, p_deltaTime);
+		}
+	}
+
+	for (auto springBones : m_fastAccessComponents.springBones)
+	{
+		if (springBones->owner.IsActive())
+		{
+			springBones->Apply(*this, p_deltaTime);
+		}
+	}
 }
 
 void OvCore::SceneSystem::Scene::UpdateSkinnedMeshes()
@@ -577,6 +610,12 @@ void OvCore::SceneSystem::Scene::OnComponentAdded(ECS::Components::AComponent& p
 
 	if (auto result = dynamic_cast<ECS::Components::CSkinnedMeshRenderer*>(&p_compononent))
 		m_fastAccessComponents.skinnedMeshRenderers.push_back(result);
+
+	if (auto result = dynamic_cast<ECS::Components::CLookAt*>(&p_compononent))
+		m_fastAccessComponents.lookAts.push_back(result);
+
+	if (auto result = dynamic_cast<ECS::Components::CSpringBones*>(&p_compononent))
+		m_fastAccessComponents.springBones.push_back(result);
 }
 
 void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent& p_compononent)
@@ -604,6 +643,12 @@ void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent&
 
 	if (auto result = dynamic_cast<ECS::Components::CSkinnedMeshRenderer*>(&p_compononent))
 		m_fastAccessComponents.skinnedMeshRenderers.erase(std::remove(m_fastAccessComponents.skinnedMeshRenderers.begin(), m_fastAccessComponents.skinnedMeshRenderers.end(), result), m_fastAccessComponents.skinnedMeshRenderers.end());
+
+	if (auto result = dynamic_cast<ECS::Components::CLookAt*>(&p_compononent))
+		m_fastAccessComponents.lookAts.erase(std::remove(m_fastAccessComponents.lookAts.begin(), m_fastAccessComponents.lookAts.end(), result), m_fastAccessComponents.lookAts.end());
+
+	if (auto result = dynamic_cast<ECS::Components::CSpringBones*>(&p_compononent))
+		m_fastAccessComponents.springBones.erase(std::remove(m_fastAccessComponents.springBones.begin(), m_fastAccessComponents.springBones.end(), result), m_fastAccessComponents.springBones.end());
 }
 
 OvCore::Navigation::NavMesh& OvCore::SceneSystem::Scene::GetNavigation()

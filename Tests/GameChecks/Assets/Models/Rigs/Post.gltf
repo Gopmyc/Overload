@@ -1,0 +1,217 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "Tests/GameChecks/Tools/make_rigs.py"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "nodes": [
+    0,
+    6
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "name": "Armature",
+   "children": [
+    1
+   ]
+  },
+  {
+   "name": "post",
+   "translation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "children": [
+    2
+   ]
+  },
+  {
+   "name": "post_top",
+   "translation": [
+    0.0,
+    1.5,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "children": [
+    3
+   ]
+  },
+  {
+   "name": "rope_1",
+   "translation": [
+    0.15,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "children": [
+    4
+   ]
+  },
+  {
+   "name": "rope_2",
+   "translation": [
+    0.0,
+    -0.4,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ],
+   "children": [
+    5
+   ]
+  },
+  {
+   "name": "rope_3",
+   "translation": [
+    0.0,
+    -0.4,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Body",
+   "mesh": 0,
+   "skin": 0
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Body",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "JOINTS_0": 1,
+      "WEIGHTS_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "skins": [
+  {
+   "joints": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "inverseBindMatrices": 4,
+   "skeleton": 1
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 1328,
+   "uri": "data:application/octet-stream;base64,KVyPvQAAAAApXI+9KVyPPQAAAAApXI+9KVyPPQAAAAApXI89KVyPvQAAAAApXI89KVyPvQAAwD8pXI+9KVyPPQAAwD8pXI+9KVyPPQAAwD8pXI89KVyPvQAAwD8pXI89uB4FPgAAwD8K16O8exQuPgAAwD8K16O8exQuPgAAwD8K16M8uB4FPgAAwD8K16M8uB4FPs3MjD8K16O8exQuPs3MjD8K16O8exQuPs3MjD8K16M8uB4FPs3MjD8K16M8uB4FPjMzMz8K16O8exQuPjMzMz8K16O8exQuPjMzMz8K16M8uB4FPjMzMz8K16M8uB4FPpqZmT4K16O8exQuPpqZmT4K16O8exQuPpqZmT4K16M8uB4FPpqZmT4K16M8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAgAAAAIAAAACAAAAAwAAAAMAAAADAAAAAwAAAAQAAAAEAAAABAAAAAQAAAAEAAAABAAAAAQAAAAEAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAABAAUAAAAFAAQAAQACAAYAAQAGAAUAAgADAAcAAgAHAAYAAwAAAAQAAwAEAAcAAAACAAEAAAADAAIABAAFAAYABAAGAAcACAAJAA0ACAANAAwACQAKAA4ACQAOAA0ACgALAA8ACgAPAA4ACwAIAAwACwAMAA8ADAANABEADAARABAADQAOABIADQASABEADgAPABMADgATABIADwAMABAADwAQABMAEAARABUAEAAVABQAEQASABYAEQAWABUAEgATABcAEgAXABYAEwAQABQAEwAUABcACAAKAAkACAALAAoAFAAVABYAFAAWABcAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAgAAAAIAAAACAAACAPwAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAIAAAMC/AAAAgAAAgD8AAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAACamRm+AADAvwAAAIAAAIA/AACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAmpkZvs3MjL8AAACAAACAPwAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAJqZGb4zMzO/AAAAgAAAgD8="
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 288,
+   "byteLength": 96,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 384,
+   "byteLength": 384,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 768,
+   "byteLength": 240,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1008,
+   "byteLength": 320
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    -0.07,
+    0.0,
+    -0.07
+   ],
+   "max": [
+    0.16999999999999998,
+    1.5,
+    0.07
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5121,
+   "count": 24,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 120,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5126,
+   "count": 5,
+   "type": "MAT4"
+  }
+ ]
+}
