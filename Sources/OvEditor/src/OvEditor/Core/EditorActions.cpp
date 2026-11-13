@@ -21,6 +21,7 @@
 
 #include <OvDebug/Logger.h>
 
+#include <OvCore/ECS/Components/CAnimator.h>
 #include <OvCore/ECS/Components/CAudioSource.h>
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
@@ -2065,6 +2066,15 @@ void OvEditor::Core::EditorActions::PropagateFileRename(std::string p_previousNa
 		PropagateFileRenameThroughSavedFilesOfType(p_previousName, p_newName, OvTools::Utils::PathParser::EFileType::MATERIAL);
 		break;
 	case OvTools::Utils::PathParser::EFileType::SOUND:
+		PropagateFileRenameThroughSavedFilesOfType(p_previousName, p_newName, OvTools::Utils::PathParser::EFileType::SCENE);
+		PropagateFileRenameThroughSavedFilesOfType(p_previousName, p_newName, OvTools::Utils::PathParser::EFileType::PREFAB);
+		break;
+	case OvTools::Utils::PathParser::EFileType::ANIMATION_GRAPH:
+		if (auto currentScene = m_context.sceneManager.GetCurrentScene())
+			for (auto actor : currentScene->GetActors())
+				if (auto animator = actor->GetComponent<OvCore::ECS::Components::CAnimator>(); animator && animator->GetGraphPath() == p_previousName)
+					animator->SetGraphPath(p_newName);
+
 		PropagateFileRenameThroughSavedFilesOfType(p_previousName, p_newName, OvTools::Utils::PathParser::EFileType::SCENE);
 		PropagateFileRenameThroughSavedFilesOfType(p_previousName, p_newName, OvTools::Utils::PathParser::EFileType::PREFAB);
 		break;

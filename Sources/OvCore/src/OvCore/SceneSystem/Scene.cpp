@@ -160,6 +160,8 @@ void OvCore::SceneSystem::Scene::FixedUpdate(float p_deltaTime)
 void OvCore::SceneSystem::Scene::LateUpdate(float p_deltaTime)
 {
 	ZoneScoped;
+	UpdateAnimators(p_deltaTime);
+
 	auto actors = m_actors;
 	std::for_each(actors.begin(), actors.end(), std::bind(std::mem_fn(&ECS::Actor::OnLateUpdate), std::placeholders::_1, p_deltaTime));
 
@@ -169,6 +171,20 @@ void OvCore::SceneSystem::Scene::LateUpdate(float p_deltaTime)
 	UpdateSkinnedMeshes();
 	UpdateBoneAttachments();
 	UpdateParticleSystems(p_deltaTime);
+}
+
+void OvCore::SceneSystem::Scene::UpdateAnimators(float p_deltaTime)
+{
+	ZoneScoped;
+
+	// Moving a graph on adds or removes no component: the list can be walked as it is
+	for (auto animator : m_fastAccessComponents.animators)
+	{
+		if (animator->owner.IsActive())
+		{
+			animator->Apply(*this, p_deltaTime);
+		}
+	}
 }
 
 void OvCore::SceneSystem::Scene::UpdateAnimationConstraints(float p_deltaTime)
@@ -611,6 +627,9 @@ void OvCore::SceneSystem::Scene::OnComponentAdded(ECS::Components::AComponent& p
 	if (auto result = dynamic_cast<ECS::Components::CSkinnedMeshRenderer*>(&p_compononent))
 		m_fastAccessComponents.skinnedMeshRenderers.push_back(result);
 
+	if (auto result = dynamic_cast<ECS::Components::CAnimator*>(&p_compononent))
+		m_fastAccessComponents.animators.push_back(result);
+
 	if (auto result = dynamic_cast<ECS::Components::CLookAt*>(&p_compononent))
 		m_fastAccessComponents.lookAts.push_back(result);
 
@@ -643,6 +662,13 @@ void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent&
 
 	if (auto result = dynamic_cast<ECS::Components::CSkinnedMeshRenderer*>(&p_compononent))
 		m_fastAccessComponents.skinnedMeshRenderers.erase(std::remove(m_fastAccessComponents.skinnedMeshRenderers.begin(), m_fastAccessComponents.skinnedMeshRenderers.end(), result), m_fastAccessComponents.skinnedMeshRenderers.end());
+
+	if (auto result = dynamic_cast<ECS::Components::CAnimator*>(&p_compononent))
+	{
+		// The actor and its other components are still there: the renderer gets its own layers back
+		result->ReleaseRenderer();
+		m_fastAccessComponents.animators.erase(std::remove(m_fastAccessComponents.animators.begin(), m_fastAccessComponents.animators.end(), result), m_fastAccessComponents.animators.end());
+	}
 
 	if (auto result = dynamic_cast<ECS::Components::CLookAt*>(&p_compononent))
 		m_fastAccessComponents.lookAts.erase(std::remove(m_fastAccessComponents.lookAts.begin(), m_fastAccessComponents.lookAts.end(), result), m_fastAccessComponents.lookAts.end());

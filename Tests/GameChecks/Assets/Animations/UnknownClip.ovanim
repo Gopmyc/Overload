@@ -1,0 +1,5 @@
+{
+	"layers": [
+		{ "name": "Base", "states": [ { "name": "Dance", "clip": "root|moonwalk" } ] }
+	]
+}

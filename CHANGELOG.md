@@ -141,6 +141,13 @@ later version of the same major version.
   a ground; out of sight it rests, and a jump starts it again from rest. In C++, `OvCore::Animation::SpringSolver`.
   Both apply after the scripts, from the frame's pose, before the bone attachments. The Lua API is now 1.15. See
   [Docs/Animation.md](Docs/Animation.md#spring-bones).
+- **Animation graphs**: the `Animator` component plays a JSON file of the project (`.ovanim`): parameters (numbers,
+  booleans, triggers), layers over each other under a bone mask, states (a clip, clips blended along a parameter in
+  step, or nothing), and transitions on conditions, triggers and exit times, with fades that start from the blend they
+  interrupt. The skinned mesh renderer samples the graph instead of its own layers, with the same bone matching. A file
+  that cannot play says where, with its JSON path. The editor knows `.ovanim` files (`EFileType::ANIMATION_GRAPH`):
+  the Asset Browser lists them, the inspector picks them, and a rename follows them. In C++,
+  `OvCore::Animation::AnimationGraph`, and `Scene::GetRealAssetPath` is public. The Lua API is now 1.16. See [Docs/Animation.md](Docs/Animation.md#animator).
 
 ### Changed
 

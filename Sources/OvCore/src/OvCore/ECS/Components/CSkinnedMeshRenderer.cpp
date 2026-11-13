@@ -232,7 +232,7 @@ bool OvCore::ECS::Components::CSkinnedMeshRenderer::HasSkinningData() const
 
 	return HasCompatibleModel() &&
 		!m_boneMatrices.empty() &&
-		(hasAnimatedLayer || m_manualPoseOverride || m_ragdoll != nullptr || !m_constrainedList.empty());
+		(hasAnimatedLayer || (m_driven && !m_drivenSamples.empty()) || m_manualPoseOverride || m_ragdoll != nullptr || !m_constrainedList.empty());
 }
 
 uint32_t OvCore::ECS::Components::CSkinnedMeshRenderer::GetLayerCount() const
@@ -970,6 +970,12 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnUpdate(float p_deltaTime)
 		return;
 	}
 
+	// An animator plays its own layers (SetDrivenPose), and the component's wait
+	if (m_driven)
+	{
+		return;
+	}
+
 	bool timeChanged = false;
 	bool playbackStateChanged = false;
 
@@ -988,27 +994,103 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::OnUpdate(float p_deltaTime)
 		playbackStateChanged = playbackStateChanged || !layer.playing;
 	}
 
-	if (timeChanged || playbackStateChanged)
+	if ((timeChanged || playbackStateChanged) && ConsumePoseEvaluationTime(p_deltaTime, playbackStateChanged))
 	{
-		const float clampedPoseEvaluationRate = std::max(0.0f, m_poseEvaluationRate);
-		const bool hasRateLimit = clampedPoseEvaluationRate > std::numeric_limits<float>::epsilon();
+		MarkPoseDirty();
+	}
+}
 
-		if (hasRateLimit)
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::ConsumePoseEvaluationTime(float p_deltaTime, bool p_force)
+{
+	const float clampedPoseEvaluationRate = std::max(0.0f, m_poseEvaluationRate);
+	const bool hasRateLimit = clampedPoseEvaluationRate > std::numeric_limits<float>::epsilon();
+
+	if (!hasRateLimit)
+	{
+		m_poseEvaluationAccumulator = 0.0f;
+		return true;
+	}
+
+	m_poseEvaluationAccumulator += p_deltaTime;
+	const float updatePeriod = 1.0f / clampedPoseEvaluationRate;
+	if (m_poseEvaluationAccumulator < updatePeriod && !p_force)
+	{
+		return false;
+	}
+
+	m_poseEvaluationAccumulator = std::fmod(m_poseEvaluationAccumulator, updatePeriod);
+	return true;
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::SetDrivenLayers(const std::vector<DrivenLayer>& p_layers)
+{
+	m_driven = true;
+	m_drivenLayers.clear();
+	m_drivenSamples.clear();
+	m_drivenWeights.clear();
+
+	for (const auto& driven : p_layers)
+	{
+		AnimationLayer layer;
+		layer.animationSourceModel = driven.source;
+		layer.maskRootName = driven.mask;
+		layer.boneMap = driven.boneMap;
+		m_drivenLayers.push_back(std::move(layer));
+	}
+
+	if (HasCompatibleModel())
+	{
+		for (auto& layer : m_drivenLayers)
 		{
-			m_poseEvaluationAccumulator += p_deltaTime;
-			const float updatePeriod = 1.0f / clampedPoseEvaluationRate;
-			if (m_poseEvaluationAccumulator < updatePeriod && !playbackStateChanged)
-			{
-				return;
-			}
-
-			m_poseEvaluationAccumulator = std::fmod(m_poseEvaluationAccumulator, updatePeriod);
+			RebuildLayerRuntimeData(layer);
 		}
-		else
-		{
-			m_poseEvaluationAccumulator = 0.0f;
-		}
+	}
 
+	MarkPoseDirty();
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::ClearDrivenLayers()
+{
+	if (!m_driven)
+	{
+		return;
+	}
+
+	m_driven = false;
+	m_drivenLayers.clear();
+	m_drivenSamples.clear();
+	m_drivenWeights.clear();
+	MarkPoseDirty();
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::IsDriven() const
+{
+	return m_driven;
+}
+
+std::optional<std::string> OvCore::ECS::Components::CSkinnedMeshRenderer::GetDrivenLayerError(uint32_t p_layer) const
+{
+	if (!HasCompatibleModel())
+	{
+		return std::string{ "no skinned model" };
+	}
+
+	return p_layer < m_drivenLayers.size() ? m_drivenLayers[p_layer].retargetError : std::nullopt;
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::SetDrivenPose(const std::vector<DrivenSample>& p_samples, const std::vector<float>& p_layerWeights, float p_deltaTime, bool p_force)
+{
+	if (!m_driven)
+	{
+		return;
+	}
+
+	m_drivenSamples = p_samples;
+	m_drivenWeights = p_layerWeights;
+
+	// The first pose, and a pose the graph changed, are worked out at once; the next ones at most at the evaluation rate
+	if (ConsumePoseEvaluationTime(p_deltaTime, p_force || m_poseEvaluationCount == 0))
+	{
 		MarkPoseDirty();
 	}
 }
@@ -1629,11 +1711,14 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 	m_poseEvaluationAccumulator = 0.0f;
 	m_manualPoseOverride = false;
 
-	for (auto& layer : m_layers)
+	for (auto* layers : { &m_layers, &m_drivenLayers })
 	{
-		layer.animationNames.clear();
-		layer.retarget.clear();
-		layer.retargetError.reset();
+		for (auto& layer : *layers)
+		{
+			layer.animationNames.clear();
+			layer.retarget.clear();
+			layer.retargetError.reset();
+		}
 	}
 
 	if (!HasCompatibleModel())
@@ -1658,6 +1743,11 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 	{
 		RebuildLayerRuntimeData(layer);
 		ResolveLayerAnimation(layer);
+	}
+
+	for (auto& layer : m_drivenLayers)
+	{
+		RebuildLayerRuntimeData(layer);
 	}
 
 	MarkPoseDirty();
@@ -1799,6 +1889,12 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 
 	++m_poseEvaluationCount;
 
+	if (m_driven)
+	{
+		EvaluateDrivenPose();
+		return;
+	}
+
 	const auto& skeleton = m_model->GetSkeleton().value();
 
 	m_activeLayerSamples.clear();
@@ -1842,48 +1938,13 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 
 		for (const auto& activeLayer : m_activeLayerSamples)
 		{
-			const auto& retarget = (*activeLayer.retarget)[targetNodeIndex];
-			if (retarget.source < 0)
+			OvMaths::FVector3 sampledPosition;
+			OvMaths::FQuaternion sampledRotation;
+			OvMaths::FVector3 sampledScale;
+			if (!SampleNode(activeLayer, targetNodeIndex, sampledPosition, sampledRotation, sampledScale))
 			{
 				continue;
 			}
-
-			const auto track = activeLayer.animation->FindTrack(static_cast<uint32_t>(retarget.source));
-			if (!track)
-			{
-				continue;
-			}
-
-			// The clip moves the bone from its own rig's rest; the same motion, turned into this model's rest and
-			// scaled to this bone's rest length, starts from this model's rest (nothing changes for the same rig)
-			const OvMaths::FVector3 clipPosition = SampleKeys(
-				track->positionKeys,
-				activeLayer.sampleTime,
-				activeLayer.duration,
-				Animation::Retarget::ClipRest(retarget, node.bindPosition),
-				activeLayer.looping,
-				[](const auto& p_a, const auto& p_b, float p_alpha) { return OvMaths::FVector3::Lerp(p_a, p_b, p_alpha); }
-			);
-			const OvMaths::FVector3 sampledPosition = Animation::Retarget::Position(retarget, node.bindPosition, clipPosition);
-
-			// A track without rotation keys leaves the bone at this model's rest
-			const OvMaths::FQuaternion sampledRotation = track->rotationKeys.empty() ? node.bindRotation : Animation::Retarget::Rotation(retarget, SampleKeys(
-				track->rotationKeys,
-				activeLayer.sampleTime,
-				activeLayer.duration,
-				node.bindRotation,
-				activeLayer.looping,
-				[](const auto& p_a, const auto& p_b, float p_alpha) { return OvMaths::FQuaternion::Slerp(p_a, p_b, p_alpha); }
-			));
-
-			const OvMaths::FVector3 sampledScale = SampleKeys(
-				track->scaleKeys,
-				activeLayer.sampleTime,
-				activeLayer.duration,
-				node.bindScale,
-				activeLayer.looping,
-				[](const auto& p_a, const auto& p_b, float p_alpha) { return OvMaths::FVector3::Lerp(p_a, p_b, p_alpha); }
-			);
 
 			if (accumulatedWeight <= 0.0f)
 			{
@@ -1911,6 +1972,180 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluatePose()
 		{
 			m_localPose[targetNodeIndex] = node.localBindTransform;
 		}
+	}
+
+	m_manualPoseOverride = false;
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::SampleNode(const ActiveLayerSample& p_sample, size_t p_nodeIndex, OvMaths::FVector3& p_position, OvMaths::FQuaternion& p_rotation, OvMaths::FVector3& p_scale) const
+{
+	const auto& node = m_model->GetSkeleton()->nodes[p_nodeIndex];
+	const auto& retarget = (*p_sample.retarget)[p_nodeIndex];
+	if (retarget.source < 0)
+	{
+	return false;
+	}
+
+	const auto track = p_sample.animation->FindTrack(static_cast<uint32_t>(retarget.source));
+	if (!track)
+	{
+	return false;
+	}
+
+	// The clip moves the bone from its own rig's rest; the same motion, turned into this model's rest and
+	// scaled to this bone's rest length, starts from this model's rest (nothing changes for the same rig)
+	const OvMaths::FVector3 clipPosition = SampleKeys(
+		track->positionKeys,
+		p_sample.sampleTime,
+		p_sample.duration,
+		Animation::Retarget::ClipRest(retarget, node.bindPosition),
+		p_sample.looping,
+		[](const auto& p_a, const auto& p_b, float p_alpha) { return OvMaths::FVector3::Lerp(p_a, p_b, p_alpha); }
+	);
+	p_position = Animation::Retarget::Position(retarget, node.bindPosition, clipPosition);
+
+	// A track without rotation keys leaves the bone at this model's rest
+	p_rotation = track->rotationKeys.empty() ? node.bindRotation : Animation::Retarget::Rotation(retarget, SampleKeys(
+		track->rotationKeys,
+		p_sample.sampleTime,
+		p_sample.duration,
+		node.bindRotation,
+		p_sample.looping,
+		[](const auto& p_a, const auto& p_b, float p_alpha) { return OvMaths::FQuaternion::Slerp(p_a, p_b, p_alpha); }
+	));
+
+	p_scale = SampleKeys(
+		track->scaleKeys,
+		p_sample.sampleTime,
+		p_sample.duration,
+		node.bindScale,
+		p_sample.looping,
+		[](const auto& p_a, const auto& p_b, float p_alpha) { return OvMaths::FVector3::Lerp(p_a, p_b, p_alpha); }
+	);
+
+	return true;
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::EvaluateDrivenPose()
+{
+	const auto& skeleton = m_model->GetSkeleton().value();
+	const size_t nodeCount = skeleton.nodes.size();
+
+	// Every node starts at its rest; each layer covers what the layers before it left, by its weight, on the nodes its
+	// clips drive (the nodes under its mask)
+	m_drivenPositions.resize(nodeCount);
+	m_drivenRotations.resize(nodeCount);
+	m_drivenScales.resize(nodeCount);
+	m_drivenTouched.assign(nodeCount, 0);
+
+	for (size_t nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex)
+	{
+		m_drivenPositions[nodeIndex] = skeleton.nodes[nodeIndex].bindPosition;
+		m_drivenRotations[nodeIndex] = skeleton.nodes[nodeIndex].bindRotation;
+		m_drivenScales[nodeIndex] = skeleton.nodes[nodeIndex].bindScale;
+	}
+
+	for (uint32_t layerIndex = 0; layerIndex < m_drivenLayers.size(); ++layerIndex)
+	{
+		const auto& layer = m_drivenLayers[layerIndex];
+		const float layerWeight = layerIndex < m_drivenWeights.size() ? std::clamp(m_drivenWeights[layerIndex], 0.0f, 1.0f) : 1.0f;
+
+		if (layer.retarget.size() != nodeCount || !(layerWeight > kMinimumLayerWeight))
+		{
+			continue;
+		}
+
+		const auto& animations = GetLayerAnimationModel(layer)->GetAnimations();
+
+		m_activeLayerSamples.clear();
+		for (const auto& sample : m_drivenSamples)
+		{
+			if (sample.layer != layerIndex || sample.clip >= animations.size() || !(sample.weight > kMinimumLayerWeight))
+			{
+				continue;
+			}
+
+			const auto& animation = animations[sample.clip];
+			const float duration = std::max(animation.duration, 0.0f);
+			const float ticks = sample.time * animation.GetEffectiveTicksPerSecond();
+			const float sampleTime =
+				duration > 0.0f ?
+				(sample.looping ? WrapTime(ticks, duration) : std::clamp(ticks, 0.0f, duration)) :
+				0.0f;
+
+			m_activeLayerSamples.push_back({ &animation, sampleTime, duration, sample.weight, sample.looping, &layer.retarget });
+		}
+
+		if (m_activeLayerSamples.empty())
+		{
+			continue;
+		}
+
+		for (size_t nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex)
+		{
+			OvMaths::FVector3 blendedPosition;
+			OvMaths::FQuaternion blendedRotation;
+			OvMaths::FVector3 blendedScale;
+			float accumulatedWeight = 0.0f;
+
+			for (const auto& activeLayer : m_activeLayerSamples)
+			{
+				OvMaths::FVector3 sampledPosition;
+				OvMaths::FQuaternion sampledRotation;
+				OvMaths::FVector3 sampledScale;
+				if (!SampleNode(activeLayer, nodeIndex, sampledPosition, sampledRotation, sampledScale))
+				{
+					continue;
+				}
+
+				if (accumulatedWeight <= 0.0f)
+				{
+					blendedPosition = sampledPosition;
+					blendedRotation = sampledRotation;
+					blendedScale = sampledScale;
+				}
+				else
+				{
+					const float alpha = activeLayer.weight / (accumulatedWeight + activeLayer.weight);
+					blendedPosition = OvMaths::FVector3::Lerp(blendedPosition, sampledPosition, alpha);
+					blendedRotation = OvMaths::FQuaternion::Slerp(blendedRotation, sampledRotation, alpha);
+					blendedScale = OvMaths::FVector3::Lerp(blendedScale, sampledScale, alpha);
+				}
+
+				accumulatedWeight += activeLayer.weight;
+			}
+
+			if (accumulatedWeight <= 0.0f)
+			{
+				continue;
+			}
+
+			// A layer at its full weight replaces what is below; a lighter one blends with it (the rest, for the first).
+			// Its clips cover the node as much as they weigh: a layer fading to an empty state lets what is below
+			// show through
+			const float alpha = layerWeight * std::min(accumulatedWeight, 1.0f);
+			if (alpha >= 1.0f)
+			{
+				m_drivenPositions[nodeIndex] = blendedPosition;
+				m_drivenRotations[nodeIndex] = blendedRotation;
+				m_drivenScales[nodeIndex] = blendedScale;
+			}
+			else
+			{
+				m_drivenPositions[nodeIndex] = OvMaths::FVector3::Lerp(m_drivenPositions[nodeIndex], blendedPosition, alpha);
+				m_drivenRotations[nodeIndex] = OvMaths::FQuaternion::Slerp(m_drivenRotations[nodeIndex], blendedRotation, alpha);
+				m_drivenScales[nodeIndex] = OvMaths::FVector3::Lerp(m_drivenScales[nodeIndex], blendedScale, alpha);
+			}
+
+			m_drivenTouched[nodeIndex] = 1;
+		}
+	}
+
+	for (size_t nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex)
+	{
+		m_localPose[nodeIndex] = m_drivenTouched[nodeIndex] ?
+			OvMaths::FTransform(m_drivenPositions[nodeIndex], m_drivenRotations[nodeIndex], m_drivenScales[nodeIndex]).GetLocalMatrix() :
+			skeleton.nodes[nodeIndex].localBindTransform;
 	}
 
 	m_manualPoseOverride = false;

@@ -21,6 +21,9 @@
 #include <OvCore/ECS/Components/CAudioListener.h>  
 #include <OvCore/ECS/Components/CAudioSource.h>  
 #include <OvCore/ECS/Components/CBoneAttachment.h>
+#include <OvCore/ECS/Components/CAnimator.h>
+#include <OvCore/Global/ServiceLocator.h>
+#include <OvCore/ResourceManagement/ModelManager.h>
 #include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CSpringBones.h>
 #include <OvCore/ECS/Components/CCamera.h>  
@@ -1255,11 +1258,137 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetError", [](CSpringBones& p_this) { return p_this.GetError(); }
 	);
 
+	// A layer given by its index (from 0) or its name; the first layer when none is given
+	const auto animatorLayer = [](CAnimator& p_this, const sol::optional<sol::object>& p_layer) -> std::optional<size_t>
+	{
+		if (!p_layer || p_layer->get_type() == sol::type::lua_nil)
+		{
+			return 0;
+		}
+
+		if (p_layer->get_type() == sol::type::number)
+		{
+			const double index = p_layer->as<double>();
+			return index >= 0.0 ? std::optional<size_t>{ static_cast<size_t>(index) } : std::nullopt;
+		}
+
+		if (p_layer->get_type() == sol::type::string)
+		{
+			return p_this.FindLayer(p_layer->as<std::string>());
+		}
+
+		throw sol::error("Animator: a layer is given by its index, from 0, or its name");
+	};
+
+	const auto animatorNames = [](sol::this_state p_state, const std::vector<std::string>& p_names)
+	{
+		sol::state_view lua(p_state);
+		sol::table result = lua.create_table();
+		for (const auto& name : p_names)
+		{
+			result.add(name);
+		}
+		return result;
+	};
+
+	p_luaState.new_usertype<CAnimator>("Animator",
+		sol::base_classes, sol::bases<AComponent>(),
+		"SetGraphPath", &CAnimator::SetGraphPath,
+		"GetGraphPath", &CAnimator::GetGraphPath,
+		"SetAnimationSourceModel", sol::overload(
+			[](CAnimator& p_this, OvRendering::Resources::Model* p_model) { p_this.SetAnimationSource(p_model); },
+			[](CAnimator& p_this, const OvCore::Scripting::AssetRef& p_asset)
+			{
+				p_this.SetAnimationSource(p_asset.path.empty() ? nullptr : OVSERVICE(OvCore::ResourceManagement::ModelManager).GetResource(p_asset.path));
+			}
+		),
+		"GetAnimationSourceModel", &CAnimator::GetAnimationSource,
+		"SetBoneMap", [](CAnimator& p_this, sol::table p_map)
+		{
+			OvCore::Animation::BoneMap boneMap;
+
+			for (const auto& [key, value] : p_map)
+			{
+				if (!key.is<std::string>() || !value.is<std::string>())
+				{
+					throw sol::error("Animator:SetBoneMap takes a table of model bone names to clip bone names");
+				}
+
+				boneMap[key.as<std::string>()] = value.as<std::string>();
+			}
+
+			p_this.SetBoneMap(boneMap);
+		},
+		"GetBoneMap", [](CAnimator& p_this, sol::this_state p_state)
+		{
+			sol::state_view lua(p_state);
+			sol::table result = lua.create_table();
+
+			for (const auto& [modelBone, clipBone] : p_this.GetBoneMap())
+			{
+				result[modelBone] = clipBone;
+			}
+
+			return result;
+		},
+		"Reload", &CAnimator::Reload,
+		"IsLoaded", &CAnimator::IsLoaded,
+		"GetError", [](CAnimator& p_this) { return p_this.GetError(); },
+		"SetFloat", &CAnimator::SetFloat,
+		"GetFloat", &CAnimator::GetFloat,
+		"SetBool", &CAnimator::SetBool,
+		"GetBool", &CAnimator::GetBool,
+		"SetTrigger", &CAnimator::SetTrigger,
+		"ResetTrigger", &CAnimator::ResetTrigger,
+		"GetParameterNames", [animatorNames](CAnimator& p_this, sol::this_state p_state) { return animatorNames(p_state, p_this.GetParameterNames()); },
+		"GetLayerNames", [animatorNames](CAnimator& p_this, sol::this_state p_state) { return animatorNames(p_state, p_this.GetLayerNames()); },
+		"GetState", [animatorLayer](CAnimator& p_this, sol::optional<sol::object> p_layer) -> std::optional<std::string>
+		{
+			const auto layer = animatorLayer(p_this, p_layer);
+			return layer ? p_this.GetState(*layer) : std::nullopt;
+		},
+		"GetStateTime", [animatorLayer](CAnimator& p_this, sol::optional<sol::object> p_layer)
+		{
+			const auto layer = animatorLayer(p_this, p_layer);
+			return layer ? p_this.GetStateTime(*layer) : 0.0f;
+		},
+		"IsInTransition", [animatorLayer](CAnimator& p_this, sol::optional<sol::object> p_layer)
+		{
+			const auto layer = animatorLayer(p_this, p_layer);
+			return layer && p_this.IsInTransition(*layer);
+		},
+		"SetLayerWeight", [animatorLayer](CAnimator& p_this, sol::object p_layer, float p_weight)
+		{
+			const auto layer = animatorLayer(p_this, p_layer);
+			return layer && p_this.SetLayerWeight(*layer, p_weight);
+		},
+		"GetLayerWeight", [animatorLayer](CAnimator& p_this, sol::optional<sol::object> p_layer) -> std::optional<float>
+		{
+			const auto layer = animatorLayer(p_this, p_layer);
+			return layer ? p_this.GetLayerWeight(*layer) : std::nullopt;
+		},
+		"Play", [animatorLayer](CAnimator& p_this, const std::string& p_state, sol::optional<float> p_fade, sol::optional<sol::object> p_layer)
+		{
+			std::optional<size_t> layer;
+			if (p_layer && p_layer->get_type() != sol::type::lua_nil)
+			{
+				layer = animatorLayer(p_this, p_layer);
+				if (!layer)
+				{
+					return false;
+				}
+			}
+
+			return p_this.Play(p_state, p_fade.value_or(0.0f), layer);
+		},
+		"Reset", &CAnimator::Reset
+	);
+
 	OvCore::Scripting::MarkComponentUsertypes<
 		AComponent, CTransform, CModelRenderer, CMaterialRenderer, CBoneAttachment, CSkinnedMeshRenderer,
 		CPhysicalObject, CPhysicalBox, CPhysicalSphere, CPhysicalCapsule, CPhysicalHeightField, CCharacterController,
 		CCamera, UI::CCanvas, UI::CImage, UI::CLayoutGroup, UI::CHorizontalLayout, UI::CVerticalLayout, UI::CText,
 		CLight, CPointLight, CSpotLight, CAmbientBoxLight, CAmbientSphereLight, CDirectionalLight,
-		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe, CParticleSystem, CLookAt, CSpringBones
+		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe, CParticleSystem, CLookAt, CSpringBones, CAnimator
 	>(p_luaState.lua_state());
 }
