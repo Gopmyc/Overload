@@ -31,6 +31,7 @@
 #include <OvCore/ECS/Components/CAnimator.h>
 #include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
+#include <OvCore/ECS/Components/CTerrain.h>
 #include <OvCore/ECS/Components/CSpringBones.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
@@ -133,6 +134,7 @@ namespace
 		CreateComponentInfo<CPostProcessStack>("Post Process Stack"),
 		CreateComponentInfo<CReflectionProbe>("Reflection Probe"),
 		CreateComponentInfo<CParticleSystem>("Particle System"),
+		CreateComponentInfo<CTerrain>("Terrain"),
 		CreateComponentInfo<UI::CCanvas>("Canvas"),
 		CreateComponentInfo<UI::CHorizontalLayout>("Horizontal Layout"),
 		CreateComponentInfo<UI::CImage>("Image"),

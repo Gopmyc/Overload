@@ -115,6 +115,7 @@ namespace OvCore::Rendering::FrameBuilder
 		bool renderUIInScreenSpace = true;
 		const UIRenderingUtils::UIFrameResolver* uiFrameResolver = nullptr; // Created from the fields above if not provided
 		std::optional<OvMaths::FVector3> viewPosition; // Where the camera stands: a model beyond its max draw distance is left out
+		bool mainView = true; // The view of the scene's main camera, or of a scene without one: what a component reports of its drawing (a terrain's levels) comes from it
 	};
 
 	/**

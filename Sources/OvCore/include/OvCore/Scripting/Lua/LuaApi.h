@@ -22,7 +22,7 @@ namespace OvCore::Scripting::LuaApi
 	* happens to a name deprecated in an earlier version (see Docs/Scripting.md)
 	*/
 	constexpr int kVersionMajor = 1;
-	constexpr int kVersionMinor = 16;
+	constexpr int kVersionMinor = 17;
 
 	/**
 	* Opens the standard libraries a script may use, and removes what would reach the files or load code

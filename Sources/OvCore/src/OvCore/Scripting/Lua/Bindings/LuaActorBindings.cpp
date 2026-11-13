@@ -30,6 +30,7 @@
 #include <OvCore/ECS/Components/CAnimator.h>
 #include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
+#include <OvCore/ECS/Components/CTerrain.h>
 #include <OvCore/ECS/Components/CSpringBones.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
@@ -163,6 +164,7 @@ void BindLuaActor(sol::state& p_luaState)
 		"GetPostProcessStack", [](ActorRef& r) { return r.Resolve().GetComponent<CPostProcessStack>(); },
 		"GetReflectionProbe", [](ActorRef& r) { return r.Resolve().GetComponent<CReflectionProbe>(); },
 		"GetParticleSystem", [](ActorRef& r) { return r.Resolve().GetComponent<CParticleSystem>(); },
+		"GetTerrain", [](ActorRef& r) { return r.Resolve().GetComponent<CTerrain>(); },
 		"GetAnimator", [](ActorRef& r) { return r.Resolve().GetComponent<CAnimator>(); },
 		"GetLookAt", [](ActorRef& r) { return r.Resolve().GetComponent<CLookAt>(); },
 		"GetSpringBones", [](ActorRef& r) { return r.Resolve().GetComponent<CSpringBones>(); },
@@ -229,6 +231,7 @@ void BindLuaActor(sol::state& p_luaState)
 		"AddPostProcessStack", [](ActorRef& r) -> CPostProcessStack& { return r.Resolve().AddComponent<CPostProcessStack>(); },
 		"AddReflectionProbe", [](ActorRef& r) -> CReflectionProbe& { return r.Resolve().AddComponent<CReflectionProbe>(); },
 		"AddParticleSystem", [](ActorRef& r) -> CParticleSystem& { return r.Resolve().AddComponent<CParticleSystem>(); },
+		"AddTerrain", [](ActorRef& r) -> CTerrain& { return r.Resolve().AddComponent<CTerrain>(); },
 		"AddAnimator", [](ActorRef& r) -> CAnimator& { return r.Resolve().AddComponent<CAnimator>(); },
 		"AddLookAt", [](ActorRef& r) -> CLookAt& { return r.Resolve().AddComponent<CLookAt>(); },
 		"AddSpringBones", [](ActorRef& r) -> CSpringBones& { return r.Resolve().AddComponent<CSpringBones>(); },
@@ -260,6 +263,7 @@ void BindLuaActor(sol::state& p_luaState)
 		"RemovePostProcessStack", [](ActorRef& r) { return r.Resolve().RemoveComponent<CPostProcessStack>(); },
 		"RemoveReflectionProbe", [](ActorRef& r) { return r.Resolve().RemoveComponent<CReflectionProbe>(); },
 		"RemoveParticleSystem", [](ActorRef& r) { return r.Resolve().RemoveComponent<CParticleSystem>(); },
+		"RemoveTerrain", [](ActorRef& r) { return r.Resolve().RemoveComponent<CTerrain>(); },
 		"RemoveAnimator", [](ActorRef& r) { return r.Resolve().RemoveComponent<CAnimator>(); },
 		"RemoveLookAt", [](ActorRef& r) { return r.Resolve().RemoveComponent<CLookAt>(); },
 		"RemoveSpringBones", [](ActorRef& r) { return r.Resolve().RemoveComponent<CSpringBones>(); },

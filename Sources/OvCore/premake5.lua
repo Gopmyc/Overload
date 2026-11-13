@@ -27,6 +27,7 @@ project "OvCore"
 		dependdir .. "recastnavigation/Recast/Include",
 		dependdir .. "recastnavigation/Detour/Include",
 		dependdir .. "sol/include",
+		dependdir .. "stb_image/include",
 		dependdir .. "tinyxml2/include",
 		dependdir .. "tracy",
 

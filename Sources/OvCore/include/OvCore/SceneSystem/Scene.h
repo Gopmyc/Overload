@@ -22,6 +22,7 @@
 #include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
+#include <OvCore/ECS/Components/CTerrain.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
@@ -51,6 +52,7 @@ namespace OvCore::SceneSystem
 			std::vector<ECS::Components::CReflectionProbe*> reflectionProbes;
 			std::vector<ECS::Components::CBoneAttachment*> boneAttachments;
 			std::vector<ECS::Components::CParticleSystem*> particleSystems;
+			std::vector<ECS::Components::CTerrain*> terrains;
 			std::vector<ECS::Components::CSkinnedMeshRenderer*> skinnedMeshRenderers;
 			std::vector<ECS::Components::CAnimator*> animators;
 			std::vector<ECS::Components::CLookAt*> lookAts;
