@@ -21,14 +21,24 @@
 
 ## Clips on other rigs
 
-- A clip plays on a model whose bones have the same names, parents, rest rotations and rest scales, whatever their rest
-  positions: each bone starts from the model's rest and makes the clip's move away from the clip's rest, scaled by the
-  ratio of the two rest lengths. Rest rotations and scales must match: a rig turned or scaled otherwise is refused
-  (warning, no animation).
-- A model may carry bones of its own (hair, cloth) under a bone that both its rig and the clip's have. No track drives
-  them: they keep their bind pose for scripts to turn, and the engine puts them back at rest whenever it evaluates the
-  pose, so a script that turns them writes them every frame. A bone the clip has and the model lacks, a renamed bone,
-  or bones directly under the armature are still refused.
+- **Matching**: each of the model's bones is driven by the clip's bone of the same name, or of the name the layer's
+  bone map gives it: `SetAnimationBoneMap({ ModelBone = "ClipBone", ... }, layer)`, `GetAnimationBoneMap(layer)`,
+  `bone_map` in a file. A bone the map does not name keeps its own name; an empty map matches every bone by name.
+- **What must match**: the parents (the model's bone hangs under the bone that the clip's matching bone hangs under)
+  and the rest scales.
+- **What may differ**:
+  - the rest positions: each bone starts from the model's rest and makes the clip's move away from the clip's rest,
+    scaled by the ratio of the two rest lengths (a longer leg dips its hips further);
+  - the rest rotations: a key is carried through the two rests, so the bone turns in the model's space as the clip's
+    turns in its own. A rig exported with other axes, or with bones rolled another way, plays the clip;
+  - scale keys are taken as they are.
+- **A refusal names the bone**: the warning says why a source cannot play, and so do
+  `GetAnimationSourceError(layer)` and the layer in the inspector. No animation plays from a refused source.
+- **The same rig** plays its clips exactly as before: nothing is carried through when the rests are the same.
+- **Bones of the model's own** (hair, cloth) may hang under a bone that both its rig and the clip's have. No track
+  drives them: they keep their bind pose for scripts to turn, and the engine puts them back at rest whenever it
+  evaluates the pose, so a script that turns them writes them every frame. A bone the clip has and the model lacks,
+  and bones directly under the armature, are still refused: a renamed bone needs the bone map.
 
 ## When the pose is worked out
 

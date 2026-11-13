@@ -299,6 +299,35 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetLayerMask", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetLayerMask(p_layer.value_or(0)); },
 		"SetMeshBoundsScale", &CSkinnedMeshRenderer::SetMeshBoundsScale,
 		"GetMeshBoundsScale", &CSkinnedMeshRenderer::GetMeshBoundsScale,
+		"SetAnimationBoneMap", [](CSkinnedMeshRenderer& p_this, sol::table p_map, std::optional<uint32_t> p_layer)
+		{
+			OvCore::Animation::BoneMap boneMap;
+
+			for (const auto& [key, value] : p_map)
+			{
+				if (!key.is<std::string>() || !value.is<std::string>())
+				{
+					throw sol::error("SkinnedMeshRenderer:SetAnimationBoneMap takes a table of model bone names to clip bone names");
+				}
+
+				boneMap[key.as<std::string>()] = value.as<std::string>();
+			}
+
+			p_this.SetAnimationBoneMap(boneMap, p_layer.value_or(0));
+		},
+		"GetAnimationBoneMap", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer, sol::this_state p_state)
+		{
+			sol::state_view lua(p_state);
+			sol::table result = lua.create_table();
+
+			for (const auto& [modelBone, clipBone] : p_this.GetAnimationBoneMap(p_layer.value_or(0)))
+			{
+				result[modelBone] = clipBone;
+			}
+
+			return result;
+		},
+		"GetAnimationSourceError", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetAnimationSourceError(p_layer.value_or(0)); },
 		"SetUpdateMode", &CSkinnedMeshRenderer::SetUpdateMode,
 		"GetUpdateMode", &CSkinnedMeshRenderer::GetUpdateMode,
 		"WasVisible", &CSkinnedMeshRenderer::WasVisible,

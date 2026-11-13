@@ -126,6 +126,12 @@ later version of the same major version.
   from a script is still right, and its attachments keep their place. `ALWAYS`, the default, is the former behaviour.
   `GetPoseEvaluationCount()` and `GetSkeletonUpdateCount()` count the work done. The Lua API is now 1.13. See
   [Docs/Animation.md](Docs/Animation.md#when-the-pose-is-worked-out).
+- **Retargeting**: a layer's clips play on a model whose bones have other names, through the layer's bone map
+  (`SetAnimationBoneMap({ ModelBone = "ClipBone" })`, `bone_map` in a file), and whose rests turn otherwise: each key is
+  carried through the two rests, so that the bone turns in the model's space as the clip's turns in its own. A source
+  that cannot play says why, naming the bone (`GetAnimationSourceError`, the warning, the inspector). The same rig plays
+  as before, bit for bit. In C++, `OvCore::Animation::Retarget`. The Lua API is now 1.14. See
+  [Docs/Animation.md](Docs/Animation.md#clips-on-other-rigs).
 
 ### Changed
 
