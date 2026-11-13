@@ -98,6 +98,30 @@ function SkinnedMeshRenderer:SetMeshBoundsScale(scale) end
 ---@return number
 function SkinnedMeshRenderer:GetMeshBoundsScale() end
 
+--- Sets when the pose is worked out during play: ALWAYS (the default), or WHEN_VISIBLE, only while a render pass (a
+--- view, a shadow, a reflection) drew the model the frame before. Hidden, the clips' time still runs, the bones read
+--- from a script are still right, and bone attachments keep the pose last worked out
+---@param mode AnimationUpdateMode
+function SkinnedMeshRenderer:SetUpdateMode(mode) end
+
+--- Returns when the pose is worked out during play
+---@return AnimationUpdateMode
+function SkinnedMeshRenderer:GetUpdateMode() end
+
+--- Returns true when a render pass drew the model the frame before (true until the scene first updates it)
+---@return boolean
+function SkinnedMeshRenderer:WasVisible() end
+
+--- Returns how many times the clips were sampled into a pose since the component was made: a diagnostic, to see that
+--- a pose is not worked out more often than it changes
+---@return integer
+function SkinnedMeshRenderer:GetPoseEvaluationCount() end
+
+--- Returns how many times the skeleton (its global transforms and skinning matrices) was worked out from a pose since
+--- the component was made: a diagnostic, as GetPoseEvaluationCount
+---@return integer
+function SkinnedMeshRenderer:GetSkeletonUpdateCount() end
+
 --- Sets the playback time of a layer in seconds
 ---@param timeSeconds number
 ---@param layer? integer

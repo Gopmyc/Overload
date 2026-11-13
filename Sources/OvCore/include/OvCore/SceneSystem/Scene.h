@@ -22,6 +22,7 @@
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
+#include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/Navigation/NavMesh.h>
 #include <OvTools/Eventing/Event.h>
 #include <OvTools/Utils/OptRef.h>
@@ -47,6 +48,7 @@ namespace OvCore::SceneSystem
 			std::vector<ECS::Components::CReflectionProbe*> reflectionProbes;
 			std::vector<ECS::Components::CBoneAttachment*> boneAttachments;
 			std::vector<ECS::Components::CParticleSystem*> particleSystems;
+			std::vector<ECS::Components::CSkinnedMeshRenderer*> skinnedMeshRenderers;
 		};
 
 		/**
@@ -130,6 +132,12 @@ namespace OvCore::SceneSystem
 		* engine's global LateUpdate event
 		*/
 		static OvTools::Eventing::Event<float> LateUpdateEvent;
+
+		/**
+		* Works out the pose of every skinned mesh that needs it, once the scripts have run and before the bone
+		* attachments read it: a pose set many times in the frame is worked out once. Called by LateUpdate.
+		*/
+		void UpdateSkinnedMeshes();
 
 		/**
 		* Places every bone attachment on its bone, parents first. Called at the end of LateUpdate, once every script

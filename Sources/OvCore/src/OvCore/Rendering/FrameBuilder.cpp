@@ -645,6 +645,13 @@ OvCore::Rendering::FrameBuilder::FilteringResult OvCore::Rendering::FrameBuilder
 			}
 		}
 
+		// A skinned mesh some pass draws is visible: one set to update only when visible goes on being worked out
+		OvTools::Utils::OptRef<const SkinningDrawableDescriptor> skinning;
+		if (drawable.TryGetDescriptor<SkinningDrawableDescriptor>(skinning) && skinning->renderer)
+		{
+			skinning->renderer->NotifyDrawn();
+		}
+
 		// Calculate distance to camera for sorting
 		const float distanceToCamera = OvMaths::FVector3::Distance(
 			desc.actor.transform.GetWorldPosition(),

@@ -275,6 +275,11 @@ void BindLuaComponents(sol::state& p_luaState)
 		"IsAttached", &CBoneAttachment::IsAttached
 	);
 
+	p_luaState.new_enum<CSkinnedMeshRenderer::EUpdateMode>("AnimationUpdateMode", {
+		{ "ALWAYS", CSkinnedMeshRenderer::EUpdateMode::ALWAYS },
+		{ "WHEN_VISIBLE", CSkinnedMeshRenderer::EUpdateMode::WHEN_VISIBLE }
+	});
+
 	p_luaState.new_usertype<CSkinnedMeshRenderer>("SkinnedMeshRenderer",
 		sol::base_classes, sol::bases<AComponent>(),
 		"GetLayerCount", &CSkinnedMeshRenderer::GetLayerCount,
@@ -294,6 +299,11 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetLayerMask", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetLayerMask(p_layer.value_or(0)); },
 		"SetMeshBoundsScale", &CSkinnedMeshRenderer::SetMeshBoundsScale,
 		"GetMeshBoundsScale", &CSkinnedMeshRenderer::GetMeshBoundsScale,
+		"SetUpdateMode", &CSkinnedMeshRenderer::SetUpdateMode,
+		"GetUpdateMode", &CSkinnedMeshRenderer::GetUpdateMode,
+		"WasVisible", &CSkinnedMeshRenderer::WasVisible,
+		"GetPoseEvaluationCount", &CSkinnedMeshRenderer::GetPoseEvaluationCount,
+		"GetSkeletonUpdateCount", &CSkinnedMeshRenderer::GetSkeletonUpdateCount,
 		"SetTime", [](CSkinnedMeshRenderer& p_this, float p_timeSeconds, std::optional<uint32_t> p_layer) { p_this.SetTime(p_timeSeconds, p_layer.value_or(0)); },
 		"GetTime", [](CSkinnedMeshRenderer& p_this, std::optional<uint32_t> p_layer) { return p_this.GetTime(p_layer.value_or(0)); },
 		"SetAnimationSourceModel", sol::overload(

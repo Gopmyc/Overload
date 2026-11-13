@@ -120,9 +120,20 @@ later version of the same major version.
   1.12. It is built with [Recast & Detour](https://github.com/recastnavigation/recastnavigation) 1.6.0 (zlib licence),
   a new dependency. On the Adventurers World, about 150000 triangles, it builds in about half a second, and a path takes
   0.2 ms. See [Docs/Navigation.md](Docs/Navigation.md).
+- **Animation update mode**: a skinned mesh renderer set to `AnimationUpdateMode.WHEN_VISIBLE` (`SetUpdateMode`,
+  "Update Mode" in the inspector, `update_mode` in a file) works its pose out only while a render pass (a view, the
+  shadows, a reflection) drew it the frame before (`WasVisible()`); out of sight, its clips' time runs on, a bone read
+  from a script is still right, and its attachments keep their place. `ALWAYS`, the default, is the former behaviour.
+  `GetPoseEvaluationCount()` and `GetSkeletonUpdateCount()` count the work done. The Lua API is now 1.13. See
+  [Docs/Animation.md](Docs/Animation.md#when-the-pose-is-worked-out).
 
 ### Changed
 
+- **Skinned poses are worked out on demand**: a layer's settings (`SetLayerWeight`, `SetTime`, `SetAnimation`,
+  `SetLayerMask`, `Play`, `Stop`…) and bone writes (`SetBoneLocalRotation`…) only mark the pose; it is worked out once,
+  when a script reads a bone or after the scripts, before bone attachments are placed. Calls keep their order: a bone
+  written after a setting stays written. A bone write fell from about 2.6 µs to 0.5 µs, a weight from about 17 µs (a
+  whole pose each time) to a mark.
 - **The UI controller updates itself**: a `controller:Update(deltaTime)` from a Behaviour now changes nothing after
   the frame the controller is created in, and can be removed. Panel callbacks run after every `OnLateUpdate`; a
   gameplay script that read clicks meant for the UI no longer sees them.
