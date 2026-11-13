@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include <OvCore/Animation/Retarget.h>
 #include <OvCore/ECS/Components/AComponent.h>
 #include <OvMaths/FMatrix4.h>
 #include <OvMaths/FQuaternion.h>
@@ -244,6 +245,27 @@ namespace OvCore::ECS::Components
 		* @param p_layer
 		*/
 		bool IsAnimationSourceCompatible(uint32_t p_layer = 0) const;
+
+		/**
+		* Sets which of the layer's clip bones drives each named bone of the model, for a clip made on a rig whose bones
+		* have other names. A bone the map does not name is driven by the clip's bone of its own name; an empty map
+		* matches every bone by its name
+		* @param p_boneMap (model bone name to clip bone name)
+		* @param p_layer
+		*/
+		void SetAnimationBoneMap(const Animation::BoneMap& p_boneMap, uint32_t p_layer = 0);
+
+		/**
+		* Returns the layer's bone map (model bone name to clip bone name)
+		* @param p_layer
+		*/
+		Animation::BoneMap GetAnimationBoneMap(uint32_t p_layer = 0) const;
+
+		/**
+		* Returns why the layer's clips cannot play on the model, naming the bone, or nothing when they can
+		* @param p_layer
+		*/
+		std::optional<std::string> GetAnimationSourceError(uint32_t p_layer = 0) const;
 
 		/**
 		* Returns the number of animations available to a layer
@@ -500,18 +522,15 @@ namespace OvCore::ECS::Components
 			bool playing = true;
 			bool looping = true;
 			std::string maskRootName;
+			Animation::BoneMap boneMap;
 
-			// Runtime data, rebuilt whenever the model or the layer animation source changes.
-			// sourceNodeByTargetNode maps a rendered skeleton node to the source node driving it
-			// (-1 when unanimated), and is empty when the source is incompatible.
-			// restOffsetByTargetNode is the rendered node's rest position minus its source node's: added to the
-			// clip's positions, it plays the clip on a rig whose bones have other lengths (zero for the same rig).
-			// restScaleByTargetNode is the ratio of their rest lengths: the clip's move away from its own rest is
-			// scaled by it, so a longer leg dips its hips further (one for the same rig).
+			// Runtime data, rebuilt whenever the model, the layer's animation source or its bone map changes.
+			// retarget says, for each node of the rendered skeleton, which source node drives it (-1 when none, or
+			// out of the mask) and how its keys are carried over (see Animation::Retarget); it is empty when the
+			// source cannot play on the model, and retargetError says why.
 			std::vector<std::string> animationNames;
-			std::vector<int32_t> sourceNodeByTargetNode;
-			std::vector<OvMaths::FVector3> restOffsetByTargetNode;
-			std::vector<float> restScaleByTargetNode;
+			std::vector<Animation::RetargetNode> retarget;
+			std::optional<std::string> retargetError;
 		};
 
 		// Per-layer data sampled once per pose evaluation, before blending the skeleton node by node
@@ -522,9 +541,7 @@ namespace OvCore::ECS::Components
 			float duration = 0.0f;
 			float weight = 1.0f;
 			bool looping = true;
-			const std::vector<int32_t>* sourceNodeByTargetNode = nullptr;
-			const std::vector<OvMaths::FVector3>* restOffsetByTargetNode = nullptr;
-			const std::vector<float>* restScaleByTargetNode = nullptr;
+			const std::vector<Animation::RetargetNode>* retarget = nullptr;
 		};
 
 		bool HasCompatibleModel() const;
@@ -534,7 +551,7 @@ namespace OvCore::ECS::Components
 		const AnimationLayer* FindLayer(uint32_t p_layer) const;
 		void SyncWithModel();
 		void RebuildRuntimeData();
-		void RebuildLayerRuntimeData(AnimationLayer& p_layer, std::vector<int32_t>& p_nodeMapScratch);
+		void RebuildLayerRuntimeData(AnimationLayer& p_layer);
 		void ApplyLayerMask(AnimationLayer& p_layer) const;
 		void ResolveLayerAnimation(AnimationLayer& p_layer);
 		void MarkPoseDirty();

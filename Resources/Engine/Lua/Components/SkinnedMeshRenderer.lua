@@ -98,6 +98,24 @@ function SkinnedMeshRenderer:SetMeshBoundsScale(scale) end
 ---@return number
 function SkinnedMeshRenderer:GetMeshBoundsScale() end
 
+--- Sets which of the layer's clip bones drives each named bone of the model, for clips made on a rig whose bones have
+--- other names: { ModelBone = "ClipBone", ... }. A bone the map does not name is driven by the clip's bone of its own
+--- name; an empty table matches every bone by its name. The rests may also differ in rotation: the clip's motion is
+--- carried into the model's
+---@param map table<string, string>
+---@param layer? integer
+function SkinnedMeshRenderer:SetAnimationBoneMap(map, layer) end
+
+--- Returns the layer's bone map (model bone names to clip bone names)
+---@param layer? integer
+---@return table<string, string>
+function SkinnedMeshRenderer:GetAnimationBoneMap(layer) end
+
+--- Returns why the layer's clips cannot play on the model, naming the bone, or nil when they can
+---@param layer? integer
+---@return string?
+function SkinnedMeshRenderer:GetAnimationSourceError(layer) end
+
 --- Sets when the pose is worked out during play: ALWAYS (the default), or WHEN_VISIBLE, only while a render pass (a
 --- view, a shadow, a reflection) drew the model the frame before. Hidden, the clips' time still runs, the bones read
 --- from a script are still right, and bone attachments keep the pose last worked out

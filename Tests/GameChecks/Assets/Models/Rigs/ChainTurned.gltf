@@ -1,0 +1,181 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "Tests/GameChecks/Tools/make_rigs.py"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "nodes": [
+    0,
+    4
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "name": "Armature",
+   "children": [
+    1
+   ]
+  },
+  {
+   "name": "root",
+   "translation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.7071067811865475,
+    0.0,
+    0.7071067811865476
+   ],
+   "children": [
+    2
+   ]
+  },
+  {
+   "name": "mid",
+   "translation": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "rotation": [
+    -0.6123724356957945,
+    -0.6123724356957945,
+    -0.35355339059327373,
+    0.35355339059327384
+   ],
+   "children": [
+    3
+   ]
+  },
+  {
+   "name": "tip",
+   "translation": [
+    0.5,
+    1.1102230246251565e-16,
+    0.8660254037844387
+   ],
+   "rotation": [
+    0.6830127018922194,
+    -0.18301270189221933,
+    -0.1830127018922193,
+    -0.6830127018922193
+   ]
+  },
+  {
+   "name": "Body",
+   "mesh": 0,
+   "skin": 0
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Body",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "JOINTS_0": 1,
+      "WEIGHTS_0": 2
+     },
+     "indices": 3
+    }
+   ]
+  }
+ ],
+ "skins": [
+  {
+   "joints": [
+    1,
+    2,
+    3
+   ],
+   "inverseBindMatrices": 4,
+   "skeleton": 1
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 872,
+   "uri": "data:application/octet-stream;base64,zczMvQAAAADNzMy9zczMPQAAAADNzMy9zczMPQAAAADNzMw9zczMvQAAAADNzMw9zczMvQAAgD/NzMy9zczMPQAAgD/NzMy9zczMPQAAgD/NzMw9zczMvQAAgD/NzMw9zczMvQAAAEDNzMy9zczMPQAAAEDNzMy9zczMPQAAAEDNzMw9zczMvQAAAEDNzMw9zczMvQAAQEDNzMy9zczMPQAAQEDNzMy9zczMPQAAQEDNzMw9zczMvQAAQEDNzMw9AAAAAAAAAAAAAAAAAAAAAAEAAAABAAAAAQAAAAEAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAEABQAAAAUABAABAAIABgABAAYABQACAAMABwACAAcABgADAAAABAADAAQABwAEAAUACQAEAAkACAAFAAYACgAFAAoACQAGAAcACwAGAAsACgAHAAQACAAHAAgACwAIAAkADQAIAA0ADAAJAAoADgAJAA4ADQAKAAsADwAKAA8ADgALAAgADAALAAwADwAAAAIAAQAAAAMAAgAMAA0ADgAMAA4ADwAAAIAlAAAAgAAAgD8AAAAAAAAAAAAAgD8AAACAAAAAAAAAgL8AAAAAAACAJQAAAAAAAACAAAAAgAAAAIAAAIA/17NdP13PdqQAAAC/AAAAAAAAAD+GGxkk17NdPwAAAAD2bDclAACAv9ezPSUAAAAAAAAAv4YbGaTXs12/AACAPwAAgD8AAEClUZiEJAAAAAAAAAClAACAvx+5WaUAAAAAAABAJaMwCaQAAIC/AAAAAAAAACUAAABAj9ysJQAAgD8="
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 192,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 192,
+   "byteLength": 64,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 256,
+   "byteLength": 256,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 512,
+   "byteLength": 168,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 680,
+   "byteLength": 192
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 16,
+   "type": "VEC3",
+   "min": [
+    -0.1,
+    0.0,
+    -0.1
+   ],
+   "max": [
+    0.1,
+    3.0,
+    0.1
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5121,
+   "count": 16,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 16,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 84,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5126,
+   "count": 3,
+   "type": "MAT4"
+  }
+ ]
+}
