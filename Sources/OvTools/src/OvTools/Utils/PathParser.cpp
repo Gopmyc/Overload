@@ -105,6 +105,7 @@ std::string OvTools::Utils::PathParser::FileTypeToString(EFileType p_fileType)
 	case OvTools::Utils::PathParser::EFileType::PREFAB:	return "Prefab";
 	case OvTools::Utils::PathParser::EFileType::SCRIPT:		return "Script";
 	case OvTools::Utils::PathParser::EFileType::FONT:		return "Font";
+	case OvTools::Utils::PathParser::EFileType::ANIMATION_GRAPH:	return "Animation_Graph";
 	default:												return "Unknown";
 	}
 }
@@ -121,6 +122,7 @@ OvTools::Utils::PathParser::EFileType OvTools::Utils::PathParser::StringToFileTy
 	if (p_type == "Prefab")      return EFileType::PREFAB;
 	if (p_type == "Script")      return EFileType::SCRIPT;
 	if (p_type == "Font")        return EFileType::FONT;
+	if (p_type == "Animation_Graph") return EFileType::ANIMATION_GRAPH;
 	return EFileType::UNKNOWN;
 }
 
@@ -139,6 +141,7 @@ OvTools::Utils::PathParser::EFileType OvTools::Utils::PathParser::GetFileType(co
 	else if (ext == "ovprefab") return EFileType::PREFAB;
 	else if (ext == "lua" || ext == "ovscript") return EFileType::SCRIPT;
 	else if (ext == "ttf" || ext == "otf") return EFileType::FONT;
+	else if (ext == "ovanim") return EFileType::ANIMATION_GRAPH;
 
 	return EFileType::UNKNOWN;
 }

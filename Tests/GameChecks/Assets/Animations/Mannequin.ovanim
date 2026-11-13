@@ -1,0 +1,36 @@
+{
+	"parameters": [
+		{ "name": "Speed", "type": "float", "default": 0 },
+		{ "name": "Jump", "type": "trigger" },
+		{ "name": "Punch", "type": "trigger" }
+	],
+	"layers": [
+		{
+			"name": "Base",
+			"states": [
+				{ "name": "Locomotion", "blend": { "parameter": "Speed", "motions": [
+					{ "clip": "root|idle", "position": 0 },
+					{ "clip": "root|walk", "position": 1.5 },
+					{ "clip": "root|run", "position": 4 }
+				] } },
+				{ "name": "Jump", "clip": "root|jump_full", "loop": false }
+			],
+			"transitions": [
+				{ "from": "Locomotion", "to": "Jump", "conditions": [ { "parameter": "Jump" } ], "duration": 0.1 },
+				{ "from": "Jump", "to": "Locomotion", "exitTime": 0.95, "duration": 0.2 }
+			]
+		},
+		{
+			"name": "Arms",
+			"mask": "spine_02",
+			"states": [
+				{ "name": "Rest" },
+				{ "name": "Punch", "clip": "root|fight_punch", "loop": false }
+			],
+			"transitions": [
+				{ "from": "*", "to": "Punch", "conditions": [ { "parameter": "Punch" } ], "duration": 0.1 },
+				{ "from": "Punch", "to": "Rest", "exitTime": 1, "duration": 0.2 }
+			]
+		}
+	]
+}

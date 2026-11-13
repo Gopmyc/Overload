@@ -35,6 +35,7 @@ namespace
 		case EFileType::SCRIPT:   return "Pick Script";
 		case EFileType::SCENE:    return "Pick Scene";
 		case EFileType::PREFAB:   return "Pick Prefab";
+		case EFileType::ANIMATION_GRAPH: return "Pick Animation Graph";
 		default:                  return "Pick Asset";
 		}
 	}

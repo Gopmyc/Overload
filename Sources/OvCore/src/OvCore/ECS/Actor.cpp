@@ -26,6 +26,7 @@
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
 #include <OvCore/ECS/Components/CPointLight.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
+#include <OvCore/ECS/Components/CAnimator.h>
 #include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CSpringBones.h>
@@ -689,6 +690,7 @@ void OvCore::ECS::Actor::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::
 				else if (IsType<CPostProcessStack>(componentType)) component = &AddComponent<CPostProcessStack>();
 				else if (IsType<CReflectionProbe>(componentType)) component = &AddComponent<CReflectionProbe>();
 				else if (IsType<CParticleSystem>(componentType)) component = &AddComponent<CParticleSystem>();
+				else if (IsType<CAnimator>(componentType)) component = &AddComponent<CAnimator>();
 				else if (IsType<CLookAt>(componentType)) component = &AddComponent<CLookAt>();
 				else if (IsType<CSpringBones>(componentType)) component = &AddComponent<CSpringBones>();
 				else if (IsType<CSkinnedMeshRenderer>(componentType)) component = &AddComponent<CSkinnedMeshRenderer>();

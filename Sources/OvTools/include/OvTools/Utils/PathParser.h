@@ -30,7 +30,8 @@ namespace OvTools::Utils
 			SCENE,
 			PREFAB,
 			SCRIPT,
-			FONT
+			FONT,
+			ANIMATION_GRAPH
 		};
 
 		/**

@@ -166,6 +166,10 @@ function Actor:GetReflectionProbe() end
 ---@return ParticleSystem|nil
 function Actor:GetParticleSystem() end
 
+--- Returns the Animator attached to this actor (If any)
+---@return Animator|nil
+function Actor:GetAnimator() end
+
 --- Returns the LookAt attached to this actor (If any)
 ---@return LookAt|nil
 function Actor:GetLookAt() end
@@ -302,6 +306,10 @@ function Actor:AddReflectionProbe() end
 ---@return ParticleSystem
 function Actor:AddParticleSystem() end
 
+--- Adds an Animator component to the actor and returns it
+---@return Animator
+function Actor:AddAnimator() end
+
 --- Adds a LookAt component to the actor and returns it
 ---@return LookAt
 function Actor:AddLookAt() end
@@ -374,6 +382,9 @@ function Actor:RemovePostProcessStack() end
 function Actor:RemoveReflectionProbe() end
 --- Removes the ParticleSystem component from the actor
 function Actor:RemoveParticleSystem() end
+
+--- Removes the Animator component from the actor
+function Actor:RemoveAnimator() end
 
 --- Removes the LookAt component from the actor
 function Actor:RemoveLookAt() end

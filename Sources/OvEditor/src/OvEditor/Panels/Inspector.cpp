@@ -28,6 +28,7 @@
 #include <OvCore/ECS/Components/CPhysicalHeightField.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
 #include <OvCore/ECS/Components/CPointLight.h>
+#include <OvCore/ECS/Components/CAnimator.h>
 #include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CSpringBones.h>
@@ -124,6 +125,7 @@ namespace
 		CreateComponentInfo<CMaterialRenderer>("Material Renderer"),
 		CreateComponentInfo<CSkinnedMeshRenderer>("Skinned Mesh Renderer"),
 		CreateComponentInfo<CBoneAttachment>("Bone Attachment"),
+		CreateComponentInfo<CAnimator>("Animator"),
 		CreateComponentInfo<CLookAt>("Look At"),
 		CreateComponentInfo<CSpringBones>("Spring Bones"),
 		CreateComponentInfo<CAudioSource>("Audio Source"),

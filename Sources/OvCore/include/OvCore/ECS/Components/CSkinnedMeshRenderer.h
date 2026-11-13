@@ -456,6 +456,65 @@ namespace OvCore::ECS::Components
 		bool SetConstraintRotation(uint32_t p_boneIndex, const OvMaths::FQuaternion& p_localRotation);
 
 		/**
+		* A layer an animator plays on the model (see CAnimator): where its clips come from (nothing: the rendered
+		* model), the bone it plays under (empty: every bone), and how the clips' bones match the model's
+		*/
+		struct DrivenLayer
+		{
+			OvRendering::Resources::Model* source = nullptr;
+			std::string mask;
+			Animation::BoneMap boneMap;
+		};
+
+		/**
+		* A clip an animator has sampled: its driven layer, its index among the source's clips, its time (seconds), and
+		* its weight within the layer
+		*/
+		struct DrivenSample
+		{
+			uint32_t layer = 0;
+			uint32_t clip = 0;
+			float time = 0.0f;
+			float weight = 1.0f;
+			bool looping = true;
+		};
+
+		/**
+		* Plays an animator's layers instead of the component's own, which are left as they are until
+		* ClearDrivenLayers. Each driven layer covers the layers before it, on the bones under its mask, by its weight
+		* (SetDrivenPose); within a layer, the clips blend by their weights
+		* @param p_layers
+		*/
+		void SetDrivenLayers(const std::vector<DrivenLayer>& p_layers);
+
+		/**
+		* Gives the pose back to the component's own layers
+		*/
+		void ClearDrivenLayers();
+
+		/**
+		* Returns true while an animator plays its layers on the model
+		*/
+		bool IsDriven() const;
+
+		/**
+		* Returns why a driven layer's source cannot play on the model, or nothing
+		* @param p_layer
+		*/
+		std::optional<std::string> GetDrivenLayerError(uint32_t p_layer) const;
+
+		/**
+		* Sets the clips the driven layers sample and each layer's weight over the layers before it. The pose is worked
+		* out from them at most at the pose evaluation rate, as for the component's own layers, or at once when forced
+		* (a state changed, a script set a parameter)
+		* @param p_samples
+		* @param p_layerWeights
+		* @param p_deltaTime
+		* @param p_force
+		*/
+		void SetDrivenPose(const std::vector<DrivenSample>& p_samples, const std::vector<float>& p_layerWeights, float p_deltaTime, bool p_force = false);
+
+		/**
 		* Returns how many times the clips were sampled into a pose, since the component was made
 		*/
 		uint64_t GetPoseEvaluationCount() const;
@@ -578,6 +637,9 @@ namespace OvCore::ECS::Components
 		void ResolvePose() const;
 		void ResolvePoseForDrawing() const;
 		void EvaluatePose();
+		void EvaluateDrivenPose();
+		bool SampleNode(const ActiveLayerSample& p_sample, size_t p_nodeIndex, OvMaths::FVector3& p_position, OvMaths::FQuaternion& p_rotation, OvMaths::FVector3& p_scale) const;
+		bool ConsumePoseEvaluationTime(float p_deltaTime, bool p_force);
 		std::optional<uint32_t> GetNodeIndexFromBoneIndex(uint32_t p_boneIndex) const;
 		int32_t FindRagdollPart(uint32_t p_nodeIndex) const;
 		void RecomputeBoneMatricesFromLocalPose();
@@ -594,8 +656,18 @@ namespace OvCore::ECS::Components
 
 		std::vector<AnimationLayer> m_layers;
 
+		// An animator's layers, while it plays them in place of m_layers, and its last samples and layer weights
+		bool m_driven = false;
+		std::vector<AnimationLayer> m_drivenLayers;
+		std::vector<DrivenSample> m_drivenSamples;
+		std::vector<float> m_drivenWeights;
+
 		// Reused across pose evaluations to keep them free of per-frame allocations
 		std::vector<ActiveLayerSample> m_activeLayerSamples;
+		std::vector<OvMaths::FVector3> m_drivenPositions;
+		std::vector<OvMaths::FQuaternion> m_drivenRotations;
+		std::vector<OvMaths::FVector3> m_drivenScales;
+		std::vector<uint8_t> m_drivenTouched;
 
 		uint64_t m_poseVersion = 0;
 		bool m_manualPoseOverride = false;

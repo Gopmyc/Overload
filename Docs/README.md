@@ -14,7 +14,7 @@ on it. Each page states the behaviour of the current version; [`CHANGELOG.md`](.
 | [Rendering](Rendering.md) | Materials and per-renderer values, the post process stack and fog, culling, UI text and fonts |
 | [Particles](Particles.md) | Particle systems: their settings, bursts from a script, time, billboards and models, the cost |
 | [Shaders](Shaders.md) | The shader API and its version, public includes, `Standard`'s extension points, the fog option, custom shaders |
-| [Animation](Animation.md) | Bones, layers and masks, clips on other rigs, extra bones, attachments, look at, spring bones, when the pose is worked out |
+| [Animation](Animation.md) | Bones, layers and masks, clips on other rigs, extra bones, attachments, animation graphs, look at, spring bones, when the pose is worked out |
 | [Saving](Saving.md) | The save folder, `Storage` and `Json` |
 | [Input](Input.md) | Keys, mouse, the editor's focus rules |
 | [Coordinates](Coordinates.md) | Axes, angles and rotation order |

@@ -40,6 +40,99 @@
   evaluates the pose, so a script that turns them writes them every frame. A bone the clip has and the model lacks,
   and bones directly under the armature, are still refused: a renamed bone needs the bone map.
 
+## Animator
+
+The `Animator` component plays an animation graph on its actor's skinned mesh: a JSON file of the project
+(`.ovanim`) whose layers hold states and the transitions between them, driven by parameters a script
+sets.
+
+- **Setting it up**: `SetGraphPath("Animations/Hero.ovanim")`, and the model whose clips the graph plays
+  (`SetAnimationSourceModel`, the rendered model by default), with a bone map for clips of another rig (`SetBoneMap`, as
+  for a layer, see [Clips on other rigs](#clips-on-other-rigs)). In a file: `graph`, `animation_source`, `bone_map`.
+- **While it plays**, the skinned mesh renderer samples the graph's clips instead of its own layers, which come back
+  when the animator is disabled or removed. Its pose is worked out at the renderer's evaluation rate, and at once when
+  a state changes or a script changes the graph.
+- **When**: once a frame, after every `OnUpdate` and before every `OnLateUpdate`: a parameter set in `OnUpdate` shows in
+  the same frame, and `OnLateUpdate`, the looks and the spring bones see the graph's pose.
+- **Parameters**: `SetFloat`, `SetBool`, `SetTrigger` (set until a transition uses it up) and `ResetTrigger`, each
+  returning `false` for an unknown name or a parameter of another kind; `GetFloat`, `GetBool`, `GetParameterNames`.
+- **Layers**: `GetState(layer)` (the state it is in, or going to while it fades), `GetStateTime(layer)` (normalized, 1
+  per loop), `IsInTransition(layer)`, `SetLayerWeight(layer, weight)`, `GetLayerNames`. A layer is given by its index
+  from 0 or by its name, the first one when none is given.
+- **From a script**: `Play(state[, fade[, layer]])` moves to a state at once, whatever the transitions say; `Reset()`
+  puts every parameter and layer back to its default; `Reload()` reads the file again.
+- **A file that cannot play** is named, with the JSON path of the mistake, in a warning, in `GetError()` and in the
+  inspector, and plays nothing: an unknown member, a missing name, an unknown state or parameter, a clip the model
+  lacks (`layers[0].states[1].clip: no clip 'Run' in 'Animations/Rig.fbx'`).
+- **The inspector** shows each layer's state and every parameter, which can be changed while the game plays.
+- **In the editor**, the Asset Browser lists the `.ovanim` files: the Graph field picks one or takes one dropped on it,
+  "Open" edits it in the code editor ("Reload Graph" reads it again), and renaming one updates the animators that use it.
+
+### The graph file
+
+```json
+{
+	"parameters": [
+		{ "name": "Speed", "type": "float", "default": 0 },
+		{ "name": "Grounded", "type": "bool", "default": true },
+		{ "name": "Attack", "type": "trigger" }
+	],
+	"layers": [
+		{
+			"name": "Base",
+			"states": [
+				{ "name": "Locomotion", "blend": { "parameter": "Speed", "motions": [
+					{ "clip": "Idle", "position": 0 },
+					{ "clip": "Walk", "position": 1.5 },
+					{ "clip": "Run", "position": 5 }
+				] } },
+				{ "name": "Fall", "clip": "Fall" },
+				{ "name": "Land", "clip": "Land", "loop": false }
+			],
+			"transitions": [
+				{ "from": "Locomotion", "to": "Fall", "conditions": [ { "parameter": "Grounded", "value": false } ], "duration": 0.15 },
+				{ "from": "Fall", "to": "Land", "conditions": [ { "parameter": "Grounded" } ], "duration": 0.05 },
+				{ "from": "Land", "to": "Locomotion", "exitTime": 0.8, "duration": 0.2 }
+			]
+		},
+		{
+			"name": "UpperBody",
+			"mask": "spine_02",
+			"states": [
+				{ "name": "Rest" },
+				{ "name": "Slash", "clip": "Slash", "loop": false, "speed": 1.2 }
+			],
+			"transitions": [
+				{ "from": "*", "to": "Slash", "conditions": [ { "parameter": "Attack" } ], "duration": 0.1 },
+				{ "from": "Slash", "to": "Rest", "exitTime": 1, "duration": 0.25 }
+			]
+		}
+	]
+}
+```
+
+- **Parameters**: `name`, `type` (`"float"`, `"bool"` or `"trigger"`) and `default` (none for a trigger).
+- **Layers**, in order, each over the ones before: `name`, `weight` (0 to 1, 1 by default), `mask` (a bone: the layer
+  plays on it and the bones under it only), `default` (its first state otherwise), `states`, `transitions`. A layer
+  covers the layers before it by its weight, on the bones its clips drive.
+- **States**: `name`, then
+  - `clip`: one clip of the source model;
+  - or `blend`: clips placed along a number `parameter` (`motions`, each a `clip` and a `position`), the two around the
+    parameter's value weighed by how near they are, their times kept in step (a walk and a run put their feet down
+    together);
+  - or neither: an empty state, which plays nothing and lets the layers before show through (an upper body at rest);
+  - and `speed` (1 by default), `speedParameter` (a number parameter it is multiplied by), `loop` (true by default; a
+    state that does not loop holds its last frame).
+- **Transitions**: `from` (a state, or `"*"` for any state but the target), `to`, `conditions`, `duration` (the fade,
+  in seconds, 0.25 by default) and `exitTime` (in the state's normalized time: within a loop, it comes back every
+  loop; past 1, it counts loops). A transition needs conditions, an exit time, or both.
+  - A **condition** names its `parameter`: a number takes an `op` (`">"`, `">="`, `"<"`, `"<="`, `"=="`, `"!="`) and a
+    `value`; a boolean a `value` (true by default) and `"=="` (by default) or `"!="`; a trigger nothing else, and the
+    transition uses it up.
+  - Each frame, a layer takes the first transition that holds: from any state first, then from its state, in the
+    file's order. It may leave a state while still fading into it: the fade then starts from the blend it had
+    reached, without a jump.
+
 ## Look at
 
 The `LookAt` component ("Look At" in the editor) turns a chain of bones of its actor's skinned mesh towards a target,
@@ -98,7 +191,7 @@ a cape, a tail) as the body moves, over the animation.
 
 ## Look at and spring bones in the frame
 
-- They apply once a frame, after every script (`OnLateUpdate`, `Events.AddLateUpdate`) and before the skeleton is
+- They apply once a frame, after every script (and the animators) (`OnLateUpdate`, `Events.AddLateUpdate`) and before the skeleton is
   worked out and the bone attachments placed: the looks first, then the spring bones, which hang from the bones as
   the looks turned them.
 - They start from the frame's pose, the clips' and the scripts', never from what they wrote the frame before: the

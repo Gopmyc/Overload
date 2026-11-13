@@ -18,6 +18,7 @@
 #include <OvCore/ECS/Components/CBoneAttachment.h>
 #include <OvCore/ECS/Components/CCamera.h>
 #include <OvCore/ECS/Components/CLight.h>
+#include <OvCore/ECS/Components/CAnimator.h>
 #include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
@@ -51,6 +52,7 @@ namespace OvCore::SceneSystem
 			std::vector<ECS::Components::CBoneAttachment*> boneAttachments;
 			std::vector<ECS::Components::CParticleSystem*> particleSystems;
 			std::vector<ECS::Components::CSkinnedMeshRenderer*> skinnedMeshRenderers;
+			std::vector<ECS::Components::CAnimator*> animators;
 			std::vector<ECS::Components::CLookAt*> lookAts;
 			std::vector<ECS::Components::CSpringBones*> springBones;
 		};
@@ -136,6 +138,13 @@ namespace OvCore::SceneSystem
 		* engine's global LateUpdate event
 		*/
 		static OvTools::Eventing::Event<float> LateUpdateEvent;
+
+		/**
+		* Moves every animator's graph on and has its skinned mesh sample it, once every actor's OnUpdate has run (the
+		* parameters the scripts set apply in the same frame) and before any OnLateUpdate. Called by LateUpdate
+		* @param p_deltaTime
+		*/
+		void UpdateAnimators(float p_deltaTime);
 
 		/**
 		* Applies the animation constraints over the frame's pose, once the scripts have run: every look at, then every
@@ -274,6 +283,12 @@ namespace OvCore::SceneSystem
 		Navigation::NavMesh& GetNavigation();
 
 		/**
+		* Returns the file an asset path names: in the project's assets, or the engine's for a path starting with ':'
+		* @param p_path
+		*/
+		std::filesystem::path GetRealAssetPath(const std::string& p_path) const;
+
+		/**
 		* Serialize the scene
 		* @param p_doc
 		* @param p_root
@@ -288,7 +303,6 @@ namespace OvCore::SceneSystem
 		virtual void OnDeserialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_root) override;
 
 	private:
-		std::filesystem::path GetRealAssetPath(const std::string& p_path) const;
 		void BeginBatchActorCreation();
 		void EndBatchActorCreation(bool p_startCreatedActors);
 		ECS::Actor* InstantiatePrefabInternal(const std::string& p_prefabPath, OvTools::Utils::OptRef<ECS::Actor> p_parent);
