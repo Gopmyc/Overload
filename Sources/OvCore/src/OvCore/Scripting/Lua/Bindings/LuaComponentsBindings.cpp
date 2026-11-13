@@ -823,6 +823,8 @@ void BindLuaComponents(sol::state& p_luaState)
 		"SetInfluenceSize", &CReflectionProbe::SetInfluenceSize,
 		"GetInfluenceSize", &CReflectionProbe::GetInfluenceSize,
 		"SetBoxProjection", &CReflectionProbe::SetBoxProjection,
+		"SetBrightness", &CReflectionProbe::SetBrightness,
+		"GetBrightness", &CReflectionProbe::GetBrightness,
 		"IsBoxProjectionEnabled", &CReflectionProbe::IsBoxProjectionEnabled,
 		"RequestCapture", &CReflectionProbe::RequestCapture,
 		"GetCubemap", &CReflectionProbe::GetCubemap

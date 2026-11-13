@@ -60,6 +60,14 @@ function ReflectionProbe:GetInfluenceSize() end
 ---@param enabled boolean
 function ReflectionProbe:SetBoxProjection(enabled) end
 
+--- Sets how bright what the probe captured is, for the objects it lights (1 as captured)
+---@param brightness number
+function ReflectionProbe:SetBrightness(brightness) end
+
+--- Returns how bright what the probe captured is
+---@return number
+function ReflectionProbe:GetBrightness() end
+
 --- Returns if the reflection probe uses box projection
 ---@return boolean
 function ReflectionProbe:IsBoxProjectionEnabled() end
