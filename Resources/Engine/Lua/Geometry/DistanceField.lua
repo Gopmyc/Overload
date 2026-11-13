@@ -30,6 +30,13 @@ function DistanceField:SetNoise(amplitude, frequency, octaves, floorShare) end
 ---@param radius number
 function DistanceField:SetBlend(radius) end
 
+--- Defines the relief of the empty spaces' walls (not the boxes'): a ledge every ledgeHeight metres, its step ledgeDepth
+--- metres deep (0 for none), and ridgeShare (0 to 1) of the noise folded into ridges
+---@param ledgeHeight number
+---@param ledgeDepth number
+---@param ridgeShare number
+function DistanceField:SetRelief(ledgeHeight, ledgeDepth, ridgeShare) end
+
 --- Adds an empty tube from one point to another; its height is squash times its width, and its floor is cut flat floor
 --- of its half height below its axis
 ---@param from Vector3
@@ -51,6 +58,14 @@ function DistanceField:AddEllipsoid(centre, radii, floor) end
 ---@param height number
 ---@param radius number
 function DistanceField:AddPillar(base, height, radius) end
+
+--- Adds an empty box from min to max, sharp and unroughened, joined to the rest as it is; its floor rises by rise from
+--- the low to the high side along axis (0 for X, 2 for Z), its ceiling stays at max's height (raised by the rise)
+---@param min Vector3
+---@param max Vector3
+---@param rise number|nil 0 for a flat floor
+---@param axis integer|nil 0 (X, the default) or 2 (Z)
+function DistanceField:AddBox(min, max, rise, axis) end
 
 --- Defines the ground: count * count heights, row-major (+X then +Z), spacing apart from (originX, originZ). The empty
 --- spaces only count cover metres below it, and the air above an opening counts sink metres below it. Returns true, or

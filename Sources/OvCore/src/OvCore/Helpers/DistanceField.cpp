@@ -129,6 +129,14 @@ void OvCore::Helpers::DistanceField::SetBlend(float p_radius)
 	m_gridDirty = true;
 }
 
+void OvCore::Helpers::DistanceField::SetRelief(float p_ledgeHeight, float p_ledgeDepth, float p_ridgeShare)
+{
+	m_ledgeHeight = std::max(p_ledgeHeight, 0.25f);
+	m_ledgeDepth = std::max(p_ledgeDepth, 0.0f);
+	m_ridgeShare = std::clamp(p_ridgeShare, 0.0f, 1.0f);
+	m_gridDirty = true;
+}
+
 void OvCore::Helpers::DistanceField::AddTube(const FVector3& p_from, const FVector3& p_to, float p_fromRadius, float p_toRadius, float p_floor, float p_squash)
 {
 	Primitive primitive{ Primitive::EKind::TUBE, p_from, p_to };
@@ -160,6 +168,17 @@ void OvCore::Helpers::DistanceField::AddPillar(const FVector3& p_base, float p_h
 	primitive.r0 = std::max(p_radius, 0.0f);
 	primitive.boundsMin = primitive.a - FVector3{ primitive.r0, primitive.r0, primitive.r0 };
 	primitive.boundsMax = primitive.b + FVector3{ primitive.r0, primitive.r0, primitive.r0 };
+
+	AddPrimitive(primitive);
+}
+
+void OvCore::Helpers::DistanceField::AddBox(const FVector3& p_min, const FVector3& p_max, float p_rise, uint32_t p_axis)
+{
+	Primitive primitive{ Primitive::EKind::BOX, Min(p_min, p_max), Max(p_min, p_max) };
+	primitive.r0 = p_rise;
+	primitive.axis = p_axis == 2 ? 2 : 0;
+	primitive.boundsMin = primitive.a;
+	primitive.boundsMax = primitive.b + FVector3{ 0.0f, std::max(p_rise, 0.0f), 0.0f };
 
 	AddPrimitive(primitive);
 }
@@ -207,8 +226,8 @@ void OvCore::Helpers::DistanceField::BuildGrid() const
 
 	m_grid.clear();
 
-	// A primitive reaches past its own bounds by the blend and the noise
-	const float reach = m_blend + m_noiseAmplitude + 0.5f;
+	// A primitive reaches past its own bounds by the blend, the noise and the ledges
+	const float reach = m_blend + m_noiseAmplitude + m_ledgeDepth + 0.5f;
 	const FVector3 inflate{ reach, reach, reach };
 
 	for (uint32_t index = 0; index < m_primitives.size(); ++index)
@@ -319,6 +338,28 @@ float OvCore::Helpers::DistanceField::GetDistance(const Primitive& p_primitive, 
 		const float dx = p_point.x - p_primitive.a.x, dy = p_point.y - y, dz = p_point.z - p_primitive.a.z;
 		return std::sqrt(dx * dx + dy * dy + dz * dz) - p_primitive.r0;
 	}
+	case Primitive::EKind::BOX:
+	{
+		// The farthest of its faces' planes: exact on the faces, which is all the surface needs; the floor a ramp
+		const FVector3& low = p_primitive.a;
+		const FVector3& high = p_primitive.b;
+		const bool alongZ = p_primitive.axis == 2;
+		const float span = alongZ ? high.z - low.z : high.x - low.x;
+		const float t = span > 0.0f ? std::clamp(((alongZ ? p_point.z - low.z : p_point.x - low.x)) / span, 0.0f, 1.0f) : 0.0f;
+		const float slope = span > 0.0f ? p_primitive.r0 / span : 0.0f;
+		const float floor = low.y + p_primitive.r0 * t;
+		const float ceiling = high.y + std::max(p_primitive.r0, 0.0f);
+
+		if (p_floor != nullptr)
+		{
+			*p_floor = floor;
+		}
+
+		return std::max({
+			low.x - p_point.x, p_point.x - high.x, low.z - p_point.z, p_point.z - high.z, p_point.y - ceiling,
+			(floor - p_point.y) / std::sqrt(1.0f + slope * slope)
+		});
+	}
 	}
 
 	return kSolid;
@@ -340,6 +381,21 @@ float OvCore::Helpers::DistanceField::GetNoise(const FVector3& p_point) const
 	}
 
 	return (sum / total) * 2.0f - 1.0f;
+}
+
+float OvCore::Helpers::DistanceField::GetRelief(const FVector3& p_point, float p_noise) const
+{
+	if (m_ledgeDepth <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	// A sawtooth up the walls, its rise a shelf and its drop a step, the noise wobbling it off the level
+	const float t = p_point.y / m_ledgeHeight + p_noise * 0.35f;
+	const float f = t - std::floor(t);
+	const float shelf = f < 0.8f ? f / 0.8f : (1.0f - f) / 0.2f;
+
+	return m_ledgeDepth * (shelf - 0.5f);
 }
 
 float OvCore::Helpers::DistanceField::GetGround(float p_x, float p_z) const
@@ -432,7 +488,7 @@ float OvCore::Helpers::DistanceField::Evaluate(const FVector3& p_point, const st
 	{
 		const auto& primitive = m_primitives[index];
 
-		if (primitive.kind == Primitive::EKind::PILLAR)
+		if (primitive.kind == Primitive::EKind::PILLAR || primitive.kind == Primitive::EKind::BOX)
 		{
 			continue;
 		}
@@ -451,11 +507,19 @@ float OvCore::Helpers::DistanceField::Evaluate(const FVector3& p_point, const st
 
 	if (empty)
 	{
-		// The noise in full on the walls, a share of it on the floor of the nearest space
-		const float noise = m_noiseAmplitude > 0.0f ? m_noiseAmplitude * GetNoise(p_point) : 0.0f;
+		// The noise in full on the walls, a share of it on the floor of the nearest space, part of it folded into
+		// ridges; the ledges on the walls only
+		float wave = m_noiseAmplitude > 0.0f || m_ledgeDepth > 0.0f ? GetNoise(p_point) : 0.0f;
+
+		if (m_ridgeShare > 0.0f)
+		{
+			wave = Mix(wave, 1.0f - 2.0f * std::abs(wave), m_ridgeShare);
+		}
+
+		const float noise = m_noiseAmplitude * wave;
 		const float onFloor = std::clamp((p_point.y - floor) / 1.5f, 0.0f, 1.0f);
 
-		value += noise * Mix(m_floorShare, 1.0f, onFloor);
+		value += noise * Mix(m_floorShare, 1.0f, onFloor) + GetRelief(p_point, wave) * onFloor;
 
 		for (const uint32_t index : p_candidates)
 		{
@@ -465,6 +529,20 @@ float OvCore::Helpers::DistanceField::Evaluate(const FVector3& p_point, const st
 			{
 				value = std::max(value, -(GetDistance(primitive, p_point) + noise));
 			}
+		}
+	}
+
+	// The boxes as they are, sharp, over the rest
+	for (const uint32_t index : p_candidates)
+	{
+		const auto& primitive = m_primitives[index];
+
+		if (primitive.kind == Primitive::EKind::BOX)
+		{
+			const float distance = GetDistance(primitive, p_point);
+
+			value = empty ? std::min(value, distance) : distance;
+			empty = true;
 		}
 	}
 

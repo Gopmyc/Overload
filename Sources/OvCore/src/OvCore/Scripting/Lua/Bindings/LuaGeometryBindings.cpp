@@ -130,6 +130,7 @@ void BindLuaGeometry(sol::state& p_luaState)
 			p_field.SetNoise(p_amplitude, p_frequency, p_octaves.value_or(2), p_floorShare.value_or(0.2f));
 		},
 		"SetBlend", &DistanceField::SetBlend,
+		"SetRelief", &DistanceField::SetRelief,
 		"AddTube", [](DistanceField& p_field, const FVector3& p_from, const FVector3& p_to, float p_fromRadius, float p_toRadius, sol::optional<float> p_floor, sol::optional<float> p_squash) {
 			p_field.AddTube(p_from, p_to, p_fromRadius, p_toRadius, p_floor.value_or(1.0f), p_squash.value_or(1.0f));
 		},
@@ -137,6 +138,9 @@ void BindLuaGeometry(sol::state& p_luaState)
 			p_field.AddEllipsoid(p_centre, p_radii, p_floor.value_or(1.0f));
 		},
 		"AddPillar", &DistanceField::AddPillar,
+		"AddBox", [](DistanceField& p_field, const FVector3& p_min, const FVector3& p_max, sol::optional<float> p_rise, sol::optional<uint32_t> p_axis) {
+			p_field.AddBox(p_min, p_max, p_rise.value_or(0.0f), p_axis.value_or(0));
+		},
 		"SetGround", &SetGround,
 		"AddOpening", &DistanceField::AddOpening,
 		"AddLight", &DistanceField::AddLight,
