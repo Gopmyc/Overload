@@ -35,7 +35,8 @@ namespace OvCore::Helpers
 	* that they stay walkable; pillars stay solid inside them, roughened too. A relief can add ledges (strata on the
 	* walls, a step every ledge height) and ridges (the noise folded into sharp crests) to them, off the floors as well.
 	* Boxes are empty spaces of another kind, built rooms: sharp and exact, neither blended nor roughened, their floor
-	* flat or rising along X or Z (a ramp, for stairs), joined to the rest as they are.
+	* flat or rising along X or Z (a ramp, for stairs), joined to the rest as they are, the solid under their floor
+	* kept (3 m of it) whatever empty space comes near.
 	*
 	* With a ground (a square grid of heights split as a physical height field is), the empty spaces only count under a
 	* cover of solid below it, but at its openings: discs where the cover lifts and the air above the ground counts as

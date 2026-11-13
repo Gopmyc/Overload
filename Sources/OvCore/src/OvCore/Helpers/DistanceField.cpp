@@ -25,6 +25,9 @@ namespace
 	// How far above the ground a triangle of the surface may stand (the air over an opening is not drawn)
 	constexpr float kAboveGround = 0.02f;
 
+	// How deep under a box's floor the solid stays, whatever empty space comes near
+	constexpr float kKeptUnder = 3.0f;
+
 	uint32_t Hash(int32_t p_x, int32_t p_y, int32_t p_z, uint32_t p_seed)
 	{
 		uint32_t h = p_seed ^ 0x9E3779B9u;
@@ -532,7 +535,24 @@ float OvCore::Helpers::DistanceField::Evaluate(const FVector3& p_point, const st
 		}
 	}
 
-	// The boxes as they are, sharp, over the rest
+	// The boxes as they are, sharp, over the rest; under a box's floor, the solid it stands on kept (a tunnel ending
+	// at its door does not eat into it)
+	for (const uint32_t index : p_candidates)
+	{
+		const auto& primitive = m_primitives[index];
+
+		if (primitive.kind == Primitive::EKind::BOX && p_point.x > primitive.a.x && p_point.x < primitive.b.x && p_point.z > primitive.a.z && p_point.z < primitive.b.z)
+		{
+			float floor = 0.0f;
+			GetDistance(primitive, p_point, &floor);
+
+			if (p_point.y < floor && p_point.y > floor - kKeptUnder)
+			{
+				value = std::max(value, floor - p_point.y);
+			}
+		}
+	}
+
 	for (const uint32_t index : p_candidates)
 	{
 		const auto& primitive = m_primitives[index];
