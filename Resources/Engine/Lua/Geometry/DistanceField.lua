@@ -59,8 +59,9 @@ function DistanceField:AddEllipsoid(centre, radii, floor) end
 ---@param radius number
 function DistanceField:AddPillar(base, height, radius) end
 
---- Adds an empty box from min to max, sharp and unroughened, joined to the rest as it is; its floor rises by rise from
---- the low to the high side along axis (0 for X, 2 for Z), its ceiling stays at max's height (raised by the rise)
+--- Adds an empty box from min to max, sharp and unroughened, joined to the rest as it is; its floor, min's height on the
+--- low side along axis (0 for X, 2 for Z), rises by rise to the high side (below 0, it falls); its ceiling stays at
+--- max's height (raised by a rise above 0)
 ---@param min Vector3
 ---@param max Vector3
 ---@param rise number|nil 0 for a flat floor

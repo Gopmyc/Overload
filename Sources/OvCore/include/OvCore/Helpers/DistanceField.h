@@ -100,8 +100,9 @@ namespace OvCore::Helpers
 		void AddPillar(const OvMaths::FVector3& p_base, float p_height, float p_radius);
 
 		/**
-		* Adds an empty box from p_min to p_max, sharp and unroughened; its floor rises by p_rise from the low to the
-		* high side along p_axis (0 for X, 2 for Z; 0 rise for a flat floor), its ceiling stays at p_max's height
+		* Adds an empty box from p_min to p_max, sharp and unroughened; its floor, p_min's height on the low side along
+		* p_axis (0 for X, 2 for Z), rises by p_rise to the high side (0 for a flat floor, below 0 for one that falls);
+		* its ceiling stays at p_max's height, raised by a rise above 0
 		*/
 		void AddBox(const OvMaths::FVector3& p_min, const OvMaths::FVector3& p_max, float p_rise = 0.0f, uint32_t p_axis = 0);
 

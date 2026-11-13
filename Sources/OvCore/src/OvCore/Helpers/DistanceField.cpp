@@ -177,7 +177,7 @@ void OvCore::Helpers::DistanceField::AddBox(const FVector3& p_min, const FVector
 	Primitive primitive{ Primitive::EKind::BOX, Min(p_min, p_max), Max(p_min, p_max) };
 	primitive.r0 = p_rise;
 	primitive.axis = p_axis == 2 ? 2 : 0;
-	primitive.boundsMin = primitive.a;
+	primitive.boundsMin = primitive.a + FVector3{ 0.0f, std::min(p_rise, 0.0f), 0.0f };
 	primitive.boundsMax = primitive.b + FVector3{ 0.0f, std::max(p_rise, 0.0f), 0.0f };
 
 	AddPrimitive(primitive);
