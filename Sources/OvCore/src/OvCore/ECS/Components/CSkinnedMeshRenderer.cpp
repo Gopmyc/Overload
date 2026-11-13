@@ -232,7 +232,7 @@ bool OvCore::ECS::Components::CSkinnedMeshRenderer::HasSkinningData() const
 
 	return HasCompatibleModel() &&
 		!m_boneMatrices.empty() &&
-		(hasAnimatedLayer || m_manualPoseOverride || m_ragdoll != nullptr);
+		(hasAnimatedLayer || m_manualPoseOverride || m_ragdoll != nullptr || !m_constrainedList.empty());
 }
 
 uint32_t OvCore::ECS::Components::CSkinnedMeshRenderer::GetLayerCount() const
@@ -849,6 +849,60 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::UpdatePose()
 	m_drawnSinceUpdate = false;
 
 	ResolvePoseForDrawing();
+}
+
+const OvRendering::Animation::Skeleton* OvCore::ECS::Components::CSkinnedMeshRenderer::GetSkeleton() const
+{
+	return HasCompatibleModel() ? &m_model->GetSkeleton().value() : nullptr;
+}
+
+void OvCore::ECS::Components::CSkinnedMeshRenderer::ClearConstraintRotations()
+{
+	if (m_constrainedList.empty())
+	{
+		return;
+	}
+
+	for (const uint32_t node : m_constrainedList)
+	{
+		if (node < m_constrainedNodes.size())
+		{
+			m_constrainedNodes[node] = 0;
+		}
+	}
+
+	m_constrainedList.clear();
+	m_skeletonDirty = true;
+}
+
+bool OvCore::ECS::Components::CSkinnedMeshRenderer::SetConstraintRotation(uint32_t p_boneIndex, const OvMaths::FQuaternion& p_localRotation)
+{
+	const auto nodeIndex = GetNodeIndexFromBoneIndex(p_boneIndex);
+	if (!nodeIndex.has_value())
+	{
+		return false;
+	}
+
+	// The bone keeps the position and scale the pose gives it
+	ResolveLocalPose();
+
+	m_constraintPose.resize(m_localPose.size(), OvMaths::FMatrix4::Identity);
+	m_constrainedNodes.resize(m_localPose.size(), 0);
+
+	OvMaths::FVector3 position;
+	OvMaths::FQuaternion rotation;
+	OvMaths::FVector3 scale;
+	DecomposeTransform(m_localPose[*nodeIndex], position, rotation, scale);
+	m_constraintPose[*nodeIndex] = OvMaths::FTransform(position, OvMaths::FQuaternion::Normalize(p_localRotation), scale).GetLocalMatrix();
+
+	if (!m_constrainedNodes[*nodeIndex])
+	{
+		m_constrainedNodes[*nodeIndex] = 1;
+		m_constrainedList.push_back(*nodeIndex);
+	}
+
+	m_skeletonDirty = true;
+	return true;
 }
 
 uint64_t OvCore::ECS::Components::CSkinnedMeshRenderer::GetPoseEvaluationCount() const
@@ -1569,6 +1623,9 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RebuildRuntimeData()
 	m_globalPose.clear();
 	m_boneMatrices.clear();
 	m_boneMatricesTransposed.clear();
+	m_constraintPose.clear();
+	m_constrainedNodes.clear();
+	m_constrainedList.clear();
 	m_poseEvaluationAccumulator = 0.0f;
 	m_manualPoseOverride = false;
 
@@ -1922,11 +1979,17 @@ void OvCore::ECS::Components::CSkinnedMeshRenderer::RecomputeBoneMatricesFromLoc
 			continue;
 		}
 
+		// A constraint's rotation stands in for the pose's
+		const auto& local =
+			nodeIndex < m_constrainedNodes.size() && m_constrainedNodes[nodeIndex] ?
+			m_constraintPose[nodeIndex] :
+			m_localPose[nodeIndex];
+
 		const auto parentIndex = skeleton.nodes[nodeIndex].parentIndex;
 		m_globalPose[nodeIndex] =
 			parentIndex >= 0 ?
-			m_globalPose[static_cast<size_t>(parentIndex)] * m_localPose[nodeIndex] :
-			m_localPose[nodeIndex];
+			m_globalPose[static_cast<size_t>(parentIndex)] * local :
+			local;
 	}
 
 	for (size_t boneIndex = 0; boneIndex < skeleton.bones.size(); ++boneIndex)

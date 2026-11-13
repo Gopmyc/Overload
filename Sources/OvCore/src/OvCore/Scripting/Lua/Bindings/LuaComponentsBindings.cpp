@@ -21,6 +21,8 @@
 #include <OvCore/ECS/Components/CAudioListener.h>  
 #include <OvCore/ECS/Components/CAudioSource.h>  
 #include <OvCore/ECS/Components/CBoneAttachment.h>
+#include <OvCore/ECS/Components/CLookAt.h>
+#include <OvCore/ECS/Components/CSpringBones.h>
 #include <OvCore/ECS/Components/CCamera.h>  
 #include <OvCore/ECS/Components/CDirectionalLight.h>  
 #include <OvCore/ECS/Components/CMaterialRenderer.h>  
@@ -1002,11 +1004,262 @@ void BindLuaComponents(sol::state& p_luaState)
 		}
 	);
 
+	// The look's bounds and speed, one setter each over the whole settings
+	const auto lookAtSetting = [](float OvCore::Animation::LookAtSettings::* p_field)
+	{
+		return [p_field](CLookAt& p_this, float p_value)
+		{
+			auto settings = p_this.GetSettings();
+			settings.*p_field = p_value;
+			p_this.SetSettings(settings);
+		};
+	};
+
+	const auto lookAtGetting = [](float OvCore::Animation::LookAtSettings::* p_field)
+	{
+		return [p_field](CLookAt& p_this) { return p_this.GetSettings().*p_field; };
+	};
+
+	p_luaState.new_usertype<CLookAt>("LookAt",
+		sol::base_classes, sol::bases<AComponent>(),
+		"SetBones", [](CLookAt& p_this, sol::table p_bones)
+		{
+			std::vector<CLookAt::BonePart> parts;
+
+			for (size_t i = 1; i <= p_bones.size(); ++i)
+			{
+				const auto entry = p_bones.get<sol::object>(i);
+				if (entry.get_type() != sol::type::table)
+				{
+					throw sol::error("LookAt:SetBones takes a list of { bone, weight } pairs, from the root to the tip");
+				}
+
+				const sol::table pair = entry.as<sol::table>();
+				const auto bone = pair.get<sol::object>(1);
+				const auto weight = pair.get<sol::object>(2);
+
+				if (bone.get_type() != sol::type::string || (weight.valid() && weight.get_type() != sol::type::number && weight.get_type() != sol::type::lua_nil))
+				{
+					throw sol::error("LookAt:SetBones takes a list of { bone, weight } pairs, from the root to the tip");
+				}
+
+				parts.push_back({ bone.as<std::string>(), weight.get_type() == sol::type::number ? weight.as<float>() : 1.0f });
+			}
+
+			p_this.SetBones(parts);
+		},
+		"GetBones", [](CLookAt& p_this, sol::this_state p_state)
+		{
+			sol::state_view lua(p_state);
+			sol::table result = lua.create_table();
+			for (const auto& part : p_this.GetBones())
+			{
+				result.add(lua.create_table_with(1, part.bone, 2, part.weight));
+			}
+			return result;
+		},
+		"SetTarget", [](CLookAt& p_this, std::optional<OvCore::Scripting::ActorRef> p_target)
+		{
+			p_this.SetTarget(p_target && p_target->guid != 0 ? &p_target->Resolve() : nullptr);
+		},
+		"GetTarget", [](CLookAt& p_this) -> std::optional<OvCore::Scripting::ActorRef>
+		{
+			if (p_this.GetTargetGUID() == 0) return std::nullopt;
+			return OvCore::Scripting::ActorRef{ p_this.GetTargetGUID() };
+		},
+		"SetTargetPosition", &CLookAt::SetTargetPosition,
+		"GetTargetPosition", &CLookAt::GetTargetPosition,
+		"ClearTarget", &CLookAt::ClearTarget,
+		"HasTarget", &CLookAt::HasTarget,
+		"SetTargetOffset", &CLookAt::SetTargetOffset,
+		"GetTargetOffset", [](CLookAt& p_this) { return p_this.GetTargetOffset(); },
+		"SetMaxYaw", lookAtSetting(&OvCore::Animation::LookAtSettings::maxYaw),
+		"GetMaxYaw", lookAtGetting(&OvCore::Animation::LookAtSettings::maxYaw),
+		"SetMinPitch", lookAtSetting(&OvCore::Animation::LookAtSettings::minPitch),
+		"GetMinPitch", lookAtGetting(&OvCore::Animation::LookAtSettings::minPitch),
+		"SetMaxPitch", lookAtSetting(&OvCore::Animation::LookAtSettings::maxPitch),
+		"GetMaxPitch", lookAtGetting(&OvCore::Animation::LookAtSettings::maxPitch),
+		"SetTurnTime", lookAtSetting(&OvCore::Animation::LookAtSettings::turnTime),
+		"GetTurnTime", lookAtGetting(&OvCore::Animation::LookAtSettings::turnTime),
+		"SetMaxTurnSpeed", lookAtSetting(&OvCore::Animation::LookAtSettings::maxTurnSpeed),
+		"GetMaxTurnSpeed", lookAtGetting(&OvCore::Animation::LookAtSettings::maxTurnSpeed),
+		"SetWeight", &CLookAt::SetWeight,
+		"GetWeight", &CLookAt::GetWeight,
+		"GetCurrentWeight", &CLookAt::GetCurrentWeight,
+		"SetFadeTime", &CLookAt::SetFadeTime,
+		"GetFadeTime", &CLookAt::GetFadeTime,
+		"GetYaw", &CLookAt::GetYaw,
+		"GetPitch", &CLookAt::GetPitch,
+		"GetLookDirection", &CLookAt::GetLookDirection,
+		"IsAtRest", &CLookAt::IsAtRest,
+		"Reset", &CLookAt::Reset,
+		"GetError", [](CLookAt& p_this) { return p_this.GetError(); }
+	);
+
+	// A spring group's settings from a table: a key it does not know raises an error, a misspelt one would be lost
+	const auto readSpringSettings = [](const sol::optional<sol::table>& p_table, OvCore::Animation::SpringSettings p_settings)
+	{
+		if (!p_table)
+		{
+			return p_settings;
+		}
+
+		for (const auto& [key, value] : *p_table)
+		{
+			const std::string name = key.is<std::string>() ? key.as<std::string>() : std::string{};
+			float* setting =
+				name == "stiffness" ? &p_settings.stiffness :
+				name == "damping" ? &p_settings.damping :
+				name == "gravity" ? &p_settings.gravity :
+				name == "radius" ? &p_settings.radius :
+				name == "maxAngle" ? &p_settings.maxAngle :
+				name == "link" ? &p_settings.link :
+				nullptr;
+
+			if (!setting)
+			{
+				throw sol::error("SpringBones: unknown setting '" + name + "' (stiffness, damping, gravity, radius, maxAngle, link)");
+			}
+
+			if (value.get_type() != sol::type::number)
+			{
+				throw sol::error("SpringBones: setting '" + name + "' must be a number");
+			}
+
+			*setting = value.as<float>();
+		}
+
+		return p_settings;
+	};
+
+	const auto readNames = [](const sol::table& p_table, const char* p_what)
+	{
+		std::vector<std::string> names;
+		for (size_t i = 1; i <= p_table.size(); ++i)
+		{
+			const auto entry = p_table.get<sol::object>(i);
+			if (entry.get_type() != sol::type::string)
+			{
+				throw sol::error(std::string{ "SpringBones: " } + p_what + " takes a list of names");
+			}
+			names.push_back(entry.as<std::string>());
+		}
+		return names;
+	};
+
+	const auto writeNames = [](sol::this_state p_state, const std::vector<std::string>& p_names)
+	{
+		sol::state_view lua(p_state);
+		sol::table result = lua.create_table();
+		for (const auto& name : p_names)
+		{
+			result.add(name);
+		}
+		return result;
+	};
+
+	p_luaState.new_usertype<CSpringBones>("SpringBones",
+		sol::base_classes, sol::bases<AComponent>(),
+		"SetGroup", [readSpringSettings](CSpringBones& p_this, const std::string& p_name, sol::optional<sol::table> p_settings)
+		{
+			const auto* group = p_this.FindGroup(p_name);
+			p_this.SetGroup(p_name, readSpringSettings(p_settings, group ? group->settings : OvCore::Animation::SpringSettings{}));
+		},
+		"GetGroupSettings", [](CSpringBones& p_this, const std::string& p_name, sol::this_state p_state) -> sol::object
+		{
+			const auto* group = p_this.FindGroup(p_name);
+			if (!group) return sol::lua_nil;
+			sol::state_view lua(p_state);
+			const auto& s = group->settings;
+			return lua.create_table_with("stiffness", s.stiffness, "damping", s.damping, "gravity", s.gravity, "radius", s.radius, "maxAngle", s.maxAngle, "link", s.link);
+		},
+		"RemoveGroup", &CSpringBones::RemoveGroup,
+		"GetGroupNames", [writeNames](CSpringBones& p_this, sol::this_state p_state)
+		{
+			std::vector<std::string> names;
+			for (const auto& group : p_this.GetGroups()) names.push_back(group.name);
+			return writeNames(p_state, names);
+		},
+		"SetGroupChains", [readNames](CSpringBones& p_this, const std::string& p_name, sol::table p_chains)
+		{
+			return p_this.SetGroupChains(p_name, readNames(p_chains, "SetGroupChains"));
+		},
+		"GetGroupChains", [writeNames](CSpringBones& p_this, const std::string& p_name, sol::this_state p_state) -> sol::object
+		{
+			const auto* group = p_this.FindGroup(p_name);
+			if (!group) return sol::lua_nil;
+			return writeNames(p_state, group->chains);
+		},
+		"SetGroupColliders", [readNames](CSpringBones& p_this, const std::string& p_name, sol::table p_colliders)
+		{
+			return p_this.SetGroupColliders(p_name, readNames(p_colliders, "SetGroupColliders"));
+		},
+		"GetGroupColliders", [writeNames](CSpringBones& p_this, const std::string& p_name, sol::this_state p_state) -> sol::object
+		{
+			const auto* group = p_this.FindGroup(p_name);
+			if (!group) return sol::lua_nil;
+			return writeNames(p_state, group->colliders);
+		},
+		"SetCollider", [](CSpringBones& p_this, const std::string& p_name, sol::table p_spec)
+		{
+			CSpringBones::Collider collider;
+			collider.name = p_name;
+
+			for (const auto& [key, value] : p_spec)
+			{
+				const std::string field = key.is<std::string>() ? key.as<std::string>() : std::string{};
+				const bool isText = field == "from" || field == "to" || field == "away";
+				const bool isNumber = field == "start" || field == "end" || field == "radius";
+
+				if (!isText && !isNumber)
+				{
+					throw sol::error("SpringBones:SetCollider: unknown field '" + field + "' (from, to, away, start, end, radius)");
+				}
+
+				if ((isText && value.get_type() != sol::type::string) || (isNumber && value.get_type() != sol::type::number))
+				{
+					throw sol::error("SpringBones:SetCollider: field '" + field + "' must be a " + (isText ? "bone name" : "number"));
+				}
+
+				if (field == "from") collider.from = value.as<std::string>();
+				else if (field == "to") collider.to = value.as<std::string>();
+				else if (field == "away") collider.away = value.as<std::string>();
+				else if (field == "start") collider.start = value.as<float>();
+				else if (field == "end") collider.end = value.as<float>();
+				else collider.radius = value.as<float>();
+			}
+
+			if (collider.from.empty() || (collider.to.empty() == collider.away.empty()))
+			{
+				throw sol::error("SpringBones:SetCollider takes a 'from' bone, and either a 'to' bone or an 'away' bone");
+			}
+
+			p_this.SetCollider(collider);
+		},
+		"RemoveCollider", &CSpringBones::RemoveCollider,
+		"GetColliderNames", [writeNames](CSpringBones& p_this, sol::this_state p_state)
+		{
+			std::vector<std::string> names;
+			for (const auto& collider : p_this.GetColliders()) names.push_back(collider.name);
+			return writeNames(p_state, names);
+		},
+		"SetGround", [](CSpringBones& p_this, bool p_enabled, sol::optional<float> p_offset) { p_this.SetGround(p_enabled, p_offset.value_or(0.0f)); },
+		"IsGroundEnabled", &CSpringBones::IsGroundEnabled,
+		"GetGroundOffset", &CSpringBones::GetGroundOffset,
+		"SetSleepWhenHidden", &CSpringBones::SetSleepWhenHidden,
+		"GetSleepWhenHidden", &CSpringBones::GetSleepWhenHidden,
+		"Reset", &CSpringBones::Reset,
+		"IsAsleep", &CSpringBones::IsAsleep,
+		"GetChainCount", &CSpringBones::GetChainCount,
+		"GetJointPosition", &CSpringBones::GetJointPosition,
+		"GetError", [](CSpringBones& p_this) { return p_this.GetError(); }
+	);
+
 	OvCore::Scripting::MarkComponentUsertypes<
 		AComponent, CTransform, CModelRenderer, CMaterialRenderer, CBoneAttachment, CSkinnedMeshRenderer,
 		CPhysicalObject, CPhysicalBox, CPhysicalSphere, CPhysicalCapsule, CPhysicalHeightField, CCharacterController,
 		CCamera, UI::CCanvas, UI::CImage, UI::CLayoutGroup, UI::CHorizontalLayout, UI::CVerticalLayout, UI::CText,
 		CLight, CPointLight, CSpotLight, CAmbientBoxLight, CAmbientSphereLight, CDirectionalLight,
-		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe, CParticleSystem
+		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe, CParticleSystem, CLookAt, CSpringBones
 	>(p_luaState.lua_state());
 }

@@ -12,6 +12,8 @@
 #include <OvCore/Rendering/EVisibilityFlags.h>
 #include <OvRendering/Geometry/BoundingSphere.h>
 
+namespace OvCore::ECS::Components { class CSkinnedMeshRenderer; }
+
 namespace OvCore::Rendering
 {
 	/**
@@ -26,5 +28,6 @@ namespace OvCore::Rendering
 		bool boundsInWorld = false; // The bounds are in the world, instead of the actor's space
 		std::optional<int> drawOrderOverride;
 		bool isUserInterface = false;
+		const ECS::Components::CSkinnedMeshRenderer* skinnedMeshRenderer = nullptr; // Told when a pass keeps the drawable
 	};
 }

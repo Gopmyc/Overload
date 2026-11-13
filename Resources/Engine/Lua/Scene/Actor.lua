@@ -166,6 +166,14 @@ function Actor:GetReflectionProbe() end
 ---@return ParticleSystem|nil
 function Actor:GetParticleSystem() end
 
+--- Returns the LookAt attached to this actor (If any)
+---@return LookAt|nil
+function Actor:GetLookAt() end
+
+--- Returns the SpringBones attached to this actor (If any)
+---@return SpringBones|nil
+function Actor:GetSpringBones() end
+
 --- Returns the Canvas attached to this actor (If any)
 ---@return Canvas|nil
 function Actor:GetCanvas() end
@@ -294,6 +302,14 @@ function Actor:AddReflectionProbe() end
 ---@return ParticleSystem
 function Actor:AddParticleSystem() end
 
+--- Adds a LookAt component to the actor and returns it
+---@return LookAt
+function Actor:AddLookAt() end
+
+--- Adds a SpringBones component to the actor and returns it
+---@return SpringBones
+function Actor:AddSpringBones() end
+
 --- Adds a Canvas component to the actor and returns it
 ---@return Canvas
 function Actor:AddCanvas() end
@@ -358,6 +374,12 @@ function Actor:RemovePostProcessStack() end
 function Actor:RemoveReflectionProbe() end
 --- Removes the ParticleSystem component from the actor
 function Actor:RemoveParticleSystem() end
+
+--- Removes the LookAt component from the actor
+function Actor:RemoveLookAt() end
+
+--- Removes the SpringBones component from the actor
+function Actor:RemoveSpringBones() end
 --- Removes the Canvas component from the actor
 function Actor:RemoveCanvas() end
 --- Removes the Image component from the actor

@@ -18,11 +18,13 @@
 #include <OvCore/ECS/Components/CBoneAttachment.h>
 #include <OvCore/ECS/Components/CCamera.h>
 #include <OvCore/ECS/Components/CLight.h>
+#include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
+#include <OvCore/ECS/Components/CSpringBones.h>
 #include <OvCore/Navigation/NavMesh.h>
 #include <OvTools/Eventing/Event.h>
 #include <OvTools/Utils/OptRef.h>
@@ -49,6 +51,8 @@ namespace OvCore::SceneSystem
 			std::vector<ECS::Components::CBoneAttachment*> boneAttachments;
 			std::vector<ECS::Components::CParticleSystem*> particleSystems;
 			std::vector<ECS::Components::CSkinnedMeshRenderer*> skinnedMeshRenderers;
+			std::vector<ECS::Components::CLookAt*> lookAts;
+			std::vector<ECS::Components::CSpringBones*> springBones;
 		};
 
 		/**
@@ -132,6 +136,13 @@ namespace OvCore::SceneSystem
 		* engine's global LateUpdate event
 		*/
 		static OvTools::Eventing::Event<float> LateUpdateEvent;
+
+		/**
+		* Applies the animation constraints over the frame's pose, once the scripts have run: every look at, then every
+		* spring bones (whose chains hang from the looks' bones). Called by LateUpdate
+		* @param p_deltaTime
+		*/
+		void UpdateAnimationConstraints(float p_deltaTime);
 
 		/**
 		* Works out the pose of every skinned mesh that needs it, once the scripts have run and before the bone

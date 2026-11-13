@@ -20,7 +20,7 @@
 
 namespace OvCore::ECS { class Actor; }
 namespace OvPhysics::Entities { class Ragdoll; }
-namespace OvRendering::Animation { struct SkeletalAnimation; }
+namespace OvRendering::Animation { struct SkeletalAnimation; struct Skeleton; }
 namespace OvRendering::Resources { class Model; }
 
 namespace OvCore::ECS::Components
@@ -437,6 +437,25 @@ namespace OvCore::ECS::Components
 		void UpdatePose();
 
 		/**
+		* Returns the skeleton of the model, or nothing without a skinned model
+		*/
+		const OvRendering::Animation::Skeleton* GetSkeleton() const;
+
+		/**
+		* Lets go of every rotation the animation constraints set: called by the scene before they run, each frame
+		*/
+		void ClearConstraintRotations();
+
+		/**
+		* Turns a bone by an animation constraint (a look at, a spring), over the pose and until the next clear: the pose
+		* stays as the clips and the scripts left it, and GetBoneLocal* still read it, while the skeleton, the drawing
+		* and the attachments take the constraint's rotation. Returns false when the bone is unknown
+		* @param p_boneIndex
+		* @param p_localRotation
+		*/
+		bool SetConstraintRotation(uint32_t p_boneIndex, const OvMaths::FQuaternion& p_localRotation);
+
+		/**
 		* Returns how many times the clips were sampled into a pose, since the component was made
 		*/
 		uint64_t GetPoseEvaluationCount() const;
@@ -588,6 +607,11 @@ namespace OvCore::ECS::Components
 		uint64_t m_skeletonUpdateCount = 0;
 
 		EUpdateMode m_updateMode = EUpdateMode::ALWAYS;
+
+		// The local matrices the animation constraints set, over the pose, and the nodes that have one
+		std::vector<OvMaths::FMatrix4> m_constraintPose;
+		std::vector<uint8_t> m_constrainedNodes;
+		std::vector<uint32_t> m_constrainedList;
 		mutable bool m_drawnSinceUpdate = false;
 		bool m_visibleLastFrame = true;
 
