@@ -300,13 +300,18 @@ void OvCore::Rendering::SceneRenderer::BeginFrame(const OvRendering::Data::Frame
 
 	GetFeature<EngineBufferRenderFeature>().SetFog(FindFogSettings(sceneDescriptor.scene));
 
+	// In the editor, the scene view draws with its own camera: the reports of the drawing follow the game's camera
+	auto* mainCamera = sceneDescriptor.scene.FindMainCamera();
+	const bool mainView = !mainCamera || &mainCamera->GetCamera() == &p_frameDescriptor.camera.value();
+
 	AddDescriptor<FrameBuilder::ParsingResult>({
 		FrameBuilder::Parse(FrameBuilder::ParsingInput{
 			.scene = sceneDescriptor.scene,
 			.renderSize = renderSize,
 			.renderUIInScreenSpace = sceneDescriptor.renderUIInScreenSpace,
 			.uiFrameResolver = &GetDescriptor<OvCore::Rendering::UIRenderingUtils::UIFrameResolver>(),
-			.viewPosition = p_frameDescriptor.camera.value().GetPosition()
+			.viewPosition = p_frameDescriptor.camera.value().GetPosition(),
+			.mainView = mainView
 		})
 	});
 

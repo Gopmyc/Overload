@@ -148,6 +148,13 @@ later version of the same major version.
   that cannot play says where, with its JSON path. The editor knows `.ovanim` files (`EFileType::ANIMATION_GRAPH`):
   the Asset Browser lists them, the inspector picks them, and a rename follows them. In C++,
   `OvCore::Animation::AnimationGraph`, and `Scene::GetRealAssetPath` is public. The Lua API is now 1.16. See [Docs/Animation.md](Docs/Animation.md#animator).
+- **Terrains**: a `PhysicalHeightField` can come from a height map, an image of the project of 8 or 16 bits with a
+  scale and an offset, which a scene saves and loads (before, a field's heights were lost with the scene). It answers
+  `GetHeightAt` and `GetNormalAt` on the physics' triangles, and gives its heights back to Lua (`GetHeights`). The
+  `Terrain` component draws it in chunks, each at one of up to 4 levels of detail by its distance to the camera, with
+  skirts hiding the gaps; its colour comes from a colour map, an image or a colour per sample from a script, on the
+  albedo of `:Materials/Terrain.ovmat` or any material. In C++, `OvCore::Terrain::Heightmap` and `TerrainMesher`. The
+  Lua API is now 1.17. See [Docs/Terrain.md](Docs/Terrain.md).
 
 ### Changed
 

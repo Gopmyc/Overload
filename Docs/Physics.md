@@ -15,6 +15,8 @@ The physics is Jolt Physics 5.6.0. It steps at a fixed 1/60 s; `OnFixedUpdate` r
   are row-major, along +X first, then +Z: the sample (x, z) is at index `z * sampleCount + x + 1`, at
   `(x * spacing, height, z * spacing)` from the actor, each cell cut along its (x, z)–(x + 1, z + 1) diagonal. It
   returns `true`, or `false` and why. Bodies rest about 2 cm into it.
+- A height field can also come from a height map image, which a scene saves and loads, and a `Terrain` draws it; it
+  answers `GetHeightAt` and `GetNormalAt` without a ray. See [Terrain](Terrain.md).
 - Static colliders are also what a navigation mesh is built from: see [Navigation](Navigation.md).
 
 ## Collision layers

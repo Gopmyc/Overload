@@ -11,6 +11,7 @@ on it. Each page states the behaviour of the current version; [`CHANGELOG.md`](.
 | [Standard library](StandardLibrary.md) | `Class`, `Signal`, `Timers`, `Tween`, `Ease`, `Pool` and `StateMachine`, shipped in Lua with the engine |
 | [Navigation](Navigation.md) | Navigation meshes built at run time from static colliders, paths, nearest points, walks along the mesh |
 | [Physics](Physics.md) | Bodies, triggers, queries, Jolt specifics, static bodies, height fields, ragdolls |
+| [Terrain](Terrain.md) | Height fields from a height map, terrains drawn in chunks with levels of detail, colour maps, height queries |
 | [Rendering](Rendering.md) | Materials and per-renderer values, the post process stack and fog, culling, UI text and fonts |
 | [Particles](Particles.md) | Particle systems: their settings, bursts from a script, time, billboards and models, the cost |
 | [Shaders](Shaders.md) | The shader API and its version, public includes, `Standard`'s extension points, the fog option, custom shaders |

@@ -15,6 +15,7 @@
 #include <OvCore/ECS/Components/CModelRenderer.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
+#include <OvCore/ECS/Components/CTerrain.h>
 #include <OvCore/ECS/Components/UI/CCanvas.h>
 #include <OvCore/ECS/Components/UI/CImage.h>
 #include <OvCore/ECS/Components/UI/CText.h>
@@ -474,6 +475,55 @@ namespace
 	}
 }
 
+namespace
+{
+	// A terrain is one drawable per chunk, at the level of detail its distance to the camera chooses, the same in
+	// every pass of the frame. Its chunks are in the actor's space, so the frustum test goes through its transform
+	void AppendTerrainDrawables(
+		OvCore::Rendering::FrameBuilder::ParsingResult& p_result,
+		OvCore::SceneSystem::Scene& p_scene,
+		const std::optional<OvMaths::FVector3>& p_viewPosition,
+		bool p_mainView
+	)
+	{
+		std::vector<OvCore::ECS::Components::CTerrain::ChunkDraw> chunks;
+
+		for (auto* terrain : p_scene.GetFastAccessComponents().terrains)
+		{
+			auto& owner = terrain->owner;
+			if (!owner.IsActive()) continue;
+
+			auto* material = terrain->ResolveMaterial();
+			if (!material) continue;
+
+			chunks.clear();
+			terrain->PrepareDraw(p_viewPosition, p_mainView, chunks);
+
+			for (const auto& chunk : chunks)
+			{
+				OvRendering::Entities::Drawable drawable{
+					.mesh = *chunk.mesh,
+					.material = *material,
+					.stateMask = material->GenerateStateMask(),
+				};
+
+				drawable.AddDescriptor<SceneDrawableDescriptor>({
+					.actor = owner,
+					.visibilityFlags = EVisibilityFlags::ALL,
+					.bounds = chunk.bounds
+				});
+
+				drawable.AddDescriptor<EngineDrawableDescriptor>({
+					owner.transform.GetWorldMatrix(),
+					OvMaths::FMatrix4::Identity
+				});
+
+				p_result.drawables.push_back(std::move(drawable));
+			}
+		}
+	}
+}
+
 OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::Parse(const ParsingInput& p_input)
 {
 	ZoneScoped;
@@ -567,6 +617,7 @@ OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::
 		}
 	}
 
+	AppendTerrainDrawables(result, scene, p_input.viewPosition, p_input.mainView);
 	AppendParticleDrawables(result, scene);
 	AppendHierarchyUIDrawables(result, scene, uiFrameResolver);
 

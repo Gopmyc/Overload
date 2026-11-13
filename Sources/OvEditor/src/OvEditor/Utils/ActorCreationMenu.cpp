@@ -20,6 +20,7 @@
 #include <OvCore/ECS/Components/CPointLight.h>
 #include <OvCore/ECS/Components/CPostProcessStack.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
+#include <OvCore/ECS/Components/CTerrain.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
 #include <OvCore/ECS/Components/CSpotLight.h>
 #include <OvCore/ECS/Components/UI/CCanvas.h>
@@ -107,6 +108,30 @@ namespace
 		instance.SetName("Atmosphere");
 
 		EDITOR_EXEC(SelectActor(instance));
+	}
+
+	// A terrain draws the height field of its actor: both come together, the field waiting for its height map
+	void CreateTerrain(OvCore::ECS::Actor* p_parent)
+	{
+		auto& instance = EDITOR_EXEC(CreateEmptyActor(false, p_parent));
+		instance.AddComponent<OvCore::ECS::Components::CPhysicalHeightField>();
+		instance.AddComponent<OvCore::ECS::Components::CTerrain>();
+		instance.SetName("Terrain");
+
+		EDITOR_EXEC(SelectActor(instance));
+	}
+
+	std::function<void()> CreateTerrainHandler(OvCore::ECS::Actor* p_parent, std::optional<std::function<void()>> p_onItemClicked)
+	{
+		return [p_parent, p_onItemClicked]()
+		{
+			CreateTerrain(ResolveAliveParent(p_parent));
+
+			if (p_onItemClicked.has_value())
+			{
+				p_onItemClicked.value()();
+			}
+		};
 	}
 
 	void CreateCharacter(OvCore::ECS::Actor* p_parent)
@@ -289,6 +314,7 @@ void OvEditor::Utils::ActorCreationMenu::GenerateActorCreationMenu(OvUI::Widgets
 	others.CreateWidget<MenuItem>("Post Process Stack").ClickedEvent += ActorWithComponentCreationHandler<CPostProcessStack>(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Reflection Probe").ClickedEvent += ActorWithComponentCreationHandler<CReflectionProbe>(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Particle System").ClickedEvent += ActorWithComponentCreationHandler<CParticleSystem>(p_parent, p_onItemClicked);
+	others.CreateWidget<MenuItem>("Terrain").ClickedEvent += CreateTerrainHandler(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Skysphere").ClickedEvent += CreateSkysphereHandler(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Atmosphere").ClickedEvent += CreateAtmosphereHandler(p_parent, p_onItemClicked);
 	others.CreateWidget<MenuItem>("Character").ClickedEvent += CreateCharacterHandler(p_parent, p_onItemClicked);

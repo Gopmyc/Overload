@@ -34,6 +34,7 @@
 #include <OvCore/ECS/Components/CCharacterController.h>
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>  
 #include <OvCore/ECS/Components/CPhysicalHeightField.h>
+#include <OvCore/ECS/Components/CTerrain.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>  
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CPointLight.h>  
@@ -158,6 +159,51 @@ namespace
 		}
 
 		p_heightField.SetHeights(sampleCount, static_cast<float>(*spacing), std::move(heights));
+		return { true, std::nullopt };
+	}
+
+	// true, or false and why: a colour per sample, as flat red, green and blue values from 0 to 1
+	std::tuple<bool, std::optional<std::string>> SetTerrainColors(
+		OvCore::ECS::Components::CTerrain& p_terrain,
+		const sol::object& p_sampleCount,
+		const sol::object& p_colors
+	)
+	{
+		const auto count = p_sampleCount.as<sol::optional<double>>();
+		if (!count || *count != std::floor(*count) || *count < 1 || *count > kMaximumHeightFieldSampleCount)
+		{
+			return { false, std::format("the sample count must be a whole number from 1 to {}", kMaximumHeightFieldSampleCount) };
+		}
+
+		if (p_colors.get_type() != sol::type::table)
+		{
+			return { false, "the colours must be an array of numbers (red, green and blue per sample)" };
+		}
+
+		const auto sampleCount = static_cast<uint32_t>(*count);
+		const sol::table table = p_colors.as<sol::table>();
+		const size_t expectedSize = static_cast<size_t>(sampleCount) * sampleCount * 3;
+		const size_t size = table.size();
+
+		if (size != 0 && size != expectedSize)
+		{
+			return { false, std::format("{} values given for {} samples (3 per sample)", size, expectedSize / 3) };
+		}
+
+		std::vector<float> colors(size);
+
+		for (size_t index = 0; index < size; ++index)
+		{
+			const auto value = table.raw_get<sol::optional<double>>(index + 1);
+			if (!value || !std::isfinite(*value))
+			{
+				return { false, std::format("the value {} is not a finite number", index + 1) };
+			}
+
+			colors[index] = static_cast<float>(*value);
+		}
+
+		p_terrain.SetColors(sampleCount, colors);
 		return { true, std::nullopt };
 	}
 }
@@ -466,8 +512,25 @@ void BindLuaComponents(sol::state& p_luaState)
 	p_luaState.new_usertype<CPhysicalHeightField>("PhysicalHeightField",
 		sol::base_classes, sol::bases<CPhysicalObject, AComponent>(),
 		"SetHeights", &SetHeights,
+		"GetHeights", [](CPhysicalHeightField& p_this) { return sol::as_table(p_this.GetHeights()); },
 		"GetSampleCount", &CPhysicalHeightField::GetSampleCount,
-		"GetSpacing", &CPhysicalHeightField::GetSpacing
+		"GetSpacing", &CPhysicalHeightField::GetSpacing,
+		"SetSpacing", [](CPhysicalHeightField& p_this, float p_spacing) {
+			if (!std::isfinite(p_spacing) || p_spacing <= 0.0f)
+			{
+				throw sol::error("PhysicalHeightField:SetSpacing: the spacing must be a positive number");
+			}
+			p_this.SetSpacing(p_spacing);
+		},
+		"SetHeightmap", [](CPhysicalHeightField& p_this, const std::string& p_path) { p_this.SetHeightmap(p_path); },
+		"GetHeightmap", &CPhysicalHeightField::GetHeightmap,
+		"GetHeightmapError", [](CPhysicalHeightField& p_this) { return p_this.GetHeightmapError(); },
+		"SetHeightScale", &CPhysicalHeightField::SetHeightScale,
+		"GetHeightScale", &CPhysicalHeightField::GetHeightScale,
+		"SetHeightOffset", &CPhysicalHeightField::SetHeightOffset,
+		"GetHeightOffset", &CPhysicalHeightField::GetHeightOffset,
+		"GetHeightAt", &CPhysicalHeightField::GetHeightAt,
+		"GetNormalAt", &CPhysicalHeightField::GetNormalAt
 	);
 
 	p_luaState.new_enum<CCharacterController::EGroundState>("CharacterGroundState", {
@@ -914,6 +977,40 @@ void BindLuaComponents(sol::state& p_luaState)
 		{ "WORLD", OvCore::Particles::EParticleSpace::WORLD },
 		{ "LOCAL", OvCore::Particles::EParticleSpace::LOCAL }
 	});
+
+	p_luaState.new_usertype<CTerrain>("Terrain",
+		sol::base_classes, sol::bases<AComponent>(),
+		"SetChunkSize", [](CTerrain& p_this, int p_cells) {
+			if (p_cells < 1 || p_cells > 256)
+			{
+				throw sol::error("Terrain:SetChunkSize: a chunk is 1 to 256 cells wide");
+			}
+			p_this.SetChunkSize(static_cast<uint32_t>(p_cells));
+		},
+		"GetChunkSize", &CTerrain::GetChunkSize,
+		"SetLodCount", [](CTerrain& p_this, int p_count) {
+			if (p_count < 1 || p_count > static_cast<int>(OvCore::Terrain::kMaxLodCount))
+			{
+				throw sol::error(std::format("Terrain:SetLodCount: from 1 to {} levels", OvCore::Terrain::kMaxLodCount));
+			}
+			p_this.SetLodCount(static_cast<uint32_t>(p_count));
+		},
+		"GetLodCount", &CTerrain::GetLodCount,
+		"SetLodDistance", &CTerrain::SetLodDistance,
+		"GetLodDistance", &CTerrain::GetLodDistance,
+		"SetMaterialPath", &CTerrain::SetMaterialPath,
+		"GetMaterialPath", &CTerrain::GetMaterialPath,
+		"SetColorMap", &CTerrain::SetColorMap,
+		"GetColorMap", &CTerrain::GetColorMap,
+		"SetColors", &SetTerrainColors,
+		"HasColors", &CTerrain::HasColors,
+		"GetError", &CTerrain::GetError,
+		"GetChunkCount", &CTerrain::GetChunkCount,
+		"GetChunkLod", [](CTerrain& p_this, int p_chunk) {
+			return p_chunk >= 0 ? p_this.GetChunkLod(static_cast<uint32_t>(p_chunk)) : std::nullopt;
+		},
+		"GetTriangleCount", &CTerrain::GetTriangleCount
+	);
 
 	p_luaState.new_usertype<CParticleSystem>("ParticleSystem",
 		sol::base_classes, sol::bases<AComponent>(),
@@ -1389,6 +1486,7 @@ void BindLuaComponents(sol::state& p_luaState)
 		CPhysicalObject, CPhysicalBox, CPhysicalSphere, CPhysicalCapsule, CPhysicalHeightField, CCharacterController,
 		CCamera, UI::CCanvas, UI::CImage, UI::CLayoutGroup, UI::CHorizontalLayout, UI::CVerticalLayout, UI::CText,
 		CLight, CPointLight, CSpotLight, CAmbientBoxLight, CAmbientSphereLight, CDirectionalLight,
-		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe, CParticleSystem, CLookAt, CSpringBones, CAnimator
+		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe, CParticleSystem, CLookAt, CSpringBones, CAnimator,
+		CTerrain
 	>(p_luaState.lua_state());
 }
