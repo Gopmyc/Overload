@@ -30,6 +30,8 @@ namespace OvCore::ECS::Components
 	* model, animation, playback time, speed, loop mode and weight.
 	* Bones are blended per node, and only layers holding a track for a given node contribute to it,
 	* their weights being normalized against each other. Nodes no layer animates keep their bind pose.
+	* The pose is worked out when something needs it, at most once per change: a setting marks it, and a read, the
+	* scene once its scripts have run, or the drawing works it out.
 	*/
 	class CSkinnedMeshRenderer : public AComponent
 	{
@@ -38,6 +40,15 @@ namespace OvCore::ECS::Components
 		* One part of a ragdoll, named after the bone it moves: a capsule from that bone to the bone named `to`, or, when
 		* `to` is empty, running `length` metres on from the bone's parent (the head carries on from the neck)
 		*/
+		/**
+		* When the pose is worked out during play
+		*/
+		enum class EUpdateMode : uint8_t
+		{
+			ALWAYS,			// Every frame, seen or not
+			WHEN_VISIBLE	// Only while a render pass (a view, a shadow, a reflection) drew it the frame before
+		};
+
 		struct RagdollPart
 		{
 			std::string bone;
@@ -377,6 +388,44 @@ namespace OvCore::ECS::Components
 		uint64_t GetPoseVersion() const;
 
 		/**
+		* Sets when the pose is worked out during play
+		* @param p_mode
+		*/
+		void SetUpdateMode(EUpdateMode p_mode);
+
+		/**
+		* Returns when the pose is worked out during play
+		*/
+		EUpdateMode GetUpdateMode() const;
+
+		/**
+		* Returns true when a render pass drew the model the frame before (true until the scene first updates it)
+		*/
+		bool WasVisible() const;
+
+		/**
+		* Notes that a render pass draws the model in this frame: called by the frame builder
+		*/
+		void NotifyDrawn() const;
+
+		/**
+		* Works out what is marked, once the frame's scripts have run: called by the scene. Also notes whether the
+		* model was drawn since the last call; in WHEN_VISIBLE, a model that was not keeps its pose for drawing
+		*/
+		void UpdatePose();
+
+		/**
+		* Returns how many times the clips were sampled into a pose, since the component was made
+		*/
+		uint64_t GetPoseEvaluationCount() const;
+
+		/**
+		* Returns how many times the skeleton (its global transforms and skinning matrices) was worked out from a pose,
+		* since the component was made
+		*/
+		uint64_t GetSkeletonUpdateCount() const;
+
+		/**
 		* Hands the skeleton over to physics from the current pose: every part becomes a capsule joined to the nearest
 		* part above it, and its bone follows the capsule while the others keep their pose relative to their parent.
 		* The animation stops driving the skeleton until StopRagdoll. Returns false when a bone is unknown or the
@@ -488,6 +537,10 @@ namespace OvCore::ECS::Components
 		void RebuildLayerRuntimeData(AnimationLayer& p_layer, std::vector<int32_t>& p_nodeMapScratch);
 		void ApplyLayerMask(AnimationLayer& p_layer) const;
 		void ResolveLayerAnimation(AnimationLayer& p_layer);
+		void MarkPoseDirty();
+		void ResolveLocalPose() const;
+		void ResolvePose() const;
+		void ResolvePoseForDrawing() const;
 		void EvaluatePose();
 		std::optional<uint32_t> GetNodeIndexFromBoneIndex(uint32_t p_boneIndex) const;
 		int32_t FindRagdollPart(uint32_t p_nodeIndex) const;
@@ -510,6 +563,16 @@ namespace OvCore::ECS::Components
 
 		uint64_t m_poseVersion = 0;
 		bool m_manualPoseOverride = false;
+
+		// The local pose is to be sampled again from the layers, and the skeleton to be worked out again from it
+		bool m_poseDirty = false;
+		bool m_skeletonDirty = false;
+		uint64_t m_poseEvaluationCount = 0;
+		uint64_t m_skeletonUpdateCount = 0;
+
+		EUpdateMode m_updateMode = EUpdateMode::ALWAYS;
+		mutable bool m_drawnSinceUpdate = false;
+		bool m_visibleLastFrame = true;
 
 		std::vector<OvMaths::FMatrix4> m_localPose;
 		std::vector<OvMaths::FMatrix4> m_globalPose;
