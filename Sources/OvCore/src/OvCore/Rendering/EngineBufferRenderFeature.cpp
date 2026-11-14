@@ -54,6 +54,15 @@ namespace
 	}
 }
 
+OvCore::Rendering::PreparedInstance OvCore::Rendering::PrepareInstance(const OvMaths::FMatrix4& p_modelMatrix, const OvMaths::FMatrix4& p_userMatrix)
+{
+	return {
+		.model = OvMaths::FMatrix4::Transpose(p_modelMatrix),
+		.normalMatrix = CalculateNormalMatrix(p_modelMatrix),
+		.userMatrix = p_userMatrix
+	};
+}
+
 OvCore::Rendering::EngineBufferRenderFeature::EngineBufferRenderFeature(
 	OvRendering::Core::CompositeRenderer& p_renderer,
 	OvRendering::Features::EFeatureExecutionPolicy p_executionPolicy
@@ -62,7 +71,7 @@ OvCore::Rendering::EngineBufferRenderFeature::EngineBufferRenderFeature(
 	m_instancesBuffer(64 * 1024) // Grows on demand
 {
 	static_assert(sizeof(EngineUBO) == 448, "EngineUBO must match the std140 layout of EngineUBO.ovfxh");
-	static_assert(sizeof(InstanceData) == 192, "InstanceData must match the std430 layout of InstancesSSBO.ovfxh");
+	static_assert(sizeof(PreparedInstance) == 192, "PreparedInstance must match the std430 layout of InstancesSSBO.ovfxh");
 	m_startTime = std::chrono::high_resolution_clock::now();
 }
 
@@ -186,7 +195,7 @@ void OvCore::Rendering::EngineBufferRenderFeature::OnBeforeDraw(OvRendering::Dat
 	// An instanced draw reads the matrices of its instances from the instances buffer, which ubo_InstanceCount tells
 	OvTools::Utils::OptRef<const InstancingDrawableDescriptor> instancing;
 	const int32_t instanceCount =
-		p_drawable.TryGetDescriptor<InstancingDrawableDescriptor>(instancing) && instancing->instances ?
+		p_drawable.TryGetDescriptor<InstancingDrawableDescriptor>(instancing) && (instancing->instances || instancing->prepared) ?
 		static_cast<int32_t>(instancing->count) :
 		0;
 
@@ -194,20 +203,22 @@ void OvCore::Rendering::EngineBufferRenderFeature::OnBeforeDraw(OvRendering::Dat
 	{
 		ZoneScopedN("Instances Upload");
 
-		m_instances.resize(instancing->count);
+		const PreparedInstance* data = instancing->prepared;
 
-		for (uint32_t index = 0; index < instancing->count; ++index)
+		if (!data)
 		{
-			const auto& instance = *instancing->instances[index];
+			m_instances.resize(instancing->count);
 
-			m_instances[index] = {
-				.model = OvMaths::FMatrix4::Transpose(instance.modelMatrix),
-				.normalMatrix = CalculateNormalMatrix(instance.modelMatrix),
-				.userMatrix = instance.userMatrix
-			};
+			for (uint32_t index = 0; index < instancing->count; ++index)
+			{
+				const auto& instance = *instancing->instances[index];
+				m_instances[index] = PrepareInstance(instance.modelMatrix, instance.userMatrix);
+			}
+
+			data = m_instances.data();
 		}
 
-		const auto range = m_instancesBuffer.Push(m_instances.data(), m_instances.size() * sizeof(InstanceData));
+		const auto range = m_instancesBuffer.Push(data, static_cast<uint64_t>(instancing->count) * sizeof(PreparedInstance));
 		m_instancesBuffer.GetBuffer().Bind(baregl::types::EBufferType::SHADER_STORAGE, kInstancesBufferBindingPoint, range);
 	}
 

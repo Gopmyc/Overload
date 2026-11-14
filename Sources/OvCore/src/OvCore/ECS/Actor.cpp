@@ -30,6 +30,7 @@
 #include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CTerrain.h>
+#include <OvCore/ECS/Components/CVegetation.h>
 #include <OvCore/ECS/Components/CSpringBones.h>
 #include <OvCore/ECS/Components/CReflectionProbe.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
@@ -692,6 +693,7 @@ void OvCore::ECS::Actor::OnDeserialize(tinyxml2::XMLDocument & p_doc, tinyxml2::
 				else if (IsType<CReflectionProbe>(componentType)) component = &AddComponent<CReflectionProbe>();
 				else if (IsType<CParticleSystem>(componentType)) component = &AddComponent<CParticleSystem>();
 				else if (IsType<CTerrain>(componentType)) component = &AddComponent<CTerrain>();
+				else if (IsType<CVegetation>(componentType)) component = &AddComponent<CVegetation>();
 				else if (IsType<CAnimator>(componentType)) component = &AddComponent<CAnimator>();
 				else if (IsType<CLookAt>(componentType)) component = &AddComponent<CLookAt>();
 				else if (IsType<CSpringBones>(componentType)) component = &AddComponent<CSpringBones>();
