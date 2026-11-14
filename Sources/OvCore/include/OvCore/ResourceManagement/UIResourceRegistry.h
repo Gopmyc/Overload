@@ -21,6 +21,8 @@ namespace OvCore::ResourceManagement
 			std::string imageMaterialPath;
 			std::string textMaterialPath;
 			std::string defaultFontPath;
+			std::string litImageMaterialPath; // Copied by a lit image under a world space canvas
+			std::string litTextMaterialPath; // Copied by a lit text under a world space canvas
 		};
 
 		/**

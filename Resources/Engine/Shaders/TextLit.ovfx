@@ -1,0 +1,109 @@
+// A text under a world space canvas, lit as the scene is: drawn among the scene's transparent surfaces, before the post
+// processing, by the scene's lights (ambient lights included, reflection probes left out), with the shadows it receives
+// and the distance fog. It keeps Text.ovfx's clip and atlas. Either side of the text is lit as its front.
+
+#shader vertex
+#version 450 core
+
+#include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+
+layout (location = 0) in vec3 geo_Pos;
+layout (location = 1) in vec2 geo_TexCoords;
+
+out VS_OUT
+{
+    vec3 FragPos;
+    vec3 Normal;
+    vec2 TexCoords;
+    vec2 ClipPosition;
+} vs_out;
+
+// From where the element is drawn to its clip, [-1, 1] inside it
+uniform mat4 u_ClipMatrix = mat4(1.0);
+
+void main()
+{
+    const vec4 worldPosition = ubo_Model * vec4(geo_Pos, 1.0);
+
+    vs_out.FragPos = worldPosition.xyz;
+    vs_out.Normal = mat3(ubo_NormalMatrix) * vec3(0.0, 0.0, 1.0); // The element's plane is its XY plane
+    vs_out.TexCoords = geo_TexCoords;
+    vs_out.ClipPosition = (u_ClipMatrix * worldPosition).xy;
+    gl_Position = ubo_ViewProjection * worldPosition;
+}
+
+#shader fragment
+#version 450 core
+
+// Reflection probes are left out: a flat element would mirror its surroundings as a sheet of glass does
+#define DISABLE_IMAGE_BASED_LIGHTING
+
+#include ":Shaders/Common/Buffers/EngineUBO.ovfxh"
+#include ":Shaders/Common/Fog.ovfxh"
+#include ":Shaders/Lighting/PBR.ovfxh"
+
+in VS_OUT
+{
+    vec3 FragPos;
+    vec3 Normal;
+    vec2 TexCoords;
+    vec2 ClipPosition;
+} fs_in;
+
+uniform bool u_ClipEnabled = false;
+
+uniform sampler2D u_FontAtlas;
+uniform vec4 u_Color = vec4(1.0);
+
+uniform float u_Metallic = 0.0;
+uniform float u_Roughness = 0.8;
+uniform float u_EmissiveIntensity = 0.0; // How much of its own colour the text gives off, whatever the light
+uniform bool u_Fog = true;
+
+uniform sampler2D _ShadowMap;
+uniform mat4 _LightSpaceMatrix;
+uniform samplerCube _EnvironmentMap;
+
+out vec4 FRAGMENT_COLOR;
+
+void main()
+{
+    // Outside the rectangle of a parent that clips its children
+    if (u_ClipEnabled && (abs(fs_in.ClipPosition.x) > 1.0 || abs(fs_in.ClipPosition.y) > 1.0))
+    {
+        discard;
+    }
+
+    // Glyphs are placed in atlas pixels, which stay put when the atlas grows
+    const float alpha = u_Color.a * texture(u_FontAtlas, fs_in.TexCoords / vec2(textureSize(u_FontAtlas, 0))).a;
+    if (alpha <= 0.0)
+    {
+        discard;
+    }
+
+    // The side the camera sees is the front
+    vec3 normal = normalize(fs_in.Normal);
+    if (dot(normal, ubo_ViewPos - fs_in.FragPos) < 0.0)
+    {
+        normal = -normal;
+    }
+
+    vec3 color = PBRLightingModel(
+        u_Color.rgb,
+        u_Metallic,
+        u_Roughness,
+        1.0,
+        normal,
+        ubo_ViewPos,
+        fs_in.FragPos,
+        _ShadowMap,
+        _LightSpaceMatrix,
+        _EnvironmentMap,
+        0.0,
+        1.0
+    );
+
+    color += pow(u_Color.rgb, vec3(2.2)) * u_EmissiveIntensity;
+
+    FRAGMENT_COLOR = vec4(u_Fog ? ApplyFog(color, fs_in.FragPos) : color, alpha);
+}

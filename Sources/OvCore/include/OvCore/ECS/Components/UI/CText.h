@@ -125,6 +125,18 @@ namespace OvCore::ECS::Components::UI
 		EVerticalAlignment GetVerticalAlignment() const;
 
 		/**
+		* Sets whether the text is lit as the scene is: by its lights, its shadows and its fog. It only applies under a
+		* world space canvas: a screen space text is drawn over the scene, unlit
+		* @param p_lit
+		*/
+		void SetLit(bool p_lit);
+
+		/**
+		* Returns whether the text is lit under a world space canvas
+		*/
+		bool IsLit() const;
+
+		/**
 		* Returns the generated text mesh, or nullptr if the text cannot be rendered
 		*/
 		OvRendering::Resources::Mesh* GetMesh() const;
@@ -138,6 +150,12 @@ namespace OvCore::ECS::Components::UI
 		* Returns the generated text material, or nullptr if it cannot be initialized
 		*/
 		OvRendering::Data::Material* GetMaterial();
+
+		/**
+		* Returns the material the text is drawn with when it is lit: a copy of the host's lit text material, given the
+		* text's atlas and colour. Returns nullptr if the host has none or it cannot be initialized
+		*/
+		OvRendering::Data::Material* GetLitMaterial();
 
 		/**
 		* Returns the generated text bounds size
@@ -184,6 +202,7 @@ namespace OvCore::ECS::Components::UI
 		void RebuildMesh() const;
 		void RebuildMesh(const OvMaths::FVector2& p_uiSize) const;
 		void RefreshMaterial();
+		void RefreshLitMaterial();
 
 	private:
 		std::string m_text = "Text";
@@ -213,6 +232,14 @@ namespace OvCore::ECS::Components::UI
 		uint64_t m_materialManagerRevision = 0;
 		bool m_materialSourceDirty = true;
 		bool m_materialColorDirty = true;
+
+		bool m_lit = false;
+		std::unique_ptr<OvRendering::Data::Material> m_litMaterial;
+		const OvRendering::Data::Material* m_litSource = nullptr;
+		OvRendering::Resources::Shader* m_litShader = nullptr;
+		OvRendering::Resources::Texture* m_litAtlas = nullptr;
+		uint64_t m_litManagerRevision = 0;
+		bool m_litColorDirty = true;
 	};
 }
 

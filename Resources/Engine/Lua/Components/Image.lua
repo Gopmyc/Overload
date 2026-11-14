@@ -39,3 +39,12 @@ function Image:GetPreserveAspect() end
 --- Defines whether the image keeps its intrinsic aspect ratio when resized
 ---@param preserveAspect boolean
 function Image:SetPreserveAspect(preserveAspect) end
+
+--- Returns whether the image is lit as the scene is under a world space canvas
+---@return boolean
+function Image:IsLit() end
+
+--- Defines whether the image is lit as the scene is (its lights, the shadows it receives, its fog), drawn among its
+--- transparent surfaces. Only under a world space canvas: a screen space image stays drawn over the scene, unlit
+---@param lit boolean
+function Image:SetLit(lit) end

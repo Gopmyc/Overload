@@ -107,6 +107,13 @@ function DLabel:GetContentAlignment()
 	return self.m_ContentAlignment
 end
 
+--- Lights the text, and the background when there is one, as the scene is under a world space canvas (see DPanel:SetLit)
+---@param lit boolean
+function DLabel:SetLit(lit)
+	DPanel.SetLit(self, lit)
+	self.m_TextComponent:SetLit(self:IsLit())
+end
+
 ---@param width number
 ---@param height number
 function DLabel:Paint(width, height)

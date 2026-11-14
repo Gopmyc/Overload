@@ -123,6 +123,7 @@ void OvCore::ECS::Components::UI::CImage::SetTint(const OvMaths::FVector4& p_tin
 	m_tint.z = KeepFinite(p_tint.z, m_tint.z);
 	m_tint.w = KeepFinite(p_tint.w, m_tint.w);
 	m_materialTintDirty = true;
+	m_litTintDirty = true;
 }
 
 const OvMaths::FVector4& OvCore::ECS::Components::UI::CImage::GetTint() const
@@ -140,6 +141,16 @@ bool OvCore::ECS::Components::UI::CImage::GetPreserveAspect() const
 	return m_preserveAspect;
 }
 
+void OvCore::ECS::Components::UI::CImage::SetLit(bool p_lit)
+{
+	m_lit = p_lit;
+}
+
+bool OvCore::ECS::Components::UI::CImage::IsLit() const
+{
+	return m_lit;
+}
+
 OvRendering::Resources::Mesh& OvCore::ECS::Components::UI::CImage::GetMesh() const
 {
 	SynchronizeTextureState();
@@ -152,12 +163,19 @@ OvCore::Resources::Material* OvCore::ECS::Components::UI::CImage::GetMaterial()
 	return m_material && m_material->IsValid() ? m_material.get() : nullptr;
 }
 
+OvRendering::Data::Material* OvCore::ECS::Components::UI::CImage::GetLitMaterial()
+{
+	RefreshLitMaterial();
+	return m_litMaterial && m_litMaterial->IsValid() ? m_litMaterial.get() : nullptr;
+}
+
 void OvCore::ECS::Components::UI::CImage::OnSerialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
 {
 	SynchronizeTextureState();
 	Helpers::Serializer::SerializeTexture(p_doc, p_node, "texture", m_texture);
 	Helpers::Serializer::SerializeVec4(p_doc, p_node, "tint", m_tint);
 	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "preserve_aspect", m_preserveAspect);
+	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "lit", m_lit);
 }
 
 void OvCore::ECS::Components::UI::CImage::OnDeserialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
@@ -182,6 +200,13 @@ void OvCore::ECS::Components::UI::CImage::OnDeserialize(tinyxml2::XMLDocument& p
 		Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "preserve_aspect", preserveAspect);
 		SetPreserveAspect(preserveAspect);
 	}
+
+	if (p_node->FirstChildElement("lit"))
+	{
+		auto lit = m_lit;
+		Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "lit", lit);
+		SetLit(lit);
+	}
 }
 
 void OvCore::ECS::Components::UI::CImage::OnInspector(OvUI::Internal::WidgetContainer& p_root)
@@ -203,6 +228,14 @@ void OvCore::ECS::Components::UI::CImage::OnInspector(OvUI::Internal::WidgetCont
 		[this]() { return ToColor(m_tint); },
 		[this](OvUI::Types::Color p_value) { SetTint(ToVec4(p_value)); },
 		true
+	);
+
+	// Under a world space canvas only: a screen space image stays unlit
+	Helpers::GUIDrawer::DrawBoolean(
+		p_root,
+		"Lit",
+		[this]() { return IsLit(); },
+		[this](bool p_value) { SetLit(p_value); }
 	);
 }
 
@@ -358,5 +391,69 @@ void OvCore::ECS::Components::UI::CImage::RefreshMaterial()
 	{
 		m_material->TrySetProperty(kTintUniform, m_tint);
 		m_materialTintDirty = false;
+	}
+}
+
+void OvCore::ECS::Components::UI::CImage::RefreshLitMaterial()
+{
+	SynchronizeTextureState();
+
+	auto& materialManager = Global::ServiceLocator::Get<ResourceManagement::MaterialManager>();
+	const auto& litImageMaterialPath = Global::ServiceLocator::Get<ResourceManagement::UIResourceRegistry>().GetDefinition().litImageMaterialPath;
+	// Loaded once for each change of the manager's resources: a missing file is not looked for at every frame
+	const bool load = !m_litMaterial || materialManager.GetResourcesRevision() != m_litManagerRevision;
+	OvRendering::Data::Material* source = litImageMaterialPath.empty() ?
+		nullptr :
+		materialManager.GetResource(litImageMaterialPath, load);
+	auto* shader = source && source->HasShader() ? source->GetShader() : nullptr;
+
+	if (!m_litMaterial)
+	{
+		m_litMaterial = std::make_unique<OvRendering::Data::Material>();
+		m_litSource = nullptr;
+	}
+
+	// A copy of the host's material, settings and uniforms included, made again whenever it may have changed
+	if (
+		source != m_litSource ||
+		shader != m_litShader ||
+		materialManager.GetResourcesRevision() != m_litManagerRevision
+	)
+	{
+		m_litSource = source;
+		m_litShader = shader;
+		m_litManagerRevision = materialManager.GetResourcesRevision();
+		m_litTintDirty = true;
+
+		if (!source || !source->IsValid())
+		{
+			if (m_litMaterial->HasShader())
+			{
+				m_litMaterial->SetShader(nullptr);
+			}
+
+			return;
+		}
+
+		*m_litMaterial = *source;
+		m_litMaterial->TrySetProperty(kTextureUniform, m_texture);
+		m_litTexture = m_texture;
+	}
+
+	if (!m_litMaterial->IsValid())
+	{
+		return;
+	}
+
+	if (m_litTexture != m_texture)
+	{
+		m_litMaterial->TrySetProperty(kTextureUniform, m_texture);
+		m_litTexture = m_texture;
+	}
+
+	if (m_litTintDirty)
+	{
+		m_litMaterial->TrySetProperty(kTintUniform, m_tint);
+		m_litTintDirty = false;
 	}
 }

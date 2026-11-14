@@ -170,6 +170,13 @@ later version of the same major version.
   `SetLayer`, `GetLayer`, `RemoveLayer`, `SetDensityMap`, `GetInstanceCount`, `GetError`) and
   `Actor:Get/Add/RemoveVegetation`; in C++, `OvCore::Terrain::Scatter`. The Lua API is now 1.19. See
   [Docs/Terrain.md](Docs/Terrain.md#vegetation).
+- **Lit UI in the world**: a `Text` or an `Image` under a world space canvas can be lit as the scene is, by its lights,
+  the shadows it receives and its fog (`lit` in a file, "Lit" in the inspector, `SetLit` and `IsLit` in Lua;
+  `DPanel:SetLit` and `DLabel:SetLit` in the UI library). It is drawn among the transparent surfaces with a copy of the
+  host's lit material (`:Materials/TextLit.ovmat`, `:Materials/ImageLit.ovmat`, through
+  `UIResourceRegistry::Definition`), the elements of a canvas in the order of the hierarchy
+  (`SceneDrawableDescriptor::sortPosition`). A screen space canvas stays unlit. The Lua API is now 1.20. See
+  [Docs/Rendering.md](Docs/Rendering.md#lit-ui-in-the-world).
 
 ### Changed
 

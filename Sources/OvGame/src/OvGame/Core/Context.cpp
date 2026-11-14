@@ -70,7 +70,9 @@ OvGame::Core::Context::Context(const LaunchOptions& p_options) :
 	uiResourceRegistry.ProvideDefinition({
 		.imageMaterialPath = ":Materials/Image.ovmat",
 		.textMaterialPath = ":Materials/Text.ovmat",
-		.defaultFontPath = ":Fonts/Roboto-Regular.ttf"
+		.defaultFontPath = ":Fonts/Roboto-Regular.ttf",
+		.litImageMaterialPath = ":Materials/ImageLit.ovmat",
+		.litTextMaterialPath = ":Materials/TextLit.ovmat"
 	});
 
 	/* Settings */
