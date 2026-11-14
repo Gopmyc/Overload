@@ -146,6 +146,15 @@ namespace
 	}
 
 	/**
+	* A value within a share of another. doctest's Approx alone also allows its epsilon as an absolute error, which
+	* lets small loudnesses through whatever they are
+	*/
+	doctest::Approx Near(double p_value, double p_share)
+	{
+		return doctest::Approx(p_value).epsilon(p_share).scale(0.0);
+	}
+
+	/**
 	* SoLoud glides a change of volume, pan or position across one mix of up to 2048 frames: once the sources and the
 	* listener are updated, this lets the change land before a test listens
 	*/
@@ -186,7 +195,7 @@ TEST_SUITE("Audio")
 
 		const Mixed mixed = MixFor(null.engine, 0.2f);
 		CHECK(Loudness(mixed) > 0.1f);
-		CHECK(mixed.frequency == doctest::Approx(440.0f).epsilon(0.02));
+		CHECK(mixed.frequency == Near(440.0f, 0.02));
 
 		// Played to its end, the sound stops and leaves its voice
 		MixFor(null.engine, 0.4f);
@@ -240,7 +249,7 @@ TEST_SUITE("Audio")
 
 		source.SetVolume(0.5f);
 		Settle(null.engine);
-		CHECK(Loudness(MixFor(null.engine, 0.1f)) == doctest::Approx(full * 0.5f).epsilon(0.03));
+		CHECK(Loudness(MixFor(null.engine, 0.1f)) == Near(full * 0.5f, 0.03));
 
 		// Pan: one side only
 		source.SetVolume(1.0f);
@@ -259,13 +268,13 @@ TEST_SUITE("Audio")
 
 		// Pitch: twice as fast, an octave up
 		source.SetPitch(2.0f);
-		CHECK(MixFor(null.engine, 0.2f).frequency == doctest::Approx(880.0f).epsilon(0.02));
+		CHECK(MixFor(null.engine, 0.2f).frequency == Near(880.0f, 0.02));
 		source.SetPitch(1.0f);
 
 		// Looped, it plays past its length
 		MixFor(null.engine, 0.6f);
 		CHECK(source.IsPlaying());
-		CHECK(Loudness(MixFor(null.engine, 0.1f)) == doctest::Approx(full).epsilon(0.03));
+		CHECK(Loudness(MixFor(null.engine, 0.1f)) == Near(full, 0.03));
 
 		source.Stop();
 		CHECK_FALSE(source.HasSound());
@@ -315,7 +324,7 @@ TEST_SUITE("Audio")
 		sourceTransform.SetLocalPosition({ 0.0f, 0.0f, 8.0f });
 		Settle(null.engine);
 		const float far = Loudness(MixFor(null.engine, 0.1f));
-		CHECK(far == doctest::Approx(near * 0.25f).epsilon(0.03));
+		CHECK(far == Near(near * 0.25f, 0.03));
 
 		// Within the threshold, no fading
 		source.SetAttenuationThreshold(10.0f);
@@ -323,7 +332,7 @@ TEST_SUITE("Audio")
 		const float within = Loudness(MixFor(null.engine, 0.1f));
 		sourceTransform.SetLocalPosition({ 0.0f, 0.0f, 2.0f });
 		Settle(null.engine);
-		CHECK(Loudness(MixFor(null.engine, 0.1f)) == doctest::Approx(within).epsilon(0.03));
+		CHECK(Loudness(MixFor(null.engine, 0.1f)) == Near(within, 0.03));
 	}
 
 	TEST_CASE("a sound playing keeps playing, where it was, when it becomes spatial or flat")
@@ -338,7 +347,7 @@ TEST_SUITE("Audio")
 		REQUIRE(source.HasSound());
 		CHECK(source.GetSoundInstance().lock()->IsSpatial());
 		CHECK(source.IsPlaying());
-		CHECK(null.engine.GetBackend().getStreamPosition(source.GetSoundInstance().lock()->GetHandle()) == doctest::Approx(0.3).epsilon(0.02));
+		CHECK(null.engine.GetBackend().getStreamPosition(source.GetSoundInstance().lock()->GetHandle()) == Near(0.3, 0.02));
 
 		// Paused, it stays paused
 		source.Pause();

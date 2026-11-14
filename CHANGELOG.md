@@ -236,6 +236,9 @@ later version of the same major version.
 - **Sounds in the world are heard on their side**: the listener heard behind its actor, so a sound on the left of a
   camera's picture was heard on the right. It now hears along its actor's forward, with its up, and from the start: a
   sound played before the first update no longer begins on the other side.
+- **Sounds in the world faded twice over**: SoLoud applied a source's attenuation to its channels and again to its
+  volume, so that a sound twice as far as its attenuation threshold was a quarter as loud instead of half, and one four
+  times as far a sixteenth instead of a quarter. It is applied once (one line of `Dependencies/soloud`, marked).
 - **Resuming leaves paused what the game paused**: after the editor's pause, resuming a game played again every paused
   source, those the game had paused included. A game stopped while paused left the audio suspended for the next one.
 - **A sound file that cannot be read gives no sound**: `Resources.GetSound` returns `nil`, as its definition said, with
