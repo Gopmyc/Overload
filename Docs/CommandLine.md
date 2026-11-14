@@ -19,6 +19,7 @@ A built game runs as before: the project in `Data/User` (its settings in `Data/U
 | `--screenshot <file.png>` | Writes the last frame to a PNG image. Needs `--frames` |
 | `--hidden-window` | Does not show the window. The game still draws each frame |
 | `--fail-on-error` | Ends with exit code 2 when an error was logged |
+| `--audio <null\|auto>` | `null` plays the sounds on the null driver, mixed and discarded, even on a machine with an audio device; `auto`, as without the option, plays them on the device, or on the null driver without one. See [Audio](Audio.md) |
 | `--dump-lua-api` | Prints the engine's Lua API, one name per line (`Physics.CastRay`, `Vector3.x`), and quits without a window. See [Scripting](Scripting.md) |
 | `--help`, `-h` | Prints the options |
 
@@ -50,7 +51,7 @@ an error.
 - **The screenshot is the scene as drawn**, post process and game UI included, at the window's size. The debug
   overlay (F12) is not in it.
 - **Every error the engine logs counts**, the scripts' errors included. A machine without an audio device logs a
-  warning, not an error: the game runs on without sound.
+  warning, not an error, and plays the sounds on the null driver: they play, end and loop as with a device, unheard.
 - **The save folder is the player's own** (see [Saving](Saving.md)). On Linux, a test that must not touch it sets
   `XDG_DATA_HOME` to a folder of its own. On Windows, the folder is always in the roaming AppData: a test project gets
   its own `project_id`.

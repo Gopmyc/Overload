@@ -136,7 +136,7 @@ OvTools::Utils::PathParser::EFileType OvTools::Utils::PathParser::GetFileType(co
 	else if (ext == "ovfx") return EFileType::SHADER;
 	else if (ext == "ovfxh") return EFileType::SHADER_PART;
 	else if (ext == "ovmat") return EFileType::MATERIAL;
-	else if (ext == "wav" || ext == "mp3" || ext == "ogg") return EFileType::SOUND;
+	else if (ext == "wav" || ext == "mp3" || ext == "ogg" || ext == "flac") return EFileType::SOUND;
 	else if (ext == "ovscene") return EFileType::SCENE;
 	else if (ext == "ovprefab") return EFileType::PREFAB;
 	else if (ext == "lua" || ext == "ovscript") return EFileType::SCRIPT;

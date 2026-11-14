@@ -87,6 +87,20 @@ OvGame::Core::LaunchOptions::ParseResult OvGame::Core::LaunchOptions::Parse(cons
 		{
 			options.dumpLuaApi = true;
 		}
+		else if (argument == "--audio")
+		{
+			const auto value = next();
+			if (!value)
+				return result;
+
+			if (*value != "null" && *value != "auto")
+			{
+				result.error = "--audio: " + *value + " is not a driver (null, or auto for the system's device)";
+				return result;
+			}
+
+			options.nullAudio = *value == "null";
+		}
 		else if (argument == "--project" || argument == "--engine" || argument == "--scene" || argument == "--frames" || argument == "--screenshot")
 		{
 			const auto value = next();
@@ -158,6 +172,8 @@ std::string OvGame::Core::LaunchOptions::GetUsage()
 		"  --frames <n>                quit after n frames\n"
 		"  --screenshot <file.png>     write the last frame to a PNG image (with --frames)\n"
 		"  --hidden-window             do not show the window\n"
+		"  --audio <null|auto>         null: mix the sounds and discard them, even with an audio device; auto (the\n"
+		"                              default): the system's device, else the null driver\n"
 		"  --fail-on-error             end with exit code 2 if an error was logged\n"
 		"  --dump-lua-api              print the engine's Lua API, one name per line, and quit\n"
 		"Exit codes: 0 on success, 1 for bad options or a scene that cannot be loaded, 2 for logged errors\n"

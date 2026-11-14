@@ -290,7 +290,9 @@ namespace SoLoud
 				// Different speaker "focus" calculations to try, if the default "bleeds" too much..
 				//speakervol = (speakervol * speakervol + speakervol) / 2;
 				//speakervol = speakervol * speakervol;
-				v->mChannelVolume[j] = vol * speakervol;
+				// Adventurer: the attenuation is in m3dVolume, which the voice's overall volume takes (see
+				// updateVoiceVolume_internal). Taken here as well, it applied twice: sounds faded as its square
+				v->mChannelVolume[j] = speakervol;
 			}
 			for (; j < MAX_CHANNELS; j++)
 			{

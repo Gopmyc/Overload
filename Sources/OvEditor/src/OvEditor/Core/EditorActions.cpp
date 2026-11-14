@@ -1039,6 +1039,14 @@ void OvEditor::Core::EditorActions::StopPlaying()
 		if (loadedFromDisk)
 			m_context.sceneManager.StoreCurrentSceneSourcePath(sceneSourcePath); // To bo able to save or reload the scene whereas the scene is loaded from memory (Supposed to have no path)
 		m_sceneBackup.reset();
+
+		// A game stopped while paused leaves the audio suspended, and the next one would start without it. Its sounds
+		// went with its scene, so resuming now plays none of them again
+		if (m_context.audioEngine->IsSuspended())
+		{
+			m_context.audioEngine->Unsuspend();
+		}
+
 		EDITOR_PANEL(Panels::SceneView, "Scene View").Focus();
 		if (auto actorInstance = m_context.sceneManager.GetCurrentScene()->FindActorByID(focusedActorID))
 			EDITOR_PANEL(Panels::Inspector, "Inspector").FocusActor(*actorInstance);
@@ -1563,7 +1571,7 @@ bool OvEditor::Core::EditorActions::ImportAsset(const std::string& p_initialDest
 	std::string textureFormats = "*.png;*.jpeg;*.jpg;*.tga;*.hdr;";
 	std::string shaderFormats = "*.ovfx;";
 	std::string shaderPartFormats = "*.ovfxh;";
-	std::string soundFormats = "*.mp3;*.ogg;*.wav;";
+	std::string soundFormats = "*.mp3;*.ogg;*.wav;*.flac;";
 	std::string scriptFormats = "*.lua;";
 	std::string fontFormats = "*.ttf;*.otf;";
 
@@ -1573,7 +1581,7 @@ bool OvEditor::Core::EditorActions::ImportAsset(const std::string& p_initialDest
 	selectAssetDialog.AddFileType("Texture (.png, .jpeg, .jpg, .tga, .hdr)", textureFormats);
 	selectAssetDialog.AddFileType("Shader (.ovfx)", shaderFormats);
 	selectAssetDialog.AddFileType("Shader Parts (.ovfxh)", shaderPartFormats);
-	selectAssetDialog.AddFileType("Sound (.mp3, .ogg, .wav)", soundFormats);
+	selectAssetDialog.AddFileType("Sound (.mp3, .ogg, .wav, .flac)", soundFormats);
 	selectAssetDialog.AddFileType("Script (.lua)", scriptFormats);
 	selectAssetDialog.AddFileType("Font (.ttf, .otf)", fontFormats);
 	selectAssetDialog.Show();
@@ -1650,7 +1658,7 @@ bool OvEditor::Core::EditorActions::ImportAssetAtLocation(const std::string& p_d
 	std::string textureFormats = "*.png;*.jpeg;*.jpg;*.tga;*.hdr;";
 	std::string shaderFormats = "*.ovfx;";
 	std::string shaderPartFormats = "*.ovfxh;";
-	std::string soundFormats = "*.mp3;*.ogg;*.wav;";
+	std::string soundFormats = "*.mp3;*.ogg;*.wav;*.flac;";
 	std::string scriptFormats = "*.lua;";
 	std::string fontFormats = "*.ttf;*.otf;";
 
@@ -1660,7 +1668,7 @@ bool OvEditor::Core::EditorActions::ImportAssetAtLocation(const std::string& p_d
 	selectAssetDialog.AddFileType("Texture (.png, .jpeg, .jpg, .tga, .hdr)", textureFormats);
 	selectAssetDialog.AddFileType("Shader (.ovfx)", shaderFormats);
 	selectAssetDialog.AddFileType("Shader Parts (.ovfxh)", shaderPartFormats);
-	selectAssetDialog.AddFileType("Sound (.mp3, .ogg, .wav)", soundFormats);
+	selectAssetDialog.AddFileType("Sound (.mp3, .ogg, .wav, .flac)", soundFormats);
 	selectAssetDialog.AddFileType("Script (.lua)", scriptFormats);
 	selectAssetDialog.AddFileType("Font (.ttf, .otf)", fontFormats);
 	selectAssetDialog.Show();

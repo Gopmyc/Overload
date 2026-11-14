@@ -26,6 +26,7 @@ TEST_SUITE("OvGame command line")
 		CHECK_FALSE(result.options->hiddenWindow);
 		CHECK_FALSE(result.options->failOnError);
 		CHECK_FALSE(result.options->dumpLuaApi);
+		CHECK_FALSE(result.options->nullAudio);
 	}
 
 	TEST_CASE("help stops the parsing")
@@ -49,7 +50,8 @@ TEST_SUITE("OvGame command line")
 			"--screenshot", (folder.GetPath() / "shot.png").string(),
 			"--hidden-window",
 			"--fail-on-error",
-			"--dump-lua-api"
+			"--dump-lua-api",
+			"--audio", "null"
 		});
 
 		REQUIRE_MESSAGE(result.options, result.error);
@@ -61,6 +63,12 @@ TEST_SUITE("OvGame command line")
 		CHECK(result.options->hiddenWindow);
 		CHECK(result.options->failOnError);
 		CHECK(result.options->dumpLuaApi);
+		CHECK(result.options->nullAudio);
+
+		// auto is the system's device, as without the option
+		const auto device = LaunchOptions::Parse({ "--audio", "auto" });
+		REQUIRE_MESSAGE(device.options, device.error);
+		CHECK_FALSE(device.options->nullAudio);
 	}
 
 	TEST_CASE("a project is a .ovproject file or the folder that holds exactly one")
@@ -101,5 +109,7 @@ TEST_SUITE("OvGame command line")
 		check({ "--frames", "99999999999" }, "above 0");
 		check({ "--screenshot", "a.png" }, "needs --frames");
 		check({ "--engine", "/no/such/folder/anywhere" }, "--engine: no folder");
+		check({ "--audio" }, "needs a value");
+		check({ "--audio", "alsa" }, "--audio: alsa is not a driver");
 	}
 }

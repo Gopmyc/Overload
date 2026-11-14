@@ -18,7 +18,8 @@ project "soloud"
 	}
 
 	defines {
-		"WITH_MINIAUDIO"
+		"WITH_MINIAUDIO",
+		"WITH_NULL" -- Mixed by AudioEngine when there is no audio device, and in the tests
 	}
 
 	filter { "configurations:Debug" }

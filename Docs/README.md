@@ -18,6 +18,7 @@ on it. Each page states the behaviour of the current version; [`CHANGELOG.md`](.
 | [Animation](Animation.md) | Bones, layers and masks, clips on other rigs, extra bones, attachments, animation graphs, look at, spring bones, when the pose is worked out |
 | [Saving](Saving.md) | The save folder, `Storage` and `Json` |
 | [Input](Input.md) | Keys, mouse, the editor's focus rules |
+| [Audio](Audio.md) | Sounds and their formats, sources, the listener and sounds in the world, many sounds, playing without an audio device |
 | [Localization](Localization.md) | Translation tables, plural forms, fonts by language, texts that follow the player's language |
 | [Coordinates](Coordinates.md) | Axes, angles and rotation order |
 | [Testing](Testing.md) | The engine's tests (`OvTests`) and the in-game checks, how to run them and add one |

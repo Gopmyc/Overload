@@ -54,7 +54,26 @@ bool OvAudio::Entities::AudioSource::IsPlaying() const
 void OvAudio::Entities::AudioSource::SetSpatial(bool p_value)
 {
 	m_spatial = p_value;
-	// TODO: Cannot currently change the spatialization mode of a sound instance
+
+	// A voice keeps its mode: a sound playing in the other one starts again in this one, where it was
+	if (HasSound() && m_sound && m_instance->IsSpatial() != m_spatial)
+	{
+		auto& backend = m_engine.GetBackend();
+		const bool paused = IsPaused();
+		const double position = backend.getStreamPosition(m_instance->GetHandle());
+
+		Play(*m_sound);
+
+		if (HasSound())
+		{
+			backend.seek(m_instance->GetHandle(), position);
+
+			if (paused)
+			{
+				m_instance->Pause();
+			}
+		}
+	}
 }
 
 void OvAudio::Entities::AudioSource::SetAttenuationThreshold(float p_distance)
@@ -182,6 +201,7 @@ void OvAudio::Entities::AudioSource::Play(const Resources::Sound& p_sound)
 
 	if (m_instance)
 	{
+		m_sound = &p_sound;
 		m_instance->SetLooped(m_looped);
 		m_instance->SetPitch(m_pitch);
 		m_instance->Play();

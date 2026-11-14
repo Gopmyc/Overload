@@ -173,6 +173,7 @@ namespace OvAudio::Entities
 		Core::AudioEngine& m_engine;
 		OvTools::Utils::ReferenceOrValue<OvMaths::FTransform> m_transform;
 		std::shared_ptr<Data::SoundInstance> m_instance;
+		const Resources::Sound* m_sound = nullptr; // What m_instance plays, to play it again when the mode changes
 
 		// Sound settings
 		bool m_spatial = false;

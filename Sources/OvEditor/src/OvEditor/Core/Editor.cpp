@@ -372,7 +372,7 @@ void OvEditor::Core::Editor::UpdatePlayMode(float p_deltaTime)
 
 	{
 		ZoneScopedN("Audio Update");
-		m_context.audioEngine->Update();
+		m_context.audioEngine->Update(m_context.clock.GetDeltaTimeUnscaled());
 	}
 
 	if (m_editorActions.GetCurrentEditorMode() == EditorActions::EEditorMode::FRAME_BY_FRAME)
