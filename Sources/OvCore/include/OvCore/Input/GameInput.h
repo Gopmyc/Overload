@@ -19,8 +19,9 @@ namespace OvTools::Filesystem
 
 namespace OvCore::Input
 {
-	// Where the player's bindings are kept, in the project's save folder
+	// Where the player's bindings are kept, in the project's save folder, and the version of their shape there
 	constexpr std::string_view kBindingsFile = "input_bindings.json";
+	constexpr int kBindingsVersion = 1;
 
 	/**
 	* The game's input as the scripts see it (InputHelpers): the editor's gate applies, and a gamepad input is read

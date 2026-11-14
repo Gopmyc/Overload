@@ -58,9 +58,9 @@ a mouse or a gamepad alike.
     `false` and why;
   - `Inputs.ResetBindings([name])` brings an action, or all of them, back to their defaults. An action reset takes its
     defaults from whoever holds them.
-- The bindings are saved at once in the project's save folder (`input_bindings.json`, see [Saving](Saving.md)), and read
-  back when the game starts. What no longer matches the project (an action removed, an input unknown) is logged and
-  left at its default.
+- The bindings are saved at once in the project's save folder (`input_bindings.json`, in the envelope of save files at
+  version 1, see [Saving](Saving.md#versions)), and read back when the game starts. What no longer matches the project
+  (an action removed, an input unknown) is logged and left at its default.
 - In the editor, actions follow the Game View's focus as the inputs they read do.
 
 ## Consuming input

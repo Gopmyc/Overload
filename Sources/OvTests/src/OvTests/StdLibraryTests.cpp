@@ -4,8 +4,11 @@
 * @licence: MIT
 */
 
+#include <chrono>
 #include <cmath>
+#include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <doctest/doctest.h>
@@ -15,7 +18,9 @@
 #include <OvCore/SceneSystem/Scene.h>
 #include <OvCore/Scripting/ScriptEngine.h>
 #include <OvTests/TestUtils.h>
+#include <OvTools/Filesystem/SaveStorage.h>
 #include <OvTools/Time/Clock.h>
+#include <OvTools/Utils/Json.h>
 
 namespace
 {
@@ -55,6 +60,43 @@ namespace
 		static void Frame(float p_step)
 		{
 			OvCore::SceneSystem::Scene::LateUpdateEvent.Invoke(p_step);
+		}
+	};
+
+	/**
+	* The fixture with a save folder, which Storage and the standard library's SaveFile reach
+	*/
+	struct SaveFixture : StdFixture
+	{
+		OvTests::TempFolder saves;
+		OvTools::Filesystem::SaveStorage storage{ saves.GetPath() };
+
+		SaveFixture()
+		{
+			OvCore::Global::ServiceLocator::Provide(storage);
+		}
+
+		/**
+		* The file's version and data, when it holds an envelope
+		*/
+		std::optional<std::pair<double, OvTools::Utils::Json::Value>> Envelope(std::string_view p_name)
+		{
+			std::string error;
+			const auto text = storage.Read(p_name, error);
+			const auto value = text ? OvTools::Utils::Json::Parse(*text, error) : std::nullopt;
+			const auto* version = value ? value->Find("version") : nullptr;
+			const auto* data = value ? value->Find("data") : nullptr;
+
+			if (!version || !data || !version->AsNumber())
+				return std::nullopt;
+
+			return std::make_pair(*version->AsNumber(), *data);
+		}
+
+		std::string Text(std::string_view p_name)
+		{
+			std::string error;
+			return storage.Read(p_name, error).value_or("");
 		}
 	};
 
@@ -458,5 +500,217 @@ TEST_SUITE("Standard library")
 		CHECK(logs.Contains(OvDebug::ELogLevel::LOG_ERROR, "Std.Tween: a function failed and its tween is stopped"));
 		CHECK(Has(r, "bad", "Run takes a table"));
 		CHECK(Has(r, "badEase", "'ease' is a function"));
+	}
+
+	TEST_CASE_FIXTURE(SaveFixture, "SaveFile: written in its envelope, read back, and migrated from any older version")
+	{
+		const sol::table r = Load(R"(
+			local SaveFile = require(":Libraries/Std/SaveFile")
+			local r = {}
+			local settings = SaveFile.New("settings.json", { version = 3, migrations = {
+				[0] = function(d) d.Version = nil; d.from = "zero"; return d end,
+				[1] = function(d) d.volume = d.volume or 1; return d end,
+				[2] = function(d) d.steps = (d.steps or "") .. "2"; return d end,
+			} })
+			r.name, r.version = settings:GetName(), settings:GetVersion()
+
+			local data, why = settings:Read()
+			r.absent, r.absentWhy = data == nil, why
+			r.written = settings:Write({ volume = 0.5, name = "x" })
+			local back = settings:Read()
+			r.backVolume, r.backName = back.volume, back.name
+
+			-- A file written before the envelope, as Adventurers' are
+			Storage.Write("settings.json", Json.Encode({ Version = 1, speed = 2 }))
+			local legacy = settings:Read()
+			r.legacyFrom, r.legacyVersion, r.legacyVolume, r.legacySteps, r.legacySpeed =
+				legacy.from, legacy.Version, legacy.volume, legacy.steps, legacy.speed
+
+			-- One of version 2 takes the last migration only
+			Storage.Write("settings.json", Json.Encode({ version = 2, data = { volume = 0.25 } }))
+			local two = settings:Read()
+			r.twoSteps, r.twoVolume, r.twoFrom = two.steps, two.volume, two.from
+
+			-- An envelope with a key more is not one: version 0, whole
+			Storage.Write("settings.json", Json.Encode({ version = 3, data = {}, extra = true }))
+			r.extraFrom = settings:Read().from
+			return r
+		)");
+
+		CHECK(r.get<std::string>("name") == "settings.json");
+		CHECK(r.get<int>("version") == 3);
+		CHECK(r.get<bool>("absent"));
+		CHECK(r.get<std::string>("absentWhy") == "no file");
+		CHECK(r.get<bool>("written"));
+		CHECK(r.get<double>("backVolume") == doctest::Approx(0.5));
+		CHECK(r.get<std::string>("backName") == "x");
+
+		CHECK(r.get<std::string>("legacyFrom") == "zero");
+		CHECK_FALSE(r.get<sol::optional<int>>("legacyVersion").has_value());
+		CHECK(r.get<double>("legacyVolume") == doctest::Approx(1.0));
+		CHECK(r.get<std::string>("legacySteps") == "2");
+		CHECK(r.get<int>("legacySpeed") == 2);
+
+		CHECK(r.get<std::string>("twoSteps") == "2");
+		CHECK(r.get<double>("twoVolume") == doctest::Approx(0.25));
+		CHECK_FALSE(r.get<sol::optional<std::string>>("twoFrom").has_value());
+		CHECK(r.get<std::string>("extraFrom") == "zero");
+	}
+
+	TEST_CASE_FIXTURE(SaveFixture, "SaveFile: written as the envelope the engine reads, a whole version")
+	{
+		Load(R"(
+			local SaveFile = require(":Libraries/Std/SaveFile")
+			SaveFile.New("prefs.json", { version = 2, migrations = { [0] = function(d) return d end, [1] = function(d) return d end } })
+				:Write({ volume = 0.5 })
+			return {}
+		)");
+
+		const auto envelope = Envelope("prefs.json");
+		REQUIRE(envelope.has_value());
+		CHECK(envelope->first == 2.0);
+		CHECK(Text("prefs.json").find("\"version\": 2") != std::string::npos);
+		REQUIRE(envelope->second.Find("volume"));
+		CHECK(*envelope->second.Find("volume")->AsNumber() == doctest::Approx(0.5));
+	}
+
+	TEST_CASE_FIXTURE(SaveFixture, "SaveFile: a file it cannot use is set aside, and the next write replaces it")
+	{
+		OvTests::LogCapture logs;
+		const sol::table r = Load(R"(
+			local SaveFile = require(":Libraries/Std/SaveFile")
+			local r = {}
+			local slot = SaveFile.New("slots/1.json", { version = 2, migrations = {
+				[1] = function() error("bad shape") end,
+			} })
+
+			-- Newer than the game's
+			Storage.Write("slots/1.json", Json.Encode({ version = 5, data = { a = 1 } }))
+			local data, why = slot:Read()
+			r.newerNil, r.newerWhy = data == nil, why
+			r.newerAside = Storage.Read("slots/1.v5.json")
+			r.originalKept = Storage.Read("slots/1.json")
+
+			-- Read again: no second copy, no second warning
+			Storage.Write("slots/1.v5.json", "replaced")
+			slot:Read()
+			r.newerAsideAgain = Storage.Read("slots/1.v5.json")
+
+			-- Not JSON
+			Storage.Write("slots/1.json", "{ nope")
+			data, why = slot:Read()
+			r.brokenNil, r.brokenWhy = data == nil, why
+			r.brokenAside = Storage.Read("slots/1.broken.json")
+
+			-- A migration that fails, and one missing
+			Storage.Write("slots/1.json", Json.Encode({ version = 1, data = { a = 1 } }))
+			data, r.failedWhy = slot:Read()
+			Storage.Write("slots/1.json", Json.Encode({ a = 1 }))
+			data, r.missingWhy = slot:Read()
+
+			-- The next write replaces the original
+			r.rewritten = slot:Write({ b = 2 })
+			r.againB = slot:Read().b
+			return r
+		)");
+
+		CHECK(r.get<bool>("newerNil"));
+		CHECK(Has(r, "newerWhy", "version 5 is newer than the game's, 2"));
+		CHECK(r.get<std::string>("newerAside").find("\"version\":5") != std::string::npos);
+		CHECK(r.get<std::string>("originalKept") == r.get<std::string>("newerAside"));
+		CHECK(r.get<std::string>("newerAsideAgain") == "replaced");
+
+		CHECK(r.get<bool>("brokenNil"));
+		CHECK(Has(r, "brokenWhy", "not a table of JSON"));
+		CHECK(r.get<std::string>("brokenAside") == "{ nope");
+
+		CHECK(Has(r, "failedWhy", "the migration from version 1 failed"));
+		CHECK(Has(r, "failedWhy", "bad shape"));
+		CHECK(Has(r, "missingWhy", "no migration from version 0"));
+
+		CHECK(r.get<bool>("rewritten"));
+		CHECK(r.get<int>("againB") == 2);
+
+		// Four troubles, each warned about once, and no error
+		CHECK(logs.Count(OvDebug::ELogLevel::LOG_WARNING) == 4);
+		CHECK(logs.Contains(OvDebug::ELogLevel::LOG_WARNING, "Std.SaveFile: slots/1.json: version 5 is newer than the game's, 2; set aside as slots/1.v5.json"));
+		CHECK(logs.Contains(OvDebug::ELogLevel::LOG_WARNING, "set aside as slots/1.broken.json"));
+		CHECK(logs.Contains(OvDebug::ELogLevel::LOG_WARNING, "kept aside as slots/1.broken.json earlier"));
+		CHECK(logs.Count(OvDebug::ELogLevel::LOG_ERROR) == 0);
+	}
+
+	TEST_CASE_FIXTURE(SaveFixture, "SaveFile: a write asked for again and again is made once, by Flush, the time or the game's end")
+	{
+		OvTests::LogCapture logs;
+		const sol::table r = Load(R"(
+			local SaveFile = require(":Libraries/Std/SaveFile")
+			local r = { builds = 0 }
+			local value = 1
+			local prefs = SaveFile.New("prefs.json", { version = 1 })
+			local other = SaveFile.New("other.json", { version = 1 })
+
+			prefs:Schedule(function() r.builds = r.builds + 1; return { value = value } end)
+			value = 2
+			prefs:Schedule(function() r.builds = r.builds + 1; return { value = value } end)
+			r.pending, r.writtenBefore = prefs:IsPending(), Storage.Exists("prefs.json")
+			r.flushed = prefs:Flush()
+			r.pendingAfter = prefs:IsPending()
+			r.flushNothing = prefs:Flush()
+
+			other:Schedule(function() return { n = 1 } end)
+			SaveFile.FlushAll()
+			r.otherWritten = Storage.Exists("other.json")
+
+			-- A build that fails writes nothing
+			prefs:Schedule(function() error("boom") end)
+			r.failedFlush = prefs:Flush() == nil
+
+			-- One by the time, one by the game's end
+			other:Schedule(function() return { n = 2 } end, 0.05)
+			value = 3
+			prefs:Schedule(function() return { value = value } end, 60)
+
+			r.badNew = select(2, pcall(SaveFile.New, "prefs.json", { version = 1 }))
+			r.badVersion = select(2, pcall(SaveFile.New, "x.json", { version = 0 }))
+			r.badMigration = select(2, pcall(SaveFile.New, "y.json", { version = 2, migrations = { [2] = function() end } }))
+			r.badWrite = select(2, pcall(prefs.Write, prefs, 42))
+			r.badSchedule = select(2, pcall(prefs.Schedule, prefs, 42))
+			r.prefs = prefs
+			return r
+		)");
+
+		CHECK(r.get<int>("builds") == 1);
+		CHECK(r.get<bool>("pending"));
+		CHECK_FALSE(r.get<bool>("writtenBefore"));
+		CHECK(r.get<bool>("flushed"));
+		CHECK_FALSE(r.get<bool>("pendingAfter"));
+		CHECK(r.get<bool>("flushNothing"));
+		CHECK(r.get<bool>("otherWritten"));
+		CHECK(r.get<bool>("failedFlush"));
+		CHECK(logs.Contains(OvDebug::ELogLevel::LOG_ERROR, "Std.SaveFile: prefs.json: the function that builds it failed, nothing is written"));
+
+		REQUIRE(Envelope("prefs.json").has_value());
+		CHECK(*Envelope("prefs.json")->second.Find("value")->AsNumber() == 2.0);
+		CHECK(*Envelope("other.json")->second.Find("n")->AsNumber() == 1.0);
+
+		// Real time moves on: the short one is written, the long one waits
+		clock.Update();
+		std::this_thread::sleep_for(std::chrono::milliseconds(80));
+		clock.Update();
+		Frame(0.0f);
+		CHECK(*Envelope("other.json")->second.Find("n")->AsNumber() == 2.0);
+		CHECK(Call<bool>(r, "prefs", "IsPending"));
+		CHECK(*Envelope("prefs.json")->second.Find("value")->AsNumber() == 2.0);
+
+		// The game's end writes what waits
+		engine.NotifyQuit();
+		CHECK(*Envelope("prefs.json")->second.Find("value")->AsNumber() == 3.0);
+		CHECK_FALSE(Call<bool>(r, "prefs", "IsPending"));
+
+		CHECK(Has(r, "badNew", "\"prefs.json\" is defined already"));
+		CHECK(Has(r, "badVersion", "the version is a whole number of 1 or more"));
+		CHECK(Has(r, "badMigration", "a migration goes from a version of 0 to 1: 2"));
+		CHECK(Has(r, "badWrite", "Write takes a table"));
+		CHECK(Has(r, "badSchedule", "Schedule takes a function"));
 	}
 }

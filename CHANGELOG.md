@@ -205,6 +205,12 @@ later version of the same major version.
   still current: a built game quitting or closed, the end of `--frames`, a game stopped in the editor or the editor
   closed during one. A module writes there what it kept for later (a save). In C++, `ScriptEngine::NotifyQuit`. The Lua
   API is now 1.24.
+- **Versioned saves**: the standard library's `SaveFile` keeps a file of the save folder in an envelope with the version
+  of its shape (`{"version": n, "data": ...}`), migrates an older file from version to version by the game's
+  migrations, and sets aside a file it cannot use (`<name>.broken.json`, `<name>.v<n>.json`, newer than the game) with a
+  warning, the defaults standing until the next write. A write asked for again and again is made once (`Schedule`,
+  `Flush`, `FlushAll`), and what waits is written as the game ends. A file without the envelope is version 0. In C++,
+  `OvCore::Helpers::VersionedSave`. See [Docs/Saving.md](Docs/Saving.md#versions).
 
 ### Changed
 

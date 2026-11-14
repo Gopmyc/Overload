@@ -5,6 +5,7 @@
 */
 
 #include <cstdlib>
+#include <format>
 #include <optional>
 #include <string>
 
@@ -20,6 +21,7 @@
 #include <OvTests/TestUtils.h>
 #include <OvTools/Filesystem/IniFile.h>
 #include <OvTools/Filesystem/SaveStorage.h>
+#include <OvTools/Utils/Json.h>
 
 using OvCore::Localization::EPluralCategory;
 using OvCore::Localization::GetPluralCategory;
@@ -445,6 +447,28 @@ TEST_SUITE("Localization")
 		Localization again;
 		project.Load(again);
 		CHECK(again.GetLanguage() == "fr");
+
+		// Kept in the envelope of save files, at its version
+		std::string readError;
+		const auto savedText = project.storage.Read(OvCore::Localization::kLanguageFile, readError);
+		REQUIRE(savedText.has_value());
+		std::string parseError;
+		const auto savedValue = OvTools::Utils::Json::Parse(*savedText, parseError);
+		const auto expected = OvTools::Utils::Json::Parse(std::format(R"({{"version": {}, "data": {{"language": "fr"}}}})", OvCore::Localization::kLanguageVersion), parseError);
+		CHECK(savedValue == expected);
+
+		// A file of a newer version is set aside, and the system's language is taken
+		{
+			std::string error;
+			REQUIRE(project.storage.Write(OvCore::Localization::kLanguageFile, R"({"version": 9, "data": {"language": "fr"}})", error));
+			OvTests::LogCapture logs;
+			Localization newer;
+			project.Load(newer);
+			CHECK(logs.Contains(OvDebug::ELogLevel::LOG_WARNING, "language.json: version 9 is newer than the engine's, 1; set aside as language.v9.json"));
+#if !defined(_WIN32)
+			CHECK(newer.GetLanguage() == "ru");
+#endif
+		}
 
 		// A saved language without a table is told, and the next choice is made
 		std::string error;

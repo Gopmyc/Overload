@@ -28,6 +28,20 @@
   half a file (a write goes to a temporary file, flushed, then renamed over the old one). The files stay the player's,
   who can read and edit them: it is a sandbox for scripts, not an anti-cheat.
 
+## Versions
+
+- A save file that keeps the version of its shape holds an envelope: `{"version": n, "data": ...}`, `n` a whole number
+  of 1 or more. Any other table counts as version 0, whole, so a file written before a game used the envelope is still
+  read. The standard library's `SaveFile` writes and reads it for scripts, with the migrations from one version to the
+  next (see [Standard library](StandardLibrary.md#savefile)).
+- A file that cannot be used is set aside beside itself, with a warning, and the defaults stand until the next write
+  replaces it: `settings.broken.json` for a file that is no JSON (or whose migration failed), `settings.v3.json` for a
+  file of a newer version than the game knows. The player keeps it, and can put it back.
+- The engine's own files are kept in the envelope too, at version 1: `input_bindings.json`, the player's bindings (see
+  [Input](Input.md)), and `language.json`, the player's language (see [Localization](Localization.md)). Their files from
+  before, version 0, have the same shape and are still read. In C++, `OvCore::Helpers::VersionedSave` (`Wrap`,
+  `Unwrap`, `Read`, `Write`).
+
 ## `Json`
 
 - `Encode(value, pretty)` and `Decode(text)`; `nil` and `"json: …"` on failure, naming where in the table or the line and

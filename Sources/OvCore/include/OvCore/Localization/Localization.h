@@ -25,8 +25,9 @@ namespace OvTools::Filesystem
 
 namespace OvCore::Localization
 {
-	// Where the player's language is kept, in the project's save folder
+	// Where the player's language is kept, in the project's save folder, and the version of its shape there
 	constexpr std::string_view kLanguageFile = "language.json";
+	constexpr int kLanguageVersion = 1;
 
 	/**
 	* The plural categories of CLDR: which form of a text a count takes in a language

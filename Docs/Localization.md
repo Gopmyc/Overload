@@ -72,9 +72,10 @@ local apples = Localization.Get("inventory.apples", { count = 3 })
 
 ## The language
 
-- **At start**: the player's choice (`language.json` in the save folder, see [Saving](Saving.md)), else the system's
-  language when the project has a table for it (`LC_ALL`, `LC_MESSAGES` then `LANG` on Linux, the user's locale on
-  Windows; `fr-FR` takes `fr.json` when there is no `fr-FR.json`), else the default language.
+- **At start**: the player's choice (`language.json` in the save folder, versioned, see
+  [Saving](Saving.md#versions)), else the system's language when the project has a table for it (`LC_ALL`,
+  `LC_MESSAGES` then `LANG` on Linux, the user's locale on Windows; `fr-FR` takes `fr.json` when there is no
+  `fr-FR.json`), else the default language.
 - `Localization.SetLanguage(code)` gives the texts in another language and saves the choice. It returns `false` and why
   for a language without a table.
 - `Localization.GetLanguages()` lists `{ code, name }` by code, for a menu; `GetLanguage()` and `GetDefaultLanguage()`
