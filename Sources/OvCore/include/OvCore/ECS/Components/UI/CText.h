@@ -59,15 +59,27 @@ namespace OvCore::ECS::Components::UI
 		virtual std::string GetTypeName() override;
 
 		/**
-		* Sets the text content
+		* Sets the text content. A text key the text had is cleared: the text is now this one
 		* @param p_text
 		*/
 		void SetText(const std::string& p_text);
 
 		/**
-		* Returns the text content
+		* Returns the text content: the text set, or the text its key gives in the current language
 		*/
 		const std::string& GetText() const;
+
+		/**
+		* Shows the text a key gives in the current language (Localization::Get), again each time the language changes.
+		* An empty key leaves the text as it is. Without the localization service, the key itself is shown
+		* @param p_key
+		*/
+		void SetTextKey(const std::string& p_key);
+
+		/**
+		* Returns the text key, or "" when the text is set as it is
+		*/
+		const std::string& GetTextKey() const;
 
 		/**
 		* Sets the font resource path
@@ -193,7 +205,9 @@ namespace OvCore::ECS::Components::UI
 		virtual void OnInspector(OvUI::Internal::WidgetContainer& p_root) override;
 
 	private:
+		const std::string& GetDisplayedFontPath() const;
 		OvRendering::Resources::Font* GetFont() const;
+		void ResolveTextKey() const;
 		void MarkMeshDirty();
 		void MarkMaterialSourceDirty();
 		void MarkMaterialColorDirty();
@@ -205,7 +219,10 @@ namespace OvCore::ECS::Components::UI
 		void RefreshLitMaterial();
 
 	private:
-		std::string m_text = "Text";
+		mutable std::string m_text = "Text"; // Given again by its key when the language changes
+		std::string m_textKey;
+		mutable uint64_t m_textKeyRevision = 0;
+		mutable bool m_textKeyDirty = false;
 		std::string m_fontPath;
 		float m_fontSize = 32.0f;
 		OvMaths::FVector4 m_color = { 1.0f, 1.0f, 1.0f, 1.0f };

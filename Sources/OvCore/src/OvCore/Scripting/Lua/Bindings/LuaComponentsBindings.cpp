@@ -942,7 +942,9 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetVerticalAlignment", &UI::CText::GetVerticalAlignment,
 		"SetVerticalAlignment", &UI::CText::SetVerticalAlignment,
 		"IsLit", &UI::CText::IsLit,
-		"SetLit", &UI::CText::SetLit
+		"SetLit", &UI::CText::SetLit,
+		"GetTextKey", &UI::CText::GetTextKey,
+		"SetTextKey", &UI::CText::SetTextKey
 	);
 
 	p_luaState.new_usertype<CLight>("Light",

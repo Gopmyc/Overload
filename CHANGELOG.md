@@ -177,6 +177,16 @@ later version of the same major version.
   `UIResourceRegistry::Definition`), the elements of a canvas in the order of the hierarchy
   (`SceneDrawableDescriptor::sortPosition`). A screen space canvas stays unlit. The Lua API is now 1.20. See
   [Docs/Rendering.md](Docs/Rendering.md#lit-ui-in-the-world).
+- **Localization**: translation tables, one JSON file per language in the folder the project's `translations` key
+  names, with a `default_language` (two keys the editor adds to older projects and shows in the project settings).
+  Texts with `{name}` parameters and plural forms chosen by `count` after CLDR's rules (English, French, Spanish,
+  Italian, Portuguese, Russian, Ukrainian, Polish, Czech, Arabic, Hebrew, Japanese, Chinese and more), a missing text
+  taken from the default language then shown as its key and warned once, and fonts a language stands for others. The
+  language starts as the player's saved choice (`language.json`), else the system's, else the default one. In Lua, the
+  `Localization` table (`Get`, `Has`, `GetLanguage`, `SetLanguage`, `GetLanguages`, `GetDefaultLanguage`, `GetFont`,
+  `GetRevision`), `Text:SetTextKey` and `GetTextKey` (`text_key` in a file, "Text Key" in the inspector), and
+  `DLabel:SetTextKey` in the UI library; in C++, `OvCore::Localization`. The Lua API is now 1.21. See
+  [Docs/Localization.md](Docs/Localization.md).
 
 ### Changed
 

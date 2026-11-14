@@ -1,7 +1,7 @@
 local Registry = Resources.GetScript(":Libraries/UI/Core/Registry.lua")
 local Skin = Resources.GetScript(":Libraries/UI/Core/Skin.lua")
 
-Resources.GetScript(":Libraries/UI/Panels/DLabel.lua")
+local DLabel = Resources.GetScript(":Libraries/UI/Panels/DLabel.lua")
 
 --- Clickable label with a background reflecting its state
 ---@class DButton : DLabel
@@ -50,9 +50,11 @@ function DButton:OnMouseReleased(button)
 end
 
 --- Releases the button when the mouse release was never received (panel hidden or disabled while
---- pressed). Overrides must call DButton.Think(self, deltaTime).
+--- pressed), and follows the language of a text key. Overrides must call DButton.Think(self, deltaTime).
 ---@param deltaTime number
 function DButton:Think(deltaTime)
+	DLabel.Think(self, deltaTime)
+
 	if self.m_Depressed and not Inputs.GetMouseButton(MouseButton.BUTTON_LEFT) then
 		self.m_Depressed = false
 		self:InvalidatePaint()

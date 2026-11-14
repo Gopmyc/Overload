@@ -1,0 +1,8 @@
+{
+	"name": "Français",
+	"strings": {
+		"check.title": "Bonjour, le monde",
+		"check.greeting": "Bonjour, {name} !",
+		"check.apples": { "one": "{count} pomme", "other": "{count} pommes" }
+	}
+}

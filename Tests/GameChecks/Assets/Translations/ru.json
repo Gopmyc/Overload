@@ -1,0 +1,11 @@
+{
+	"name": "Русский",
+	"strings": {
+		"check.title": "Привет, мир",
+		"check.greeting": "Привет, {name}!",
+		"check.apples": { "one": "{count} яблоко", "few": "{count} яблока", "many": "{count} яблок", "other": "{count} яблока" }
+	},
+	"fonts": {
+		":Fonts/Roboto-Regular.ttf": "Fonts/LiberationSerif-Regular.ttf"
+	}
+}

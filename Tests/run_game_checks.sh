@@ -3,7 +3,7 @@
 # game's command line: it passes when the game ends with exit code 0 and logs "CHECK PASSED <name>".
 # Usage: Tests/run_game_checks.sh <OvGame binary> [check name...]
 # The game needs a display: a desktop session, or xvfb-run on a headless Linux machine. The saves of the checks go to a
-# temporary folder, never to the user's own.
+# temporary folder, never to the user's own, and the system's language is set aside.
 set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -22,6 +22,10 @@ fi
 DATA="$(mktemp -d)"
 trap 'rm -rf "$DATA"' EXIT
 export XDG_DATA_HOME="$DATA"
+
+# The checks start in the project's default language, whatever the machine's
+export LANG=C.UTF-8
+unset LC_ALL LC_MESSAGES
 
 FAILED=0
 for NAME in "${CHECKS[@]}"; do

@@ -29,6 +29,7 @@
 #include <OvTools/Filesystem/IniFile.h>
 #include <OvTools/Filesystem/SaveStorage.h>
 #include <OvCore/Input/InputActions.h>
+#include <OvCore/Localization/Localization.h>
 #include <OvTools/Time/Clock.h>
 
 #include <OvGame/Core/LaunchOptions.h>
@@ -71,6 +72,7 @@ namespace OvGame::Core
 		std::unique_ptr<OvCore::Scripting::ScriptEngine> scriptEngine;
 		std::unique_ptr<OvTools::Filesystem::SaveStorage> saveStorage;
 		std::unique_ptr<OvCore::Input::InputActions> inputActions;
+		std::unique_ptr<OvCore::Localization::Localization> localization;
 		std::unique_ptr<baregl::Framebuffer> framebuffer;
 
 		OvCore::SceneSystem::SceneManager sceneManager;

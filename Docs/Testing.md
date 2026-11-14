@@ -41,6 +41,7 @@ It covers:
 | Component references | Handles that work through a member function, a lambda and a base usertype's method; a removed component and a freed actor's raising a clear error and testing as gone, the UI ones as well; equality whatever the usertype, once gone too; a self that is another userdata, nil or another component refused with a clear error |
 | UI clip | An upright element's rectangle, a clip inside a clip and clips that don't meet, a turned element, a world space canvas scaled down, an element entirely outside, the property saved only when set and read back |
 | Lit world UI | An element that asks to be lit drawn lit under a world space canvas, never under a screen space one, even previewed in the world, nor when it could not be resolved; a text's lit setting saved and read back, and a text saved before it read as unlit; without a lit material from the host, a lit text having none |
+| Localization | A table read with its name, texts, plural forms and fonts; each mistake named with where it is and the rest kept; a missing text taken from the default language then shown as its key, each warned once; parameters in place and plural forms chosen by count, a missing form falling back to `other`; the plural rules of English, French, Portuguese, Spanish, Russian, Ukrainian, Polish, Japanese, Chinese, Czech, Arabic and Hebrew; a language's fonts; system locales turned into codes and matched to tables, from `LANG` and `LC_ALL`; a project's tables read from its folder, the system's language then the player's saved choice, a saved language without a table; a missing folder, a broken table and a default language without a table named; a `Text` with a key following the language, saved with it, and cleared by a text set |
 | Fonts | Basic Latin and Latin-1 baked with an atlas, Cyrillic, Greek and Latin Extended baked on demand and once, a character the font lacks, an atlas that grows without moving its glyphs, UTF-8 decoding, a font that is no font |
 | Json | Values read with their members' order, escapes beyond the first plane, errors with their line and column, nesting, a value written then read back |
 | Input actions | Every input's name and the Lua enum Key, the actions file and its mistakes, actions pressed, held and released over frames, a tap within a frame, a stick's way and a trigger, the input pressed in a frame, swaps, resets, bindings saved and read back |
@@ -78,7 +79,8 @@ xvfb-run -a Tests/run_game_checks.sh Bin/Release/OvGame/OvGame  # on a headless 
 ```
 
 A check passes when the game ends with exit code 0 and logs `CHECK PASSED <name>`. The saves of the checks go to a
-temporary folder.
+temporary folder, and the runner sets the system's language aside (`LANG=C.UTF-8`): the checks start in the project's
+default language, whatever the machine's.
 
 | Check | What it checks |
 | --- | --- |
@@ -105,6 +107,7 @@ temporary folder.
 | `ComponentRefs` | Components from Lua as checked handles: from the actor's getters and adders, removed, of an actor destroyed then freed, equal by component, a box as the actor's physical object and as a ray's hit, a value that is no component refused |
 | `UIClip` | Clipping from Lua: the property, off by default, and the UI library's scroll panel clipping its content; it also draws, for a screenshot, a panel with children past its edges, a clip inside a clip, a turned panel, a world space canvas and a scroll panel with an item half out of view |
 | `LitWorldUI` | Lit text and images from Lua: the setting on a text and an image, off by default, and the UI library's labels and panels lighting their text and background. Its first frames hold a view for a screenshot (`--frames 20 --screenshot`): a sign in the sun and one in the shadow of a box above the view, by a weak lamp, each with a lit background, a lit text and an unlit one, and a small box hiding part of the sunlit text |
+| `Localization` | Translations from Lua on the tables of `Assets/Translations` (en, fr, ru): the languages by code and name, started in the default one; texts with parameters and plural forms in each; a text missing from French taken from English, one in no table shown as its key; a language without a table and parameters of the wrong kind refused; a `Text` with a key and a UI library label with parameters following the language; the font Russian stands for Roboto; the player's choice saved. Its first frames hold Russian for a screenshot (`--frames 20 --screenshot`) |
 | `InputConsumption` | Consuming from Lua with no device held: the calls and their refusals, the reads that see what is consumed, the keyboard captured from an `Events.AddUpdate` callback before the Behaviours, across frames |
 | `Interpolation` | Two boxes falling side by side, one interpolated from the scene file: the same physics in the fixed update, the interpolated one between its last two steps on every frame, a teleport from a script |
 | `Character` | A character controller read from the scene file lands and stands, walks through a body of a layer it ignores and through a trigger, climbs a step, is stopped by a wall, jumps and lands, takes an impulse |

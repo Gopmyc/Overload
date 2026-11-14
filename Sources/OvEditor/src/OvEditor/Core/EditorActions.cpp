@@ -993,6 +993,9 @@ void OvEditor::Core::EditorActions::StartPlaying()
 			// The actions file may have changed since the last session
 			OvCore::Input::LoadProjectActions(m_context.projectSettings, m_context.projectAssetsPath, *m_context.saveStorage, *m_context.inputActions);
 
+			// So may the translations, and the player's language
+			OvCore::Localization::LoadProjectTranslations(m_context.projectSettings, m_context.projectAssetsPath, *m_context.saveStorage, *m_context.localization);
+
 			m_panelsManager.GetPanelAs<OvEditor::Panels::GameView>("Game View").Focus();
 			m_context.sceneManager.GetCurrentScene()->Play();
 			SetEditorMode(EEditorMode::PLAY);

@@ -92,6 +92,10 @@ OvEditor::Panels::ProjectSettings::ProjectSettings(const std::string & p_title, 
 
 		// The project's input actions, a JSON file of its assets (see Docs/Input.md)
 		GUIDrawer::DrawString(columns, "Input actions", GenerateGatherer<std::string>("input_actions"), GenerateProvider<std::string>("input_actions"));
+
+		// The project's translations, a folder of "<language>.json" tables in its assets (see Docs/Localization.md)
+		GUIDrawer::DrawString(columns, "Translations", GenerateGatherer<std::string>("translations"), GenerateProvider<std::string>("translations"));
+		GUIDrawer::DrawString(columns, "Default language", GenerateGatherer<std::string>("default_language"), GenerateProvider<std::string>("default_language"));
 	}
 
 	{

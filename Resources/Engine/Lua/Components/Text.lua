@@ -26,7 +26,7 @@ function Text:GetOwner() end
 ---@return string
 function Text:GetText() end
 
---- Defines the text content, in UTF-8. A character the font has no glyph for is drawn as "?"
+--- Defines the text content, in UTF-8. A character the font has no glyph for is drawn as "?". A text key is cleared
 ---@param text string
 function Text:SetText(text) end
 
@@ -82,3 +82,12 @@ function Text:IsLit() end
 --- transparent surfaces. Only under a world space canvas: a screen space text stays drawn over the scene, unlit
 ---@param lit boolean
 function Text:SetLit(lit) end
+
+--- Returns the text key, or "" when the text is set as it is
+---@return string
+function Text:GetTextKey() end
+
+--- Shows the text a key gives in the current language (Localization.Get), again each time the language changes.
+--- An empty key leaves the text as it is; SetText clears the key
+---@param key string
+function Text:SetTextKey(key) end
