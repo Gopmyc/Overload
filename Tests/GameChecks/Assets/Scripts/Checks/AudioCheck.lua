@@ -9,11 +9,12 @@ local oCheck = Check.New("Audio")
 local t = {}
 local nFrame = 0
 local nStep = 1
-local nStepFrames = 0
+local nStepTime = 0
 local nWaited = 0
 
--- A step that waits gives up after this many frames
-local kDeadline = 2000
+-- A step that waits gives up after this many seconds. The sounds are mixed as time passes, so a deadline in frames
+-- would run out before the sounds on a machine that draws its frames fast enough
+local kDeadline = 5
 
 local function AddSource(oScene, sName, sSound)
 	local oSource = oScene:CreateActor(sName, ""):AddAudioSource()
@@ -123,12 +124,12 @@ function AudioCheck:OnUpdate()
 		return
 	end
 
-	nStepFrames = nStepFrames + 1
+	nStepTime = nStepTime + Time.GetUnscaledDeltaTime()
 	if tSteps[nStep]() then
 		nStep = nStep + 1
-		nStepFrames = 0
-	elseif nStepFrames > kDeadline then
-		oCheck:Expect(false, "step " .. nStep .. " still waits on the sounds after " .. kDeadline .. " frames")
+		nStepTime = 0
+	elseif nStepTime > kDeadline then
+		oCheck:Expect(false, "step " .. nStep .. " still waits on the sounds after " .. kDeadline .. " s")
 		nStep = #tSteps + 1
 	end
 
