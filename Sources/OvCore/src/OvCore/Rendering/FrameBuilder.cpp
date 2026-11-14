@@ -16,6 +16,7 @@
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CSkinnedMeshRenderer.h>
 #include <OvCore/ECS/Components/CTerrain.h>
+#include <OvCore/ECS/Components/CVegetation.h>
 #include <OvCore/ECS/Components/UI/CCanvas.h>
 #include <OvCore/ECS/Components/UI/CImage.h>
 #include <OvCore/ECS/Components/UI/CText.h>
@@ -46,6 +47,7 @@ namespace
 			p_drawable.mesh.has_value() &&
 			!p_drawable.HasDescriptor<SkinningDrawableDescriptor>() &&
 			!p_drawable.HasDescriptor<ParticleDrawableDescriptor>() &&
+			!p_drawable.HasDescriptor<InstancingDrawableDescriptor>() && // Instanced already (a vegetation layer)
 			p_drawable.TryGetDescriptor<EngineDrawableDescriptor>(engineDescriptor) &&
 			!engineDescriptor->viewMatrixOverride &&
 			!engineDescriptor->projectionMatrixOverride;
@@ -524,6 +526,64 @@ namespace
 	}
 }
 
+namespace
+{
+	// A vegetation is one instanced draw per chunk, layer and mesh of the layer's model, its instances prepared once
+	// in the world: culled by the frustum with the chunk's bounds, by distance when the vegetation prepares its draws
+	void AppendVegetationDrawables(
+		OvCore::Rendering::FrameBuilder::ParsingResult& p_result,
+		OvCore::SceneSystem::Scene& p_scene,
+		const std::optional<OvMaths::FVector3>& p_viewPosition,
+		bool p_mainView
+	)
+	{
+		std::vector<OvCore::ECS::Components::CVegetation::LayerDraw> draws;
+
+		for (auto* vegetation : p_scene.GetFastAccessComponents().vegetations)
+		{
+			auto& owner = vegetation->owner;
+			if (!owner.IsActive()) continue;
+
+			draws.clear();
+			vegetation->PrepareDraw(p_viewPosition, p_mainView, draws);
+
+			for (const auto& draw : draws)
+			{
+				for (auto* mesh : draw.model->GetMeshes())
+				{
+					OvRendering::Entities::Drawable drawable{
+						.mesh = *mesh,
+						.material = *draw.material,
+						.stateMask = draw.material->GenerateStateMask(),
+					};
+
+					drawable.AddDescriptor<SceneDrawableDescriptor>({
+						.actor = owner,
+						.visibilityFlags = draw.castShadows ? EVisibilityFlags::GEOMETRY | EVisibilityFlags::SHADOW : EVisibilityFlags::GEOMETRY,
+						.bounds = draw.bounds,
+						.boundsInWorld = true
+					});
+
+					// Each instance carries its own matrices in the world
+					drawable.AddDescriptor<EngineDrawableDescriptor>({
+						OvMaths::FMatrix4::Identity,
+						OvMaths::FMatrix4::Identity
+					});
+
+					drawable.AddDescriptor<OvCore::Rendering::InstancingDrawableDescriptor>({
+						.instances = nullptr,
+						.count = draw.count,
+						.prepared = draw.instances
+					});
+					drawable.gpuInstancesOverride = draw.count;
+
+					p_result.drawables.push_back(std::move(drawable));
+				}
+			}
+		}
+	}
+}
+
 OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::Parse(const ParsingInput& p_input)
 {
 	ZoneScoped;
@@ -621,6 +681,7 @@ OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::
 	}
 
 	AppendTerrainDrawables(result, scene, p_input.viewPosition, p_input.mainView);
+	AppendVegetationDrawables(result, scene, p_input.viewPosition, p_input.mainView);
 	AppendParticleDrawables(result, scene);
 	AppendHierarchyUIDrawables(result, scene, uiFrameResolver);
 

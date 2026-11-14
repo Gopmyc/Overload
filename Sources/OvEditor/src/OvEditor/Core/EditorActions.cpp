@@ -25,6 +25,7 @@
 #include <OvCore/ECS/Components/CAudioSource.h>
 #include <OvCore/ECS/Components/CMaterialRenderer.h>
 #include <OvCore/ECS/Components/CModelRenderer.h>
+#include <OvCore/ECS/Components/CVegetation.h>
 #include <OvCore/ECS/Components/CPhysicalBox.h>
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>
@@ -1978,8 +1979,13 @@ void OvEditor::Core::EditorActions::PropagateFileRename(std::string p_previousNa
 
 			if (auto currentScene = m_context.sceneManager.GetCurrentScene())
 				for (auto actor : currentScene->GetActors())
+				{
 					if (auto modelRenderer = actor->GetComponent<OvCore::ECS::Components::CModelRenderer>())
 						modelRenderer->ForgetModel(model); // Its own model and its levels
+
+					if (auto vegetation = actor->GetComponent<OvCore::ECS::Components::CVegetation>())
+						vegetation->ForgetModel(model);
+				}
 
 			OvCore::Global::ServiceLocator::Get<OvCore::ResourceManagement::ModelManager>().UnloadResource(p_previousName);
 		}
@@ -1998,8 +2004,13 @@ void OvEditor::Core::EditorActions::PropagateFileRename(std::string p_previousNa
 
 			if (auto currentScene = m_context.sceneManager.GetCurrentScene())
 				for (auto actor : currentScene->GetActors())
+				{
 					if (auto materialRenderer = actor->GetComponent<OvCore::ECS::Components::CMaterialRenderer>(); materialRenderer)
 						materialRenderer->RemoveMaterialByInstance(*material);
+
+					if (auto vegetation = actor->GetComponent<OvCore::ECS::Components::CVegetation>())
+						vegetation->ForgetMaterial(material);
+				}
 
 			OvCore::Global::ServiceLocator::Get<OvCore::ResourceManagement::MaterialManager>().UnloadResource(p_previousName);
 		}

@@ -1,7 +1,7 @@
 # Terrain
 
 A terrain is two components on one actor: a `PhysicalHeightField`, which holds the heights and collides, and a
-`Terrain`, which draws them. The navigation mesh is built from the height field like any static collider (see
+`Terrain`, which draws them. A third, `Vegetation`, can cover it with grass and stones (see [Vegetation](#vegetation)). The navigation mesh is built from the height field like any static collider (see
 [Navigation](Navigation.md)). In the editor, *Actors > Others > Terrain* makes an actor with both.
 
 ## The heights
@@ -60,6 +60,44 @@ A terrain is two components on one actor: a `PhysicalHeightField`, which holds t
   - `GetError()` says why nothing is drawn: no height field on the actor, no heights, or no material;
   - `GetChunkCount()`, `GetChunkLod(chunk)` and `GetTriangleCount()` (the surface at the levels the main camera drew
     last) show the work done. A scene without a main camera reports the view drawn last.
+
+## Vegetation
+
+A `Vegetation` component covers the height field of its actor with models scattered in layers: grass, flowers,
+stones. It sits on the terrain's actor, beside its `PhysicalHeightField` (and usually its `Terrain`).
+
+- **A layer** (up to 8) has:
+  - a model and a material, which draws every mesh of the model. The material's shader must declare `INSTANCING`
+    (`Standard` does, see [Shaders](Shaders.md)); another one is refused, and `GetError()` says why;
+  - a density, in instances per square metre (up to 100), and a density map that weighs each place from 0 to 1;
+  - a scale drawn between a smallest and a largest, a random turn about the vertical, and an alignment from upright (0)
+    to along the ground's normal (1);
+  - the steepest slope it stands on, in degrees, and the lowest and highest ground, in the field's space;
+  - a draw distance, measured from the camera to each chunk's ground; whether it casts shadows; a seed.
+- **The density map** is an image laid like the height map (its grey weighs each place, stretched over the whole
+  field: `densityMap` in Lua, `density_map` in a file), or weights a script gives:
+  `SetDensityMap(layer, size, weights)`, `size × size` weights in the order of the heights. Like heights from a script,
+  these weights are not saved. A game can paint its biomes into it, and zeros around its buildings.
+- **The scatter** follows the chunks of the field (the `Terrain`'s chunk size, or 32 cells): each chunk is scattered
+  the first time the camera comes within a layer's draw distance of it, then kept.
+  - A grid of cells of `1 / sqrt(density)` metres gives one candidate per cell at a random point of it, kept with the
+    probability of the density map there, then where the slope and the height allow: the density holds on average.
+  - Each cell draws its random numbers from the seed and its own place: the same seed scatters the same, whatever
+    the order the chunks come in.
+  - A change of heights, of the actor's transform, of a layer or of its density map scatters again.
+- **The drawing**: one instanced draw per chunk and layer (and mesh of the layer's model), its instances' matrices
+  prepared once when the chunk is scattered. A chunk beyond the layer's draw distance is skipped, and the frustum
+  culls the others with their bounds. The instances take part in the view and, if the layer says so, in the shadows;
+  not in reflections.
+- **In Lua**:
+  - `AddLayer({ model = Resources.GetModel("Models/Tuft.fbx"), density = 4, maxSlope = 30, drawDistance = 40 })`
+    returns the layer's index, from 0;
+  - `SetLayer(layer, settings)` changes the settings given; `GetLayer(layer)` reads them; `RemoveLayer(layer)`;
+  - an unknown setting, or a value of the wrong kind, raises an error naming it;
+  - `GetInstanceCount([layer])` counts the instances within reach, as the main camera saw them last (before the
+    frustum culls whole chunks).
+- **In the editor**: *Add Component > Vegetation*, then a model and a material per layer, *Add Layer* and *Remove
+  Layer*, "Ready" or what keeps a layer from being drawn, and the instances drawn.
 
 ## Cost
 

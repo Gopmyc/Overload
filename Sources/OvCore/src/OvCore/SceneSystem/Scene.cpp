@@ -627,6 +627,9 @@ void OvCore::SceneSystem::Scene::OnComponentAdded(ECS::Components::AComponent& p
 	if (auto result = dynamic_cast<ECS::Components::CTerrain*>(&p_compononent))
 		m_fastAccessComponents.terrains.push_back(result);
 
+	if (auto result = dynamic_cast<ECS::Components::CVegetation*>(&p_compononent))
+		m_fastAccessComponents.vegetations.push_back(result);
+
 	if (auto result = dynamic_cast<ECS::Components::CSkinnedMeshRenderer*>(&p_compononent))
 		m_fastAccessComponents.skinnedMeshRenderers.push_back(result);
 
@@ -665,6 +668,9 @@ void OvCore::SceneSystem::Scene::OnComponentRemoved(ECS::Components::AComponent&
 
 	if (auto result = dynamic_cast<ECS::Components::CTerrain*>(&p_compononent))
 		m_fastAccessComponents.terrains.erase(std::remove(m_fastAccessComponents.terrains.begin(), m_fastAccessComponents.terrains.end(), result), m_fastAccessComponents.terrains.end());
+
+	if (auto result = dynamic_cast<ECS::Components::CVegetation*>(&p_compononent))
+		m_fastAccessComponents.vegetations.erase(std::remove(m_fastAccessComponents.vegetations.begin(), m_fastAccessComponents.vegetations.end(), result), m_fastAccessComponents.vegetations.end());
 
 	if (auto result = dynamic_cast<ECS::Components::CSkinnedMeshRenderer*>(&p_compononent))
 		m_fastAccessComponents.skinnedMeshRenderers.erase(std::remove(m_fastAccessComponents.skinnedMeshRenderers.begin(), m_fastAccessComponents.skinnedMeshRenderers.end(), result), m_fastAccessComponents.skinnedMeshRenderers.end());

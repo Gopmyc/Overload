@@ -13,6 +13,7 @@
 #include <OvMaths/FVector3.h>
 #include <OvMaths/FVector4.h>
 #include <OvCore/Rendering/FogSettings.h>
+#include <OvCore/Rendering/InstancingDrawableDescriptor.h>
 #include <OvRendering/Features/ARenderFeature.h>
 #include <OvRendering/Entities/Camera.h>
 #include <OvRendering/Utils/StreamingBuffer.h>
@@ -107,16 +108,6 @@ namespace OvCore::Rendering
 			float padding[2]; // std140 rounds the block up to a multiple of 16 bytes
 		};
 
-		/**
-		* Matrices of one instance of an instanced draw (std430 layout, see InstancesSSBO.ovfxh)
-		*/
-		struct InstanceData
-		{
-			OvMaths::FMatrix4 model;
-			OvMaths::FMatrix4 normalMatrix;
-			OvMaths::FMatrix4 userMatrix;
-		};
-
 		std::chrono::high_resolution_clock::time_point m_startTime;
 
 		// Each draw gets its own copy of the UBO in a streaming buffer, so updating
@@ -127,7 +118,7 @@ namespace OvCore::Rendering
 
 		// Instances of the instanced draws (see InstancingDrawableDescriptor), streamed like the UBO
 		OvRendering::Utils::StreamingBuffer m_instancesBuffer;
-		std::vector<InstanceData> m_instances;
+		std::vector<PreparedInstance> m_instances;
 
 		// Camera set for the frame (or with SetCamera), restored after draws overriding the camera
 		// (see EngineDrawableDescriptor::viewMatrixOverride and projectionMatrixOverride)

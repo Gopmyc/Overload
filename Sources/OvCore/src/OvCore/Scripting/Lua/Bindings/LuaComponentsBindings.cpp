@@ -23,6 +23,7 @@
 #include <OvCore/ECS/Components/CBoneAttachment.h>
 #include <OvCore/ECS/Components/CAnimator.h>
 #include <OvCore/Global/ServiceLocator.h>
+#include <OvCore/ResourceManagement/MaterialManager.h>
 #include <OvCore/ResourceManagement/ModelManager.h>
 #include <OvCore/ECS/Components/CLookAt.h>
 #include <OvCore/ECS/Components/CSpringBones.h>
@@ -35,6 +36,7 @@
 #include <OvCore/ECS/Components/CPhysicalCapsule.h>  
 #include <OvCore/ECS/Components/CPhysicalHeightField.h>
 #include <OvCore/ECS/Components/CTerrain.h>
+#include <OvCore/ECS/Components/CVegetation.h>
 #include <OvCore/ECS/Components/CPhysicalSphere.h>  
 #include <OvCore/ECS/Components/CParticleSystem.h>
 #include <OvCore/ECS/Components/CPointLight.h>  
@@ -206,6 +208,112 @@ namespace
 		p_terrain.SetColors(sampleCount, colors);
 		return { true, std::nullopt };
 	}
+
+	// The settings of a vegetation layer a table gives, over the layer's current ones: an unknown key or a value of
+	// the wrong kind raises an error naming it
+	void ApplyVegetationSettings(OvCore::ECS::Components::CVegetation::Layer& p_layer, const sol::table& p_settings, std::string_view p_function)
+	{
+		const auto fail = [&](const std::string& p_why) { throw sol::error(std::format("Vegetation:{}: {}", p_function, p_why)); };
+
+		const auto number = [&](const std::string& p_key, const sol::object& p_value, float p_min, float p_max) {
+			const auto value = p_value.as<sol::optional<double>>();
+			if (!value || !std::isfinite(*value) || *value < p_min || *value > p_max)
+			{
+				fail(std::format("'{}' must be a number from {} to {}", p_key, p_min, p_max));
+			}
+			return static_cast<float>(*value);
+		};
+
+		const auto boolean = [&](const std::string& p_key, const sol::object& p_value) {
+			if (p_value.get_type() != sol::type::boolean)
+			{
+				fail(std::format("'{}' must be true or false", p_key));
+			}
+			return p_value.as<bool>();
+		};
+
+		const auto text = [&](const std::string& p_key, const sol::object& p_value) {
+			if (p_value.get_type() != sol::type::string)
+			{
+				fail(std::format("'{}' must be a string", p_key));
+			}
+			return p_value.as<std::string>();
+		};
+
+		for (const auto& [key, value] : p_settings)
+		{
+			if (key.get_type() != sol::type::string)
+			{
+				fail("the settings are named, as { density = 2 }");
+			}
+
+			const std::string name = key.as<std::string>();
+			auto& scatter = p_layer.scatter;
+
+			if (name == "name") p_layer.name = text(name, value);
+			else if (name == "model")
+			{
+				const auto model = value.as<sol::optional<OvRendering::Resources::Model*>>();
+				if (!model || !*model) fail("'model' must be a model (Resources.GetModel)");
+				p_layer.model = *model;
+			}
+			else if (name == "material")
+			{
+				const auto material = value.as<sol::optional<OvCore::Resources::Material*>>();
+				if (!material || !*material) fail("'material' must be a material (Resources.GetMaterial)");
+				p_layer.material = *material;
+			}
+			else if (name == "density") scatter.density = number(name, value, 0.0f, OvCore::Terrain::kMaxScatterDensity);
+			else if (name == "minScale") scatter.minScale = number(name, value, 0.0f, 100.0f);
+			else if (name == "maxScale") scatter.maxScale = number(name, value, 0.0f, 100.0f);
+			else if (name == "randomYaw") scatter.randomYaw = boolean(name, value);
+			else if (name == "slopeAlignment") scatter.slopeAlignment = number(name, value, 0.0f, 1.0f);
+			else if (name == "maxSlope") scatter.maxSlope = number(name, value, 0.0f, 90.0f);
+			else if (name == "minHeight") scatter.minHeight = number(name, value, -10000.0f, 10000.0f);
+			else if (name == "maxHeight") scatter.maxHeight = number(name, value, -10000.0f, 10000.0f);
+			else if (name == "seed")
+			{
+				const float seed = number(name, value, 0.0f, 4294967295.0f);
+				if (seed != std::floor(seed)) fail("'seed' must be a whole number");
+				scatter.seed = static_cast<uint32_t>(seed);
+			}
+			else if (name == "drawDistance") p_layer.drawDistance = number(name, value, 0.0f, 100000.0f);
+			else if (name == "castShadows") p_layer.castShadows = boolean(name, value);
+			else if (name == "densityMap") p_layer.densityMap = text(name, value);
+			else fail(std::format("unknown setting '{}'", name));
+		}
+	}
+
+	sol::table VegetationLayerTable(sol::state_view p_lua, const OvCore::ECS::Components::CVegetation::Layer& p_layer)
+	{
+		sol::table table = p_lua.create_table();
+		table["name"] = p_layer.name;
+		table["model"] = p_layer.model;
+		table["material"] = p_layer.material;
+		table["density"] = p_layer.scatter.density;
+		table["minScale"] = p_layer.scatter.minScale;
+		table["maxScale"] = p_layer.scatter.maxScale;
+		table["randomYaw"] = p_layer.scatter.randomYaw;
+		table["slopeAlignment"] = p_layer.scatter.slopeAlignment;
+		table["maxSlope"] = p_layer.scatter.maxSlope;
+		table["minHeight"] = p_layer.scatter.minHeight;
+		table["maxHeight"] = p_layer.scatter.maxHeight;
+		table["seed"] = p_layer.scatter.seed;
+		table["drawDistance"] = p_layer.drawDistance;
+		table["castShadows"] = p_layer.castShadows;
+		table["densityMap"] = p_layer.densityMap;
+		return table;
+	}
+
+	uint32_t ToVegetationLayer(OvCore::ECS::Components::CVegetation& p_vegetation, int p_index, std::string_view p_function)
+	{
+		if (p_index < 0 || static_cast<uint32_t>(p_index) >= p_vegetation.GetLayerCount())
+		{
+			throw sol::error(std::format("Vegetation:{}: no layer {} (layers from 0 to {})", p_function, p_index, static_cast<int>(p_vegetation.GetLayerCount()) - 1));
+		}
+		return static_cast<uint32_t>(p_index);
+	}
+
 }
 
 void BindLuaComponents(sol::state& p_luaState)
@@ -1080,6 +1188,90 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetTriangleCount", &CTerrain::GetTriangleCount
 	);
 
+	p_luaState.new_usertype<CVegetation>("Vegetation",
+		sol::base_classes, sol::bases<AComponent>(),
+		"AddLayer", [](CVegetation& p_this, sol::optional<sol::table> p_settings) {
+			if (p_this.GetLayerCount() >= CVegetation::kMaxLayers)
+			{
+				throw sol::error(std::format("Vegetation:AddLayer: at most {} layers", CVegetation::kMaxLayers));
+			}
+
+			CVegetation::Layer layer;
+			layer.name = std::format("Layer {}", p_this.GetLayerCount() + 1);
+			if (OvCore::Global::ServiceLocator::Has<OvCore::ResourceManagement::MaterialManager>())
+			{
+				layer.material = OVSERVICE(OvCore::ResourceManagement::MaterialManager).GetResource(":Materials/Default.ovmat");
+			}
+
+			if (p_settings)
+			{
+				ApplyVegetationSettings(layer, *p_settings, "AddLayer");
+			}
+
+			return p_this.AddLayer(layer).value_or(0);
+		},
+		"SetLayer", [](CVegetation& p_this, int p_index, sol::table p_settings) {
+			const uint32_t index = ToVegetationLayer(p_this, p_index, "SetLayer");
+			auto layer = p_this.GetLayer(index).value();
+			ApplyVegetationSettings(layer, p_settings, "SetLayer");
+			p_this.SetLayer(index, layer);
+		},
+		"GetLayer", [](CVegetation& p_this, int p_index, sol::this_state p_state) -> sol::object {
+			if (p_index < 0)
+			{
+				return sol::lua_nil;
+			}
+			const auto layer = p_this.GetLayer(static_cast<uint32_t>(p_index));
+			return layer ? sol::object(VegetationLayerTable(p_state, *layer)) : sol::object(sol::lua_nil);
+		},
+		"RemoveLayer", [](CVegetation& p_this, int p_index) {
+			p_this.RemoveLayer(ToVegetationLayer(p_this, p_index, "RemoveLayer"));
+		},
+		"GetLayerCount", &CVegetation::GetLayerCount,
+		"SetDensityMap", [](CVegetation& p_this, int p_index, const sol::object& p_size, const sol::object& p_weights) -> std::tuple<bool, std::optional<std::string>> {
+			const uint32_t index = ToVegetationLayer(p_this, p_index, "SetDensityMap");
+			const auto size = p_size.as<sol::optional<double>>();
+			if (!size || *size != std::floor(*size) || *size < 0 || *size > 4096)
+			{
+				return { false, std::string{ "the size must be a whole number from 2 to 4096, or 0 to clear the map" } };
+			}
+
+			std::vector<float> weights;
+			if (p_weights.get_type() == sol::type::table)
+			{
+				const auto table = p_weights.as<sol::table>();
+				weights.resize(table.size());
+				for (size_t i = 0; i < weights.size(); ++i)
+				{
+					const auto value = table.raw_get<sol::optional<double>>(i + 1);
+					if (!value)
+					{
+						return { false, std::format("the weight {} is not a number", i + 1) };
+					}
+					weights[i] = static_cast<float>(*value);
+				}
+			}
+			else if (*size != 0)
+			{
+				return { false, std::string{ "the weights must be an array of numbers from 0 to 1" } };
+			}
+
+			if (auto error = p_this.SetDensityMap(index, static_cast<uint32_t>(*size), weights))
+			{
+				return { false, error };
+			}
+			return { true, std::nullopt };
+		},
+		"GetError", &CVegetation::GetError,
+		"GetInstanceCount", [](CVegetation& p_this, sol::optional<int> p_index) {
+			if (p_index)
+			{
+				return p_this.GetInstanceCount(ToVegetationLayer(p_this, *p_index, "GetInstanceCount"));
+			}
+			return p_this.GetInstanceCount();
+		}
+	);
+
 	p_luaState.new_usertype<CParticleSystem>("ParticleSystem",
 		sol::base_classes, sol::bases<AComponent>(),
 		"Play", &CParticleSystem::Play,
@@ -1555,6 +1747,6 @@ void BindLuaComponents(sol::state& p_luaState)
 		CCamera, UI::CCanvas, UI::CImage, UI::CLayoutGroup, UI::CHorizontalLayout, UI::CVerticalLayout, UI::CText,
 		CLight, CPointLight, CSpotLight, CAmbientBoxLight, CAmbientSphereLight, CDirectionalLight,
 		CAudioSource, CAudioListener, CPostProcessStack, CReflectionProbe, CParticleSystem, CLookAt, CSpringBones, CAnimator,
-		CTerrain
+		CTerrain, CVegetation
 	>(p_luaState.lua_state());
 }

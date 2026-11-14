@@ -161,6 +161,15 @@ later version of the same major version.
   inspector; `SetLodModels`, `GetLodModels`, `GetLodLevel`, `GetLodError`, `SetLodBias` and `GetLodBias` in Lua). A
   model with bones takes levels with the same bones. In C++, `OvCore::Rendering::LodSelection`. The Lua API is now
   1.18. See [Docs/Rendering.md](Docs/Rendering.md#levels-of-detail).
+- **Vegetation**: a `Vegetation` component covers the height field of its actor with models in layers (up to 8),
+  each with its density and density map (an image, or weights from a script), scale, random turn, alignment to the
+  ground, steepest slope, height range, draw distance, shadows and seed. Each chunk of the field is scattered the first
+  time the camera comes within reach, the same for a seed whatever the order, and drawn as one instanced draw whose
+  matrices are prepared once (`InstancingDrawableDescriptor::prepared`, `OvCore::Rendering::PrepareInstance`). A
+  material whose shader does not declare `INSTANCING` is refused. In Lua, the `Vegetation` usertype (`AddLayer`,
+  `SetLayer`, `GetLayer`, `RemoveLayer`, `SetDensityMap`, `GetInstanceCount`, `GetError`) and
+  `Actor:Get/Add/RemoveVegetation`; in C++, `OvCore::Terrain::Scatter`. The Lua API is now 1.19. See
+  [Docs/Terrain.md](Docs/Terrain.md#vegetation).
 
 ### Changed
 
