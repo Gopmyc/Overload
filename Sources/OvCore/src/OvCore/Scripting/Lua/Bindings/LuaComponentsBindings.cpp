@@ -286,7 +286,75 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetFrustumBehaviour", &CModelRenderer::GetFrustumBehaviour,
 		"SetFrustumBehaviour", &CModelRenderer::SetFrustumBehaviour,
 		"GetMaxDrawDistance", &CModelRenderer::GetMaxDrawDistance,
-		"SetMaxDrawDistance", &CModelRenderer::SetMaxDrawDistance
+		"SetMaxDrawDistance", &CModelRenderer::SetMaxDrawDistance,
+		"SetLodModels", [](CModelRenderer& p_this, sol::table p_levels)
+		{
+			const size_t count = p_levels.size();
+			if (count > CModelRenderer::kMaxLodLevels)
+			{
+				throw sol::error(std::format("ModelRenderer:SetLodModels: at most {} levels besides the model", CModelRenderer::kMaxLodLevels));
+			}
+
+			std::vector<CModelRenderer::LodLevel> levels;
+			float previous = 0.0f;
+
+			for (size_t i = 1; i <= count; ++i)
+			{
+				const auto entry = p_levels.get<sol::object>(i);
+				if (entry.get_type() != sol::type::table)
+				{
+					throw sol::error(std::format("ModelRenderer:SetLodModels: level {} is not a table {{ model, distance }}", i));
+				}
+
+				const auto level = entry.as<sol::table>();
+				const auto model = level.get<sol::optional<OvRendering::Resources::Model*>>(1);
+				const auto distance = level.get<sol::optional<float>>(2);
+
+				if (!model || !model.value())
+				{
+					throw sol::error(std::format("ModelRenderer:SetLodModels: level {} has no model", i));
+				}
+
+				if (!distance || !std::isfinite(distance.value()) || distance.value() <= previous)
+				{
+					throw sol::error(std::format("ModelRenderer:SetLodModels: level {} must start beyond the level before ({} m)", i, previous));
+				}
+
+				if (const auto* own = p_this.GetModel())
+				{
+					if (const auto why = OvCore::Rendering::LodSelection::CompareBones(own->GetSkeleton(), model.value()->GetSkeleton()))
+					{
+						throw sol::error(std::format("ModelRenderer:SetLodModels: level {} cannot take the model's pose: {}", i, why.value()));
+					}
+				}
+
+				levels.push_back({ model.value(), distance.value() });
+				previous = distance.value();
+			}
+
+			p_this.SetLods(levels);
+		},
+		"GetLodModels", [](CModelRenderer& p_this, sol::this_state p_state)
+		{
+			sol::state_view lua{ p_state };
+			sol::table result = lua.create_table();
+			for (const auto& level : p_this.GetLods())
+			{
+				result.add(lua.create_table_with(1, level.model, 2, level.distance));
+			}
+			return result;
+		},
+		"GetLodLevel", &CModelRenderer::GetLodLevel,
+		"GetLodError", [](CModelRenderer& p_this) { return p_this.GetLodError(); },
+		"SetLodBias", [](CModelRenderer& p_this, float p_bias)
+		{
+			if (!std::isfinite(p_bias) || p_bias <= 0.0f)
+			{
+				throw sol::error("ModelRenderer:SetLodBias: the bias must be a positive number");
+			}
+			p_this.SetLodBias(p_bias);
+		},
+		"GetLodBias", &CModelRenderer::GetLodBias
 	);
 
 	p_luaState.new_enum<OvCore::Rendering::EVisibilityFlags>("VisibilityFlags", {

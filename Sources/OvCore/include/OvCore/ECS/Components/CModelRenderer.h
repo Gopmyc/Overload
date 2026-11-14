@@ -6,10 +6,18 @@
 
 #pragma once
 
+#include <array>
+#include <optional>
+#include <span>
+#include <string>
+#include <vector>
+
+#include <OvMaths/FVector3.h>
 #include <OvRendering/Geometry/Vertex.h>
 #include <OvRendering/Resources/Model.h>
 
 #include "OvCore/ECS/Components/AComponent.h"
+#include "OvCore/Rendering/LodSelection.h"
 
 namespace OvCore::ECS { class Actor; }
 
@@ -31,6 +39,20 @@ namespace OvCore::ECS::Components
 			MESH_BOUNDS = 2,
 			CUSTOM_BOUNDS = 3
 		};
+
+		/**
+		* A lighter model standing for the renderer's own from a distance on
+		*/
+		struct LodLevel
+		{
+			OvRendering::Resources::Model* model = nullptr;
+			float distance = 0.0f;
+		};
+
+		/**
+		* The lighter levels a renderer takes besides its own model
+		*/
+		static constexpr uint32_t kMaxLodLevels = OvCore::Rendering::LodSelection::kMaxLevels - 1;
 
 		/**
 		* Constructor
@@ -93,6 +115,54 @@ namespace OvCore::ECS::Components
 		float GetMaxDrawDistance() const;
 
 		/**
+		* Sets the lighter levels, each drawn from its distance on (measured to the centre of the model's bounds), with
+		* the renderer's materials by slot. The first kMaxLodLevels are kept; a level the renderer cannot draw is left out
+		* and GetLodError says why
+		* @param p_levels
+		*/
+		void SetLods(std::span<const LodLevel> p_levels);
+
+		/**
+		* Returns the lighter levels, as set
+		*/
+		std::vector<LodLevel> GetLods() const;
+
+		/**
+		* Sets the factor of every level's distance: above 1 keeps the detail further away, below 1 lets it go nearer
+		* @param p_bias (above 0)
+		*/
+		void SetLodBias(float p_bias);
+
+		/**
+		* Returns the factor of every level's distance
+		*/
+		float GetLodBias() const;
+
+		/**
+		* Returns why a level is left out (no model, not beyond the level before, other bones), or nothing
+		*/
+		std::optional<std::string> GetLodError();
+
+		/**
+		* Returns the level the scene's main camera drew last: 0 for the renderer's own model, n for the nth lighter one
+		*/
+		uint32_t GetLodLevel() const;
+
+		/**
+		* Chooses the level for a camera and returns the model to draw: called by the frame builder once a frame and view
+		* @param p_viewPosition (nothing: the level chosen last)
+		* @param p_mainView (the view of the scene's main camera, whose level is reported; another view, such as the
+		* editor's scene view, keeps a level of its own)
+		*/
+		OvRendering::Resources::Model* SelectLod(const std::optional<OvMaths::FVector3>& p_viewPosition, bool p_mainView);
+
+		/**
+		* Lets go of a model about to be unloaded: the renderer's own, or a level's
+		* @param p_model
+		*/
+		void ForgetModel(const OvRendering::Resources::Model* p_model);
+
+		/**
 		* Serialize the component
 		* @param p_doc
 		* @param p_node
@@ -113,8 +183,30 @@ namespace OvCore::ECS::Components
 		virtual void OnInspector(OvUI::Internal::WidgetContainer& p_root) override;
 
 	private:
+		struct ActiveLod
+		{
+			OvRendering::Resources::Model* model = nullptr;
+			uint32_t level = 0; // Its number among the levels as set, from 1
+		};
+
+		void RefreshLods();
+		void BuildLodWidgets(OvUI::Internal::WidgetContainer& p_container);
+
+	private:
 		OvRendering::Resources::Model* m_model = nullptr;
 		OvTools::Eventing::Event<> m_modelChangedEvent;
+		OvTools::Eventing::Event<> m_lodChangedEvent;
+		std::array<LodLevel, kMaxLodLevels> m_lods{};
+		uint32_t m_lodCount = 0;
+		float m_lodBias = 1.0f;
+		bool m_lodsDirty = true;
+		std::vector<ActiveLod> m_activeLods;
+		std::vector<float> m_activeStarts;
+		std::optional<std::string> m_lodError;
+		uint32_t m_lodLevel = 0; // Among the active levels, the main view's
+		uint32_t m_otherLodLevel = 0; // Another view's
+		uint32_t m_lodRevision = 0;
+		uint32_t m_inspectedLodRevision = 0;
 		OvRendering::Geometry::BoundingSphere m_customBoundingSphere = { {}, 1.0f };
 		EFrustumBehaviour m_frustumBehaviour = EFrustumBehaviour::MESH_BOUNDS;
 		float m_maxDrawDistance = 0.0f;

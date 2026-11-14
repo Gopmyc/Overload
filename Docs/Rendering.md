@@ -6,8 +6,35 @@
   (`ubo_UserMatrix`), so one material can show a different colour or fill on every instance.
 - The matrix is stored row-major. Write off-diagonal values in symmetric pairs so the shader reads the same whatever
   the order, and only write a value that changed.
-- `ModelRenderer:SetMaxDrawDistance(metres)` (`max_draw_distance` in a file): beyond it, the model is not drawn.
+- `ModelRenderer:SetMaxDrawDistance(metres)` (`max_draw_distance` in a file): beyond it, the model is not drawn. It is
+  measured from the actor's position, in every pass.
 - `SetVisibilityFlags` chooses the passes a renderer takes part in (geometry, shadows, reflections).
+
+## Levels of detail
+
+A `ModelRenderer` can stand lighter models for its own from a distance on, as a far rock or tree costs a few hundred
+triangles instead of thousands.
+
+- **The levels**: its own model is level 0, and up to 7 lighter ones follow, each with the distance it starts at, the
+  distances rising:
+  - in Lua, `SetLodModels({ { Resources.GetModel("Models/Rock_LOD1.fbx"), 15 }, { Resources.GetModel("Models/Rock_LOD2.fbx"), 40 } })`;
+  - in a file, `lods` (a `lod` per level, with its `model` and `distance`);
+  - in the inspector, under *Levels of Detail*: a model and a distance per level, *Add Level* and *Remove Level*.
+- **The materials**: every level draws with the renderer's materials, by slot. A level's meshes should use the slots
+  its model's meshes use.
+- **The distance**: from the camera to the centre of the model's bounds in the world (its custom bounds when the
+  renderer uses them), not to the actor's position. A model whose geometry stands far from its pivot picks the level
+  of where it is drawn.
+  - Leaving a level needs the distance past its boundary by a tenth, so a model standing at a boundary does not
+    flicker.
+  - `SetLodBias(factor)` (`lod_bias`, 1 by default) multiplies every distance: above 1 keeps the detail further away.
+  - Every pass of a frame (shadows, reflections, the view) draws the same level. In the editor, the scene view keeps a
+    level of its own; what the renderer reports (`GetLodLevel()`) follows the scene's main camera.
+  - Beyond the last level, the max draw distance keeps its role, measured as before from the actor.
+- **Bones**: a model with bones takes levels with the same bones in the same order (lighter meshes skinned to the same
+  rig), which share its pose. `SetLodModels` refuses another; set in a file or the inspector, such a level is left out.
+- **What it reports**: `GetLodLevel()` (0 for the model itself), and `GetLodError()`, which names a level left out and
+  why (no model, not beyond the level before, other bones); the inspector shows both.
 
 ## Culling
 
