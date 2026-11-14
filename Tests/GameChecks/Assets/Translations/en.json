@@ -1,0 +1,9 @@
+{
+	"name": "English",
+	"strings": {
+		"check.title": "Hello, world",
+		"check.greeting": "Hello, {name}!",
+		"check.apples": { "one": "{count} apple", "other": "{count} apples" },
+		"check.only_english": "Only in English"
+	}
+}

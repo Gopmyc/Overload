@@ -18,6 +18,8 @@ the editor and the built game read.
 | `gravity` | -9.81 | The physics' gravity along Y |
 | `window_icon` | empty | The window's icon, relative to `Assets` (the engine's icon when empty) |
 | `input_actions` | empty | The project's input actions, a JSON file relative to `Assets` (see [Input](Input.md)); none when empty |
+| `translations` | empty | The project's translations, a folder of `<language>.json` tables relative to `Assets` (see [Localization](Localization.md)); none when empty |
+| `default_language` | `en` | The language a text missing from the current one is taken from, and the first one when neither the player nor the system chose |
 | `build_type` | the platform's | The editor's build configuration |
 
 ## Optional keys

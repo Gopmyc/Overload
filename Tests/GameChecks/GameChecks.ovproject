@@ -15,3 +15,5 @@ storage_max_file_mib=1
 json_max_depth=8
 max_frame_delta=0.05
 input_actions=Settings/InputActions.json
+translations=Translations
+default_language=en

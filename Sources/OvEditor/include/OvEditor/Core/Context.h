@@ -27,6 +27,7 @@
 #include <OvTools/Filesystem/IniFile.h>
 #include <OvTools/Filesystem/SaveStorage.h>
 #include <OvCore/Input/InputActions.h>
+#include <OvCore/Localization/Localization.h>
 #include <OvTools/Time/Clock.h>
 #include <OvWindowing/Window.h>
 #include <OvUI/Core/UIManager.h>
@@ -94,6 +95,7 @@ namespace OvEditor::Core
 		std::unique_ptr<OvCore::Scripting::ScriptEngine> scriptEngine;
 		std::unique_ptr<OvTools::Filesystem::SaveStorage> saveStorage;
 		std::unique_ptr<OvCore::Input::InputActions> inputActions;
+		std::unique_ptr<OvCore::Localization::Localization> localization;
 
 		OvCore::SceneSystem::SceneManager sceneManager;
 		OvTools::Time::Clock clock;

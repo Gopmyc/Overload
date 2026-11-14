@@ -20,6 +20,7 @@
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Helpers/GUIDrawer.h>
 #include <OvCore/Helpers/Serializer.h>
+#include <OvCore/Localization/Localization.h>
 #include <OvCore/ResourceManagement/FontManager.h>
 #include <OvCore/ResourceManagement/MaterialManager.h>
 #include <OvCore/ResourceManagement/UIResourceRegistry.h>
@@ -156,12 +157,25 @@ std::string OvCore::ECS::Components::UI::CText::GetTypeName()
 void OvCore::ECS::Components::UI::CText::SetText(const std::string& p_text)
 {
 	m_text = p_text;
+	m_textKey.clear();
 	MarkMeshDirty();
 }
 
 const std::string& OvCore::ECS::Components::UI::CText::GetText() const
 {
+	ResolveTextKey();
 	return m_text;
+}
+
+void OvCore::ECS::Components::UI::CText::SetTextKey(const std::string& p_key)
+{
+	m_textKey = p_key;
+	m_textKeyDirty = true;
+}
+
+const std::string& OvCore::ECS::Components::UI::CText::GetTextKey() const
+{
+	return m_textKey;
 }
 
 void OvCore::ECS::Components::UI::CText::SetFontPath(const std::string& p_fontPath)
@@ -279,7 +293,8 @@ OvMaths::FVector2 OvCore::ECS::Components::UI::CText::GetContentSize() const
 
 void OvCore::ECS::Components::UI::CText::OnSerialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
 {
-	Helpers::Serializer::SerializeString(p_doc, p_node, "text", m_text);
+	Helpers::Serializer::SerializeString(p_doc, p_node, "text", GetText());
+	Helpers::Serializer::SerializeString(p_doc, p_node, "text_key", m_textKey);
 	Helpers::Serializer::SerializeString(p_doc, p_node, "font_path", m_fontPath);
 	Helpers::Serializer::SerializeFloat(p_doc, p_node, "font_size", m_fontSize);
 	Helpers::Serializer::SerializeVec4(p_doc, p_node, "color", m_color);
@@ -295,6 +310,14 @@ void OvCore::ECS::Components::UI::CText::OnDeserialize(tinyxml2::XMLDocument& p_
 		auto text = m_text;
 		Helpers::Serializer::DeserializeString(p_doc, p_node, "text", text);
 		SetText(text);
+	}
+
+	// After the text, which clears a key
+	if (p_node->FirstChildElement("text_key"))
+	{
+		auto textKey = m_textKey;
+		Helpers::Serializer::DeserializeString(p_doc, p_node, "text_key", textKey);
+		SetTextKey(textKey);
 	}
 
 	if (p_node->FirstChildElement("font_path"))
@@ -354,6 +377,14 @@ void OvCore::ECS::Components::UI::CText::OnInspector(OvUI::Internal::WidgetConta
 	textDispatcher.RegisterGatherer([this]() { return GetText(); });
 	textDispatcher.RegisterProvider([this](std::string p_value) { SetText(p_value); });
 
+	// A key shows its text above, in the current language; typing a text there clears the key
+	Helpers::GUIDrawer::DrawString(
+		p_root,
+		"Text Key",
+		[this]() { return GetTextKey(); },
+		[this](std::string p_value) { SetTextKey(p_value); }
+	);
+
 	Helpers::GUIDrawer::DrawAsset(
 		p_root,
 		"Font",
@@ -408,17 +439,30 @@ void OvCore::ECS::Components::UI::CText::OnInspector(OvUI::Internal::WidgetConta
 	);
 }
 
+const std::string& OvCore::ECS::Components::UI::CText::GetDisplayedFontPath() const
+{
+	// The font that stands for this one in the current language (a table's "fonts")
+	if (Global::ServiceLocator::Has<Localization::Localization>())
+	{
+		return Global::ServiceLocator::Get<Localization::Localization>().GetFont(m_fontPath);
+	}
+
+	return m_fontPath;
+}
+
 OvRendering::Resources::Font* OvCore::ECS::Components::UI::CText::GetFont() const
 {
-	if (m_fontPath.empty() || m_fontPath == "?")
+	const std::string& fontPath = GetDisplayedFontPath();
+
+	if (fontPath.empty() || fontPath == "?")
 	{
 		return nullptr;
 	}
 
 	auto& fontManager = Global::ServiceLocator::Get<ResourceManagement::FontManager>();
-	if (m_unavailableFontPath == m_fontPath)
+	if (m_unavailableFontPath == fontPath)
 	{
-		auto* font = fontManager.GetResource(m_fontPath, false);
+		auto* font = fontManager.GetResource(fontPath, false);
 		if (font)
 		{
 			m_unavailableFontPath.clear();
@@ -427,13 +471,40 @@ OvRendering::Resources::Font* OvCore::ECS::Components::UI::CText::GetFont() cons
 		return font;
 	}
 
-	auto* font = fontManager.GetResource(m_fontPath);
+	auto* font = fontManager.GetResource(fontPath);
 	if (!font)
 	{
-		m_unavailableFontPath = m_fontPath;
+		m_unavailableFontPath = fontPath;
 	}
 
 	return font;
+}
+
+void OvCore::ECS::Components::UI::CText::ResolveTextKey() const
+{
+	if (m_textKey.empty())
+	{
+		return;
+	}
+
+	const bool localized = Global::ServiceLocator::Has<Localization::Localization>();
+	const uint64_t revision = localized ? Global::ServiceLocator::Get<Localization::Localization>().GetRevision() : 0;
+
+	if (!m_textKeyDirty && revision == m_textKeyRevision)
+	{
+		return;
+	}
+
+	m_textKeyDirty = false;
+	m_textKeyRevision = revision;
+
+	std::string text = localized ? Global::ServiceLocator::Get<Localization::Localization>().Get(m_textKey) : m_textKey;
+	if (text != m_text)
+	{
+		m_text = std::move(text);
+		m_layoutDirty = true;
+		m_meshDirty = true;
+	}
 }
 
 void OvCore::ECS::Components::UI::CText::MarkMeshDirty()
@@ -461,6 +532,8 @@ void OvCore::ECS::Components::UI::CText::RebuildLayout() const
 
 void OvCore::ECS::Components::UI::CText::RebuildLayout(const OvMaths::FVector2& p_uiSize) const
 {
+	ResolveTextKey();
+
 	auto* font = GetFont();
 	const auto fontManagerRevision = Global::ServiceLocator::Get<ResourceManagement::FontManager>().GetResourcesRevision();
 	const uint64_t fontRevision = font ? font->GetRevision() : 0;
@@ -556,9 +629,10 @@ void OvCore::ECS::Components::UI::CText::RefreshMaterial()
 			nullptr :
 			materialManager.GetResource(textMaterialPath, false);
 		auto* currentShader = defaultMaterial && defaultMaterial->HasShader() ? defaultMaterial->GetShader() : nullptr;
-		auto* currentFont = m_fontPath.empty() || m_fontPath == "?" ?
+		const std::string& fontPath = GetDisplayedFontPath();
+		auto* currentFont = fontPath.empty() || fontPath == "?" ?
 			nullptr :
-			fontManager.GetResource(m_fontPath, false);
+			fontManager.GetResource(fontPath, false);
 
 		if (
 			materialManager.GetResourcesRevision() != m_materialManagerRevision ||

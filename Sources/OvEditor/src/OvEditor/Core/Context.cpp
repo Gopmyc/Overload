@@ -247,6 +247,10 @@ OvEditor::Core::Context::Context(const std::filesystem::path& p_projectFolder) :
 	inputActions = std::make_unique<OvCore::Input::InputActions>();
 	OvCore::Input::LoadProjectActions(projectSettings, projectAssetsPath, *saveStorage, *inputActions);
 	ServiceLocator::Provide<OvCore::Input::InputActions>(*inputActions);
+
+	localization = std::make_unique<OvCore::Localization::Localization>();
+	OvCore::Localization::LoadProjectTranslations(projectSettings, projectAssetsPath, *saveStorage, *localization);
+	ServiceLocator::Provide<OvCore::Localization::Localization>(*localization);
 	ServiceLocator::Provide<OvTools::Time::Clock>(clock);
 
 	ApplyProjectSettings();
@@ -285,6 +289,8 @@ bool OvEditor::Core::Context::CompleteProjectSettings()
 	added |= projectSettings.Add<int>("build_type", static_cast<int>(FindDefaultBuildType()));
 	added |= projectSettings.Add<std::string>("window_icon", "");
 	added |= projectSettings.Add<std::string>("input_actions", "");
+	added |= projectSettings.Add<std::string>("translations", "");
+	added |= projectSettings.Add<std::string>("default_language", "en");
 	return added;
 }
 

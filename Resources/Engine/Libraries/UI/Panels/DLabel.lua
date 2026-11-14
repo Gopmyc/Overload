@@ -29,9 +29,11 @@ function DLabel:Init()
 	self.m_TextComponent:SetText(self.m_Text)
 end
 
+--- Shows a text as it is. A text key the label had is cleared
 ---@param text string
 function DLabel:SetText(text)
 	text = tostring(text)
+	self.m_TextKey = nil
 
 	if self.m_Text == text then
 		return
@@ -44,6 +46,50 @@ end
 ---@return string
 function DLabel:GetText()
 	return self.m_Text
+end
+
+--- Shows the text a key gives in the current language (Localization.Get), with its parameters, and again each time
+--- the language changes. SetText clears the key
+---@param key string
+---@param params? table<string, string|number|boolean>
+function DLabel:SetTextKey(key, params)
+	assert(type(key) == "string", "UI: a text key must be a string")
+
+	self.m_TextKey = key
+	self.m_TextParams = params
+	self.m_TextRevision = nil
+	self:RefreshTextKey()
+end
+
+---@return string|nil
+function DLabel:GetTextKey()
+	return self.m_TextKey
+end
+
+--- Gets the key's text again when the language changed. Think calls it at every frame
+function DLabel:RefreshTextKey()
+	if not self.m_TextKey then
+		return
+	end
+
+	local revision = Localization.GetRevision()
+	if revision == self.m_TextRevision then
+		return
+	end
+
+	self.m_TextRevision = revision
+	local text = Localization.Get(self.m_TextKey, self.m_TextParams)
+
+	if self.m_Text ~= text then
+		self.m_Text = text
+		self:RefreshText()
+	end
+end
+
+--- Overrides must call DLabel.Think(self, deltaTime), which follows the language of a text key
+---@param deltaTime number
+function DLabel:Think(deltaTime)
+	self:RefreshTextKey()
 end
 
 --- Returns the text shown by the Text component. Derived panels override it to decorate the text.
