@@ -317,6 +317,85 @@ TEST_SUITE("Lua modules")
 		engine.CreateContext();
 	}
 
+	TEST_CASE("the game's end calls its callbacks once, in order, and a failure leaves the others")
+	{
+		OvTests::TempFolder project;
+		OvTests::TempFolder engineAssets;
+
+		project.WriteFile("Scripts/Quit.lua", R"(
+			local Quit = { log = {} }
+			local function add(entry) Quit.log[#Quit.log + 1] = entry end
+
+			Events.AddQuit(function(...) add("A" .. select("#", ...)) end)
+			Events.AddQuit(function() error("boom") end)
+
+			local later
+			Events.AddQuit(function()
+				add("B")
+				Events.Remove(later)
+				Events.AddQuit(function() add("added while it ends") end)
+			end)
+			later = Events.AddQuit(function() add("removed while it ends") end)
+
+			local removed = Events.AddQuit(function() add("removed before") end)
+			Quit.removed = Events.Remove(removed)
+			Events.AddQuit(function() add("C") end)
+
+			local ok, message = pcall(Events.AddQuit, "nope")
+			Quit.badArgument = ok and "accepted" or tostring(message)
+			return Quit
+		)");
+
+		OvCore::Scripting::ScriptEngine engine(project.GetPath(), engineAssets.GetPath());
+		OvCore::Global::ServiceLocator::Provide(engine);
+		OvTests::LogCapture logs;
+
+		{
+			const sol::object loaded = engine.GetScript("Scripts/Quit.lua");
+			REQUIRE(loaded.get_type() == sol::type::table);
+			const sol::table quit = loaded.as<sol::table>();
+
+			CHECK(quit.get<bool>("removed"));
+			CHECK(quit.get<std::string>("badArgument").find("Events.AddQuit: a function is expected") != std::string::npos);
+
+			const auto readLog = [&quit]()
+			{
+				std::vector<std::string> log;
+				for (const auto& [index, entry] : quit.get<sol::table>("log"))
+					log.push_back(entry.as<std::string>());
+				return log;
+			};
+
+			// A frame is not the game's end
+			OvCore::SceneSystem::Scene::UpdateEvent.Invoke(0.5f);
+			OvCore::SceneSystem::Scene::LateUpdateEvent.Invoke(0.5f);
+			CHECK(readLog().empty());
+
+			// Once, with nothing, in order: the failure logged, the one removed meanwhile skipped, the one added not called
+			engine.NotifyQuit();
+			engine.NotifyQuit();
+			CHECK(readLog() == std::vector<std::string>{ "A0", "B", "C" });
+			CHECK(logs.Count(OvDebug::ELogLevel::LOG_ERROR) == 1);
+			CHECK(logs.Contains(OvDebug::ELogLevel::LOG_ERROR, "Events.AddQuit: a callback failed"));
+			CHECK(logs.Contains(OvDebug::ELogLevel::LOG_ERROR, "boom"));
+		}
+
+		// Without a Lua state, the game's end reaches no one; a new state hears its own
+		engine.DestroyContext();
+		engine.NotifyQuit();
+		engine.CreateContext();
+
+		project.WriteFile("Scripts/QuitAgain.lua", R"(
+			local QuitAgain = { calls = 0 }
+			Events.AddQuit(function() QuitAgain.calls = QuitAgain.calls + 1 end)
+			return QuitAgain
+		)");
+		const sol::table again = engine.GetScript("Scripts/QuitAgain.lua").as<sol::table>();
+		engine.NotifyQuit();
+		engine.NotifyQuit();
+		CHECK(again.get<int>("calls") == 1);
+	}
+
 	TEST_CASE("a Behaviour whose path starts with a colon comes from the engine's resources")
 	{
 		OvTests::TempFolder project;

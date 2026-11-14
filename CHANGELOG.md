@@ -201,6 +201,10 @@ later version of the same major version.
   (`AudioSource:PlayOneShot`); one too far to be heard ends at once. Stopping a game in the editor stops them and sets
   the volumes back to 1. In C++, `AudioEngine::SetBuses`, `PlayOneShot`, `VaryPitch`, `ResetVolumes`,
   `OvAudio::Settings::AttenuationSettings` and `ProjectSettings::ReadAudioBuses`. The Lua API is now 1.23.
+- **The game's end, for scripts**: `Events.AddQuit(callback[, owner])` calls a function once as the game ends, its scene
+  still current: a built game quitting or closed, the end of `--frames`, a game stopped in the editor or the editor
+  closed during one. A module writes there what it kept for later (a save). In C++, `ScriptEngine::NotifyQuit`. The Lua
+  API is now 1.24.
 
 ### Changed
 

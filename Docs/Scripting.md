@@ -116,6 +116,14 @@ binding.
   - the callbacks live with the Lua state, like the modules: they outlive a scene change, and the editor drops them
     when play starts and stops. They run only while the scene plays.
   - The standard library's timers and tweens run this way, in `LateUpdate` (see [Standard library](StandardLibrary.md)).
+- **The game's end**: `Events.AddQuit(callback[, owner])` calls a function once, with nothing, as the game ends:
+  - a built game quitting (`Application.Quit`) or its window closed, the end of `OvGame --frames`, a game stopped in the
+    editor, or the editor closed during one;
+  - the scene is still current, and its actors alive, so a module can still read them. It is the last chance to write
+    what was kept for later, a save above all;
+  - `Events.Remove(id)` removes it before then; one that raises an error is logged, and the others still run; one
+    whose owner is no longer alive is skipped; one added while the game ends is not called. A scene change is not the
+    game's end.
 - A `BoneAttachment` is placed after every script, so a script reading such an actor's place during the frame sees
   where it was the frame before.
 - The frame step handed to the Behaviours is in [0, 0.1] seconds, times the time scale, which is never below 0. A

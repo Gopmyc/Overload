@@ -53,6 +53,8 @@ OvGame::Core::Game::Game(Context & p_context) :
 
 OvGame::Core::Game::~Game()
 {
+	// The scripts hear the game end (Events.AddQuit) while their scene is still there
+	m_context.scriptEngine->NotifyQuit();
 	m_context.sceneManager.UnloadCurrentScene();
 }
 
