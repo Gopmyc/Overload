@@ -320,11 +320,11 @@ TEST_SUITE("Audio")
 		// In front, four times as far: a quarter as loud (exponential, from a threshold of 1 metre)
 		sourceTransform.SetLocalPosition({ 0.0f, 0.0f, 2.0f });
 		Settle(null.engine);
-		const float near = Loudness(MixFor(null.engine, 0.1f));
+		const float closer = Loudness(MixFor(null.engine, 0.1f));
 		sourceTransform.SetLocalPosition({ 0.0f, 0.0f, 8.0f });
 		Settle(null.engine);
-		const float far = Loudness(MixFor(null.engine, 0.1f));
-		CHECK(far == Near(near * 0.25f, 0.03));
+		const float further = Loudness(MixFor(null.engine, 0.1f));
+		CHECK(further == Near(closer * 0.25f, 0.03));
 
 		// Within the threshold, no fading
 		source.SetAttenuationThreshold(10.0f);
