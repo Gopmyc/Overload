@@ -29,6 +29,7 @@ project "OvTests"
 		dependdir .. "ImGui/include",
 		dependdir .. "lua/include",
 		dependdir .. "sol/include",
+		dependdir .. "soloud/include",
 		dependdir .. "tinyxml2/include",
 		dependdir .. "tracy",
 

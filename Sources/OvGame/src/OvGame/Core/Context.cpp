@@ -162,7 +162,9 @@ OvGame::Core::Context::Context(const LaunchOptions& p_options) :
 	uiManager->EnableDocking(false);
 
 	/* Audio */
-	audioEngine = std::make_unique<OvAudio::Core::AudioEngine>();
+	audioEngine = std::make_unique<OvAudio::Core::AudioEngine>(
+		p_options.nullAudio ? OvAudio::Core::EDriver::NULL_DRIVER : OvAudio::Core::EDriver::AUTO
+	);
 
 	/* Physics engine */
 	physicsEngine = std::make_unique<OvPhysics::Core::PhysicsEngine>(OvCore::Helpers::ProjectSettings::ReadPhysicsSettings(projectSettings));

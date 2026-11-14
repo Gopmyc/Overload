@@ -15,18 +15,50 @@
 #include <OvDebug/Assertion.h>
 #include <OvDebug/Logger.h>
 
-OvAudio::Core::AudioEngine::AudioEngine()
+OvAudio::Core::AudioEngine::AudioEngine(EDriver p_driver)
 {
 	m_backend = std::make_unique<SoLoud::Soloud>();
 
-	// Without an audio device (a headless machine, a CI runner), the game runs on without sound: a warning, so that a
-	// run that fails on errors does not fail for it
-	if (m_backend->init() != SoLoud::SOLOUD_ERRORS::SO_NO_ERROR)
+	bool started = false;
+
+	if (p_driver == EDriver::AUTO)
+	{
+		started = m_backend->init() == SoLoud::SOLOUD_ERRORS::SO_NO_ERROR;
+
+		// Without an audio device (a headless machine, a CI runner), the game runs on with the sounds mixed and
+		// discarded: a warning, so that a run that fails on errors does not fail for it
+		if (!started)
+		{
+			OVLOG_WARNING("No audio device: the sounds are mixed and discarded, so that they play, end and loop as with one");
+		}
+	}
+
+	if (!started)
+	{
+		started = m_backend->init(
+			SoLoud::Soloud::CLIP_ROUNDOFF,
+			SoLoud::Soloud::NULLDRIVER,
+			kSampleRate,
+			SoLoud::Soloud::AUTO,
+			kChannels
+		) == SoLoud::SOLOUD_ERRORS::SO_NO_ERROR;
+
+		m_nullDriver = started;
+	}
+
+	if (!started)
 	{
 		OVLOG_WARNING("Failed to initialize the audio engine. Playback requests will be ignored.");
 		m_backend.reset();
 		return;
 	}
+
+	m_backend->setMaxActiveVoiceCount(kMaxActiveVoices);
+
+	// SoLoud's listener looks along -Z until told otherwise. The engine's looks along +Z, as a camera with no turn,
+	// from the start: a sound played before the first update begins on the side it is on
+	m_backend->set3dListenerParameters(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f);
+	m_backend->update3dAudio();
 
 	using AudioSourceReceiver = void(AudioEngine::*)(OvAudio::Entities::AudioSource&);
 	using AudioListenerReceiver = void(AudioEngine::*)(OvAudio::Entities::AudioListener&);
@@ -74,7 +106,7 @@ bool OvAudio::Core::AudioEngine::IsValid() const
 	return m_backend.operator bool();
 }
 
-void OvAudio::Core::AudioEngine::Update()
+void OvAudio::Core::AudioEngine::Update(float p_deltaTime)
 {
 	if (!IsValid())
 	{
@@ -86,24 +118,44 @@ void OvAudio::Core::AudioEngine::Update()
 		source.get().Update();
 	}
 
-	// Defines the listener position using the last listener created (If any)
+	// The listener of the last listener created (if any) hears as its actor looks: along its forward, its up above, so
+	// that a sound on the left of a camera's picture is heard on the left
 	const auto listener = FindMainListener();
 
 	if (listener.has_value())
 	{
 		const auto& transform = listener->GetTransform();
 		const auto& pos = transform.GetWorldPosition();
-		const auto at = transform.GetWorldForward() * -1.0f;
+		const auto at = transform.GetWorldForward();
+		const auto up = transform.GetWorldUp();
 		m_backend->set3dListenerPosition(pos.x, pos.y, pos.z);
 		m_backend->set3dListenerAt(at.x, at.y, at.z);
+		m_backend->set3dListenerUp(up.x, up.y, up.z);
 	}
 	else
 	{
 		m_backend->set3dListenerPosition(0.0f, 0.0f, 0.0f);
-		m_backend->set3dListenerAt(0.0f, 0.0f, -1.0f);
+		m_backend->set3dListenerAt(0.0f, 0.0f, 1.0f);
+		m_backend->set3dListenerUp(0.0f, 1.0f, 0.0f);
 	}
 
 	m_backend->update3dAudio();
+
+	// The null driver plays nothing by itself: the frame's step is mixed here, so that sounds end and loop on time
+	if (m_nullDriver && !m_manualMixing && p_deltaTime > 0.0f)
+	{
+		m_unmixedFrames += static_cast<double>(std::min(p_deltaTime, kMaxMixedSeconds)) * kSampleRate;
+
+		// Whole frames only: the rest waits for the next update
+		const auto frames = static_cast<uint32_t>(m_unmixedFrames);
+		m_unmixedFrames -= frames;
+
+		m_mixBuffer.resize(static_cast<size_t>(kMixChunkFrames) * kChannels);
+		for (uint32_t mixed = 0; mixed < frames; mixed += kMixChunkFrames)
+		{
+			m_backend->mix(m_mixBuffer.data(), std::min(kMixChunkFrames, frames - mixed));
+		}
+	}
 }
 
 void OvAudio::Core::AudioEngine::Suspend()
@@ -123,7 +175,8 @@ void OvAudio::Core::AudioEngine::Suspend()
 
 void OvAudio::Core::AudioEngine::Unsuspend()
 {
-	for (auto& audioSourceRef : m_audioSources)
+	// Only what Suspend paused: a source the game paused itself stays paused
+	for (auto& audioSourceRef : m_suspendedAudioSources)
 	{
 		auto& source = audioSourceRef.get();
 		if (source.HasSound() && source.IsPaused())
@@ -203,6 +256,46 @@ OvTools::Utils::OptRef<OvAudio::Entities::AudioListener> OvAudio::Core::AudioEng
 	}
 
 	return std::nullopt;
+}
+
+bool OvAudio::Core::AudioEngine::IsNullDriver() const
+{
+	return IsValid() && m_nullDriver;
+}
+
+std::string_view OvAudio::Core::AudioEngine::GetDriverName() const
+{
+	if (!IsValid())
+	{
+		return "none";
+	}
+
+	return m_nullDriver ? "null" : "device";
+}
+
+uint32_t OvAudio::Core::AudioEngine::GetVoiceCount() const
+{
+	return IsValid() ? m_backend->getVoiceCount() : 0;
+}
+
+bool OvAudio::Core::AudioEngine::Mix(float* p_buffer, uint32_t p_frames)
+{
+	if (!IsNullDriver())
+	{
+		return false;
+	}
+
+	for (uint32_t mixed = 0; mixed < p_frames; mixed += kMixChunkFrames)
+	{
+		m_backend->mix(p_buffer + static_cast<size_t>(mixed) * kChannels, std::min(kMixChunkFrames, p_frames - mixed));
+	}
+
+	return true;
+}
+
+void OvAudio::Core::AudioEngine::SetManualMixing(bool p_manual)
+{
+	m_manualMixing = p_manual;
 }
 
 SoLoud::Soloud& OvAudio::Core::AudioEngine::GetBackend() const

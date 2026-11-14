@@ -6,12 +6,21 @@
 
 #include <soloud_wav.h>
 
+#include <OvDebug/Logger.h>
+
 #include <OvAudio/Resources/Loaders/SoundLoader.h>
 
 OvAudio::Resources::Sound* OvAudio::Resources::Loaders::SoundLoader::Create(const std::string& p_filepath)
 {
 	std::unique_ptr<SoLoud::Wav> wav = std::make_unique<SoLoud::Wav>();
-	wav->load(p_filepath.c_str());
+
+	// A missing or unreadable file gives no sound, rather than a sound that plays nothing
+	if (wav->load(p_filepath.c_str()) != SoLoud::SO_NO_ERROR)
+	{
+		OVLOG_WARNING("Cannot read the sound \"" + p_filepath + "\": a WAV, OGG, MP3 or FLAC file was expected");
+		return nullptr;
+	}
+
 	return new Sound(p_filepath, std::move(wav));
 }
 

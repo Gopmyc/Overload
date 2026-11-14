@@ -130,7 +130,7 @@ void OvGame::Core::Game::Update(float p_deltaTime)
 
 		{
 			ZoneScopedN("Audio Update");
-			m_context.audioEngine->Update();
+			m_context.audioEngine->Update(m_context.clock.GetDeltaTimeUnscaled());
 		}
 
 		if (drawable)

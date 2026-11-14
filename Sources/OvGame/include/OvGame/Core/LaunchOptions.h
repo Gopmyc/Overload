@@ -57,6 +57,11 @@ namespace OvGame::Core
 		*/
 		bool dumpLuaApi = false;
 
+		/**
+		* --audio null: play the sounds on the null driver, mixed and discarded, even with an audio device
+		*/
+		bool nullAudio = false;
+
 		struct ParseResult;
 
 		/**
