@@ -8,7 +8,6 @@
 #include <vector>
 
 #include <doctest/doctest.h>
-#include <soloud.h>
 #include <tinyxml2.h>
 
 #include <OvAudio/Core/AudioEngine.h>
@@ -58,11 +57,6 @@ namespace
 		p_transform.SetLocalPosition({ 0.0f, 0.0f, p_distance });
 		Settle(p_engine);
 		return Loudness(MixFor(p_engine, 0.1f));
-	}
-
-	float SpeedOf(AudioEngine& p_engine, const OvAudio::Data::SoundInstance& p_instance)
-	{
-		return p_engine.GetBackend().getRelativePlaySpeed(p_instance.GetHandle());
 	}
 }
 

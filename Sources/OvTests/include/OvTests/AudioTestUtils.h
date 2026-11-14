@@ -17,6 +17,7 @@
 #include <doctest/doctest.h>
 
 #include <OvAudio/Core/AudioEngine.h>
+#include <OvAudio/Data/SoundInstance.h>
 #include <OvAudio/Resources/Loaders/SoundLoader.h>
 #include <OvAudio/Resources/Sound.h>
 #include <OvTests/TestUtils.h>
@@ -161,6 +162,12 @@ namespace OvTests::Audio
 		p_engine.Update(0.0f);
 		MixFor(p_engine, 0.06f);
 	}
+
+	/**
+	* Returns the speed SoLoud plays a sound at: its pitch, with the variation drawn for it. It is defined in
+	* AudioTestUtils.cpp, which includes <soloud.h> so that the tests need not (see there)
+	*/
+	float SpeedOf(AudioEngine& p_engine, const OvAudio::Data::SoundInstance& p_instance);
 
 	/**
 	* An engine on the null driver, whose time only moves when a test mixes
