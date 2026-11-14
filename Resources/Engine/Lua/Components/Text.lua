@@ -73,3 +73,12 @@ function Text:GetVerticalAlignment() end
 --- Defines the vertical text alignment
 ---@param alignment TextVerticalAlignment
 function Text:SetVerticalAlignment(alignment) end
+
+--- Returns whether the text is lit as the scene is under a world space canvas
+---@return boolean
+function Text:IsLit() end
+
+--- Defines whether the text is lit as the scene is (its lights, the shadows it receives, its fog), drawn among its
+--- transparent surfaces. Only under a world space canvas: a screen space text stays drawn over the scene, unlit
+---@param lit boolean
+function Text:SetLit(lit) end

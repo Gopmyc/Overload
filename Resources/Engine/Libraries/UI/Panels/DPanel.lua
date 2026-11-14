@@ -12,6 +12,7 @@ function DPanel:Init()
 	self.m_BackgroundColor = nil
 	self.m_BackgroundTexture = nil
 	self.m_Image = nil
+	self.m_Lit = false
 end
 
 ---@param paintBackground boolean
@@ -52,6 +53,22 @@ function DPanel:GetBackgroundImage()
 	return self.m_BackgroundTexture
 end
 
+--- Lights the panel as the scene is (its lights, the shadows it receives, its fog) under a world space canvas, as
+--- Image:SetLit does. A screen space panel stays unlit. Derived panels light what they draw as well (DLabel its text)
+---@param lit boolean
+function DPanel:SetLit(lit)
+	self.m_Lit = lit and true or false
+
+	if self.m_Image then
+		self.m_Image:SetLit(self.m_Lit)
+	end
+end
+
+---@return boolean
+function DPanel:IsLit()
+	return self.m_Lit
+end
+
 --- Returns the skin color matching the current state. Derived panels override it per state.
 ---@return Vector4
 function DPanel:GetSkinBackgroundColor()
@@ -74,6 +91,7 @@ function DPanel:Paint(width, height)
 	if not self.m_Image then
 		self.m_Image = self.m_Actor:AddImage()
 		self.m_Image:SetTexture(self.m_BackgroundTexture)
+		self.m_Image:SetLit(self.m_Lit)
 	end
 
 	self.m_Image:SetTint(self:GetBackgroundColor())

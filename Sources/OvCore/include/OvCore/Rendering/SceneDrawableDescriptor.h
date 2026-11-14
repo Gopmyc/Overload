@@ -10,6 +10,7 @@
 
 #include <OvCore/ECS/Actor.h>
 #include <OvCore/Rendering/EVisibilityFlags.h>
+#include <OvMaths/FVector3.h>
 #include <OvRendering/Geometry/BoundingSphere.h>
 
 namespace OvCore::ECS::Components { class CSkinnedMeshRenderer; }
@@ -29,5 +30,6 @@ namespace OvCore::Rendering
 		std::optional<int> drawOrderOverride;
 		bool isUserInterface = false;
 		const ECS::Components::CSkinnedMeshRenderer* skinnedMeshRenderer = nullptr; // Told when a pass keeps the drawable
+		std::optional<OvMaths::FVector3> sortPosition; // Where the drawable is sorted by distance from, instead of its actor's position
 	};
 }

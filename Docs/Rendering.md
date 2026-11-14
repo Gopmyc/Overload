@@ -116,6 +116,36 @@ rules of a custom shader are in [Shaders](Shaders.md).
   only left out when entirely outside.
 - **Limit**: the editor's picking still sees the clipped part of an element.
 
+## Lit UI in the world
+
+- `Text:SetLit(true)` and `Image:SetLit(true)` ("Lit" in the inspector, `lit` in a file) light an element under a
+  world space canvas as the scene is: by its lights, ambient ones included, with the shadows it receives and the
+  distance fog, tonemapped with the rest. A sign, a name over a head or a price tag then darkens in the shade and at
+  night.
+- **Under a screen space canvas** the setting is kept and has no effect: the HUD stays drawn over the scene, unlit,
+  also when the editor's scene view shows such a canvas in the world.
+- **How it is drawn**:
+  - with a copy of the host's lit material, `:Materials/TextLit.ovmat` or `:Materials/ImageLit.ovmat`
+    (`UIResourceRegistry::Definition::litTextMaterialPath` and `litImageMaterialPath`), given the text's atlas and
+    colour, or the image's texture and tint. The copy is made again when the material manager's resources change. A
+    host that gives no lit material draws a lit element as any other;
+  - among the scene's transparent surfaces, before the post processing, depth tested without writing depth;
+  - sorted by the distance of its canvas: the elements of a canvas keep the order of the hierarchy between them, and
+    a canvas nearer the camera is drawn over a farther one.
+  - before every unlit element, which the UI pass draws after the post processing: an unlit element covers a lit one
+    wherever they meet. Light a text and the background it stands on together (`DLabel:SetLit` does).
+- **The shaders**, `TextLit.ovfx` and `ImageLit.ovfx`, light through `PBRLightingModel` (`Lighting/PBR.ovfxh`) and keep
+  the clip of `Text.ovfx` and `Image.ovfx`. The side the camera sees is lit as the front. Their materials set:
+  - `u_Metallic` (0) and `u_Roughness` (0.8);
+  - `u_EmissiveIntensity` (0): how much of its own colour the element gives off whatever the light, for a sign that
+    stays readable in the dark;
+  - `u_Fog` (on).
+- **Limits**:
+  - a flat element casts no shadow, and has neither thickness nor outline: lettering in relief stays a model;
+  - reflection probes neither light it nor see it;
+  - the engine's ambient lights add the same light whatever a surface's colour, `Standard` included: in full shadow, a
+    lit text and its lit background turn the same colour. A lamp, or `u_EmissiveIntensity`, keeps it readable.
+
 ## Textures
 
 - Textures wrap in `REPEAT` by default. A UI texture needs a `.png.meta` that switches it to clamp, or seams appear:

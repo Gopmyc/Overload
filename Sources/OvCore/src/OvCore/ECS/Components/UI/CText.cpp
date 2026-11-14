@@ -33,6 +33,7 @@ namespace
 	constexpr float kMinimumFontSize = 1.0f;
 	constexpr float kSizeUpdateEpsilon = 0.0001f;
 	constexpr const char* kColorUniform = "u_Color";
+	constexpr const char* kFontAtlasUniform = "u_FontAtlas";
 
 	float ClampFinite(float p_value, float p_min)
 	{
@@ -224,6 +225,16 @@ OvCore::ECS::Components::UI::CText::EVerticalAlignment OvCore::ECS::Components::
 	return m_verticalAlignment;
 }
 
+void OvCore::ECS::Components::UI::CText::SetLit(bool p_lit)
+{
+	m_lit = p_lit;
+}
+
+bool OvCore::ECS::Components::UI::CText::IsLit() const
+{
+	return m_lit;
+}
+
 OvRendering::Resources::Mesh* OvCore::ECS::Components::UI::CText::GetMesh() const
 {
 	RebuildMesh();
@@ -240,6 +251,12 @@ OvRendering::Data::Material* OvCore::ECS::Components::UI::CText::GetMaterial()
 {
 	RefreshMaterial();
 	return m_material && m_material->IsValid() ? m_material.get() : nullptr;
+}
+
+OvRendering::Data::Material* OvCore::ECS::Components::UI::CText::GetLitMaterial()
+{
+	RefreshLitMaterial();
+	return m_litMaterial && m_litMaterial->IsValid() ? m_litMaterial.get() : nullptr;
 }
 
 const OvMaths::FVector2& OvCore::ECS::Components::UI::CText::GetSize() const
@@ -268,6 +285,7 @@ void OvCore::ECS::Components::UI::CText::OnSerialize(tinyxml2::XMLDocument& p_do
 	Helpers::Serializer::SerializeVec4(p_doc, p_node, "color", m_color);
 	Helpers::Serializer::SerializeInt(p_doc, p_node, "horizontal_alignment", static_cast<int>(m_horizontalAlignment));
 	Helpers::Serializer::SerializeInt(p_doc, p_node, "vertical_alignment", static_cast<int>(m_verticalAlignment));
+	Helpers::Serializer::SerializeBoolean(p_doc, p_node, "lit", m_lit);
 }
 
 void OvCore::ECS::Components::UI::CText::OnDeserialize(tinyxml2::XMLDocument& p_doc, tinyxml2::XMLNode* p_node)
@@ -312,6 +330,13 @@ void OvCore::ECS::Components::UI::CText::OnDeserialize(tinyxml2::XMLDocument& p_
 		auto verticalAlignment = static_cast<int>(m_verticalAlignment);
 		Helpers::Serializer::DeserializeInt(p_doc, p_node, "vertical_alignment", verticalAlignment);
 		SetVerticalAlignment(ToVerticalAlignment(verticalAlignment));
+	}
+
+	if (p_node->FirstChildElement("lit"))
+	{
+		auto lit = m_lit;
+		Helpers::Serializer::DeserializeBoolean(p_doc, p_node, "lit", lit);
+		SetLit(lit);
 	}
 }
 
@@ -373,6 +398,14 @@ void OvCore::ECS::Components::UI::CText::OnInspector(OvUI::Internal::WidgetConta
 		[this](OvUI::Types::Color p_value) { SetColor(ToVec4(p_value)); },
 		true
 	);
+
+	// Under a world space canvas only: a screen space text stays unlit
+	Helpers::GUIDrawer::DrawBoolean(
+		p_root,
+		"Lit",
+		[this]() { return IsLit(); },
+		[this](bool p_value) { SetLit(p_value); }
+	);
 }
 
 OvRendering::Resources::Font* OvCore::ECS::Components::UI::CText::GetFont() const
@@ -418,6 +451,7 @@ void OvCore::ECS::Components::UI::CText::MarkMaterialSourceDirty()
 void OvCore::ECS::Components::UI::CText::MarkMaterialColorDirty()
 {
 	m_materialColorDirty = true;
+	m_litColorDirty = true;
 }
 
 void OvCore::ECS::Components::UI::CText::RebuildLayout() const
@@ -591,5 +625,64 @@ void OvCore::ECS::Components::UI::CText::RefreshMaterial()
 	{
 		m_material->TrySetProperty(kColorUniform, m_color);
 		m_materialColorDirty = false;
+	}
+}
+
+void OvCore::ECS::Components::UI::CText::RefreshLitMaterial()
+{
+	auto& materialManager = Global::ServiceLocator::Get<ResourceManagement::MaterialManager>();
+	const auto& litTextMaterialPath = Global::ServiceLocator::Get<ResourceManagement::UIResourceRegistry>().GetDefinition().litTextMaterialPath;
+	// Loaded once for each change of the manager's resources: a missing file is not looked for at every frame
+	const bool load = !m_litMaterial || materialManager.GetResourcesRevision() != m_litManagerRevision;
+	OvRendering::Data::Material* source = litTextMaterialPath.empty() ?
+		nullptr :
+		materialManager.GetResource(litTextMaterialPath, load);
+	auto* shader = source && source->HasShader() ? source->GetShader() : nullptr;
+	auto* font = GetFont();
+	auto* atlas = font ? font->GetAtlasTexture(m_fontSize) : nullptr;
+
+	if (!m_litMaterial)
+	{
+		m_litMaterial = std::make_unique<OvRendering::Data::Material>();
+		m_litSource = nullptr;
+	}
+
+	// A copy of the host's material, settings and uniforms included, made again whenever it may have changed
+	if (
+		source != m_litSource ||
+		shader != m_litShader ||
+		atlas != m_litAtlas ||
+		materialManager.GetResourcesRevision() != m_litManagerRevision
+	)
+	{
+		m_litSource = source;
+		m_litShader = shader;
+		m_litAtlas = atlas;
+		m_litManagerRevision = materialManager.GetResourcesRevision();
+		m_litColorDirty = true;
+
+		if (!source || !source->IsValid() || !atlas)
+		{
+			if (m_litMaterial->HasShader())
+			{
+				m_litMaterial->SetShader(nullptr);
+			}
+
+			return;
+		}
+
+		*m_litMaterial = *source;
+		m_litMaterial->TrySetProperty(kFontAtlasUniform, atlas);
+	}
+
+	if (!m_litMaterial->IsValid())
+	{
+		return;
+	}
+
+	if (m_litColorDirty)
+	{
+		m_litMaterial->TrySetProperty(kColorUniform, m_color);
+		m_litColorDirty = false;
 	}
 }

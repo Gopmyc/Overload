@@ -25,6 +25,9 @@ XY plane, centred on the actor and facing its local +Z: turn the actor's forward
 - It is drawn with depth testing, so the scene hides what stands behind it, but it never writes depth:
   the layers of a canvas never fight, and 3D content laid on it sits a little in front of or behind
   its plane.
+- Its panels are not lit by the scene unless asked: `panel:SetLit(true)` lights a `DPanel`'s background, and a
+  `DLabel`'s text with it, as the scene is (its lights, the shadows they receive, its fog). See "Lit UI in the world"
+  in the engine's `Docs/Rendering.md`.
 
 ```lua
 local plate = Scenes.GetCurrentScene():CreateActor("Menu Plate", "")

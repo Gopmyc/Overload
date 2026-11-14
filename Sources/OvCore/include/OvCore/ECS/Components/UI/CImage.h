@@ -93,6 +93,18 @@ namespace OvCore::ECS::Components::UI
 		bool GetPreserveAspect() const;
 
 		/**
+		* Sets whether the image is lit as the scene is: by its lights, its shadows and its fog. It only applies under a
+		* world space canvas: a screen space image is drawn over the scene, unlit
+		* @param p_lit
+		*/
+		void SetLit(bool p_lit);
+
+		/**
+		* Returns whether the image is lit under a world space canvas
+		*/
+		bool IsLit() const;
+
+		/**
 		* Returns the generated quad mesh
 		*/
 		OvRendering::Resources::Mesh& GetMesh() const;
@@ -101,6 +113,12 @@ namespace OvCore::ECS::Components::UI
 		* Returns the generated UI image material, or nullptr if it cannot be initialized
 		*/
 		OvCore::Resources::Material* GetMaterial();
+
+		/**
+		* Returns the material the image is drawn with when it is lit: a copy of the host's lit image material, given the
+		* image's texture and tint. Returns nullptr if the host has none or it cannot be initialized
+		*/
+		OvRendering::Data::Material* GetLitMaterial();
 
 		/**
 		* Serialize the component
@@ -127,6 +145,7 @@ namespace OvCore::ECS::Components::UI
 		void UpdateIntrinsicSize() const;
 		void RebuildMesh() const;
 		void RefreshMaterial();
+		void RefreshLitMaterial();
 
 	private:
 		mutable OvRendering::Resources::Texture* m_texture = nullptr;
@@ -146,6 +165,14 @@ namespace OvCore::ECS::Components::UI
 		bool m_materialStateDirty = true;
 		mutable bool m_materialTextureDirty = true;
 		bool m_materialTintDirty = true;
+
+		bool m_lit = false;
+		std::unique_ptr<OvRendering::Data::Material> m_litMaterial;
+		const OvRendering::Data::Material* m_litSource = nullptr;
+		OvRendering::Resources::Shader* m_litShader = nullptr;
+		OvRendering::Resources::Texture* m_litTexture = nullptr;
+		uint64_t m_litManagerRevision = 0;
+		bool m_litTintDirty = true;
 	};
 }
 

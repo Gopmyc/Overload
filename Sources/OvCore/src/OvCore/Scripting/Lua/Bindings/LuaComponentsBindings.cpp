@@ -859,7 +859,9 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetTint", [](UI::CImage& p_this) -> FVector4 { return p_this.GetTint(); },
 		"SetTint", &UI::CImage::SetTint,
 		"GetPreserveAspect", &UI::CImage::GetPreserveAspect,
-		"SetPreserveAspect", &UI::CImage::SetPreserveAspect
+		"SetPreserveAspect", &UI::CImage::SetPreserveAspect,
+		"IsLit", &UI::CImage::IsLit,
+		"SetLit", &UI::CImage::SetLit
 	);
 
 	p_luaState.new_usertype<UI::CLayoutGroup>("LayoutGroup",
@@ -938,7 +940,9 @@ void BindLuaComponents(sol::state& p_luaState)
 		"GetHorizontalAlignment", &UI::CText::GetHorizontalAlignment,
 		"SetHorizontalAlignment", &UI::CText::SetHorizontalAlignment,
 		"GetVerticalAlignment", &UI::CText::GetVerticalAlignment,
-		"SetVerticalAlignment", &UI::CText::SetVerticalAlignment
+		"SetVerticalAlignment", &UI::CText::SetVerticalAlignment,
+		"IsLit", &UI::CText::IsLit,
+		"SetLit", &UI::CText::SetLit
 	);
 
 	p_luaState.new_usertype<CLight>("Light",

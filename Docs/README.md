@@ -12,7 +12,7 @@ on it. Each page states the behaviour of the current version; [`CHANGELOG.md`](.
 | [Navigation](Navigation.md) | Navigation meshes built at run time from static colliders, paths, nearest points, walks along the mesh |
 | [Physics](Physics.md) | Bodies, triggers, queries, Jolt specifics, static bodies, height fields, ragdolls |
 | [Terrain](Terrain.md) | Height fields from a height map, terrains drawn in chunks with levels of detail, colour maps, height queries, vegetation scattered in instanced layers |
-| [Rendering](Rendering.md) | Materials and per-renderer values, the post process stack and fog, culling, UI text and fonts |
+| [Rendering](Rendering.md) | Materials and per-renderer values, the post process stack and fog, culling, UI text and fonts, lit UI in the world |
 | [Particles](Particles.md) | Particle systems: their settings, bursts from a script, time, billboards and models, the cost |
 | [Shaders](Shaders.md) | The shader API and its version, public includes, `Standard`'s extension points, the fog option, custom shaders |
 | [Animation](Animation.md) | Bones, layers and masks, clips on other rigs, extra bones, attachments, animation graphs, look at, spring bones, when the pose is worked out |

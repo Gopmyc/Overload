@@ -842,3 +842,12 @@ bool OvCore::Rendering::UIRenderingUtils::IsOutsideUIClip(const UIClip& p_clip, 
 
 	return max.x <= p_clip.min.x || min.x >= p_clip.max.x || max.y <= p_clip.min.y || min.y >= p_clip.max.y;
 }
+
+bool OvCore::Rendering::UIRenderingUtils::IsDrawnLit(bool p_lit, const ResolvedUIElement* p_element)
+{
+	return
+		p_lit &&
+		p_element &&
+		p_element->canvas &&
+		p_element->canvas->GetRenderMode() == OvCore::ECS::Components::UI::CCanvas::ERenderMode::WORLD_SPACE;
+}

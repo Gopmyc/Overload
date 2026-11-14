@@ -357,4 +357,12 @@ namespace OvCore::Rendering::UIRenderingUtils
 	* @param p_element
 	*/
 	bool IsOutsideUIClip(const UIClip& p_clip, const ResolvedUIElement& p_element);
+
+	/**
+	* Returns true if an element that asks to be lit (CText::IsLit, CImage::IsLit) is drawn lit: only under a world
+	* space canvas. A screen space canvas stays drawn over the scene, unlit, even when the editor previews it in the world
+	* @param p_lit (whether the element asks to be lit)
+	* @param p_element (the element, if it could be resolved)
+	*/
+	bool IsDrawnLit(bool p_lit, const ResolvedUIElement* p_element);
 }

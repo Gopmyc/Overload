@@ -183,6 +183,38 @@ namespace
 		return true;
 	}
 
+	/**
+	* The scene's description of a user interface drawable. A lit one is drawn among the scene's transparent surfaces,
+	* sorted by the distance to its canvas: the elements of a canvas keep the order of the hierarchy between them
+	*/
+	SceneDrawableDescriptor CreateUISceneDescriptor(
+		OvCore::ECS::Actor& p_owner,
+		int p_drawOrder,
+		bool p_lit,
+		const std::optional<OvCore::Rendering::UIRenderingUtils::ResolvedUIElement>& p_element
+	)
+	{
+		SceneDrawableDescriptor descriptor{
+			.actor = p_owner,
+			.visibilityFlags = EVisibilityFlags::GEOMETRY,
+			.bounds = std::nullopt,
+			.drawOrderOverride = p_drawOrder,
+			.isUserInterface = true
+		};
+
+		if (p_lit)
+		{
+			descriptor.drawOrderOverride = std::nullopt;
+
+			if (p_element && p_element->canvasActor)
+			{
+				descriptor.sortPosition = p_element->canvasActor->transform.GetWorldPosition();
+			}
+		}
+
+		return descriptor;
+	}
+
 	void AppendImageDrawable(
 		OvCore::Rendering::FrameBuilder::ParsingResult& p_result,
 		OvCore::ECS::Components::UI::CImage& p_image,
@@ -193,7 +225,29 @@ namespace
 	)
 	{
 		auto& owner = p_image.owner;
-		auto* material = p_image.GetMaterial();
+
+		bool depthTested = false;
+		std::optional<OvCore::Rendering::UIRenderingUtils::ResolvedUIElement> element;
+
+		auto engineDescriptor = CreateUIDrawableDescriptor(
+			owner,
+			p_uiFrameResolver,
+			p_uiProjectionMatrix,
+			p_image.GetIntrinsicSize(),
+			depthTested,
+			element,
+			p_image.GetPreserveAspect()
+		);
+
+		// Without a lit material from the host, a lit image is drawn as any other
+		bool lit = OvCore::Rendering::UIRenderingUtils::IsDrawnLit(p_image.IsLit(), element ? &element.value() : nullptr);
+		OvRendering::Data::Material* material = lit ? p_image.GetLitMaterial() : nullptr;
+		if (!material)
+		{
+			lit = false;
+			material = p_image.GetMaterial();
+		}
+
 		if (!material) return;
 
 		OvRendering::Entities::Drawable drawable{
@@ -202,28 +256,8 @@ namespace
 			.stateMask = material->GenerateStateMask()
 		};
 
-		drawable.AddDescriptor<SceneDrawableDescriptor>({
-			.actor = owner,
-			.visibilityFlags = EVisibilityFlags::GEOMETRY,
-			.bounds = std::nullopt,
-			.drawOrderOverride = p_drawOrder,
-			.isUserInterface = true
-		});
-
-		bool depthTested = false;
-		std::optional<OvCore::Rendering::UIRenderingUtils::ResolvedUIElement> element;
-
-		drawable.AddDescriptor<EngineDrawableDescriptor>(
-			CreateUIDrawableDescriptor(
-				owner,
-				p_uiFrameResolver,
-				p_uiProjectionMatrix,
-				p_image.GetIntrinsicSize(),
-				depthTested,
-				element,
-				p_image.GetPreserveAspect()
-			)
-		);
+		drawable.AddDescriptor<SceneDrawableDescriptor>(CreateUISceneDescriptor(owner, p_drawOrder, lit, element));
+		drawable.AddDescriptor<EngineDrawableDescriptor>(std::move(engineDescriptor));
 
 		if (!ApplyUIClip(*material, p_clip, element))
 		{
@@ -245,8 +279,6 @@ namespace
 	)
 	{
 		auto& owner = p_text.owner;
-		auto* material = p_text.GetMaterial();
-		if (!material) return;
 
 		const auto baseTextSize = p_text.GetSize();
 		OvCore::Rendering::UIRenderingUtils::ResolvedUIElement resolvedElement;
@@ -266,33 +298,37 @@ namespace
 		if (!mesh) return;
 		const auto renderedTextSize = p_text.GetSize(textLayoutSize);
 
+		bool depthTested = false;
+		std::optional<OvCore::Rendering::UIRenderingUtils::ResolvedUIElement> element;
+
+		auto engineDescriptor = CreateUIDrawableDescriptor(
+			owner,
+			p_uiFrameResolver,
+			p_uiProjectionMatrix,
+			renderedTextSize,
+			depthTested,
+			element
+		);
+
+		// Without a lit material from the host, a lit text is drawn as any other
+		bool lit = OvCore::Rendering::UIRenderingUtils::IsDrawnLit(p_text.IsLit(), element ? &element.value() : nullptr);
+		OvRendering::Data::Material* material = lit ? p_text.GetLitMaterial() : nullptr;
+		if (!material)
+		{
+			lit = false;
+			material = p_text.GetMaterial();
+		}
+
+		if (!material) return;
+
 		OvRendering::Entities::Drawable drawable{
 			.mesh = *mesh,
 			.material = *material,
 			.stateMask = material->GenerateStateMask()
 		};
 
-		drawable.AddDescriptor<SceneDrawableDescriptor>({
-			.actor = owner,
-			.visibilityFlags = EVisibilityFlags::GEOMETRY,
-			.bounds = std::nullopt,
-			.drawOrderOverride = p_drawOrder,
-			.isUserInterface = true
-		});
-
-		bool depthTested = false;
-		std::optional<OvCore::Rendering::UIRenderingUtils::ResolvedUIElement> element;
-
-		drawable.AddDescriptor<EngineDrawableDescriptor>(
-			CreateUIDrawableDescriptor(
-				owner,
-				p_uiFrameResolver,
-				p_uiProjectionMatrix,
-				renderedTextSize,
-				depthTested,
-				element
-			)
-		);
+		drawable.AddDescriptor<SceneDrawableDescriptor>(CreateUISceneDescriptor(owner, p_drawOrder, lit, element));
+		drawable.AddDescriptor<EngineDrawableDescriptor>(std::move(engineDescriptor));
 
 		if (!ApplyUIClip(*material, p_clip, element))
 		{
@@ -770,7 +806,7 @@ OvCore::Rendering::FrameBuilder::FilteringResult OvCore::Rendering::FrameBuilder
 
 		// Calculate distance to camera for sorting
 		const float distanceToCamera = OvMaths::FVector3::Distance(
-			desc.actor.transform.GetWorldPosition(),
+			desc.sortPosition.has_value() ? desc.sortPosition.value() : desc.actor.transform.GetWorldPosition(),
 			camera.GetPosition()
 		);
 
