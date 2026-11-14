@@ -96,6 +96,9 @@ OvEditor::Panels::ProjectSettings::ProjectSettings(const std::string & p_title, 
 		// The project's translations, a folder of "<language>.json" tables in its assets (see Docs/Localization.md)
 		GUIDrawer::DrawString(columns, "Translations", GenerateGatherer<std::string>("translations"), GenerateProvider<std::string>("translations"));
 		GUIDrawer::DrawString(columns, "Default language", GenerateGatherer<std::string>("default_language"), GenerateProvider<std::string>("default_language"));
+
+		// The project's audio buses, comma-separated names (see Docs/Audio.md)
+		GUIDrawer::DrawString(columns, "Audio buses", GenerateGatherer<std::string>("audio_buses"), GenerateProvider<std::string>("audio_buses"));
 	}
 
 	{

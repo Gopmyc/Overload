@@ -85,6 +85,68 @@ namespace OvCore::ECS::Components
 		void SetAttenuationThreshold(float p_distance);
 
 		/**
+		* Sets how its sound in the world fades with the distance
+		* @param p_model
+		*/
+		void SetAttenuationModel(OvAudio::Settings::EAttenuationModel p_model);
+
+		/**
+		* Sets how fast its sound in the world fades (1 by default, not below 0)
+		* @param p_rolloff
+		*/
+		void SetRolloff(float p_rolloff);
+
+		/**
+		* Sets the distance past which its sound in the world fades no more
+		* @param p_distance
+		*/
+		void SetMaxDistance(float p_distance);
+
+		/**
+		* Sets the bus its sounds play on: empty, or "Master", for none
+		* @param p_bus
+		*/
+		void SetBus(const std::string& p_bus);
+
+		/**
+		* Sets by how much the pitch varies at random, up or down, each time it plays
+		* @param p_variation
+		*/
+		void SetPitchVariation(float p_variation);
+
+		/**
+		* Returns how its sound in the world fades with the distance
+		*/
+		OvAudio::Settings::EAttenuationModel GetAttenuationModel() const;
+
+		/**
+		* Returns how fast its sound in the world fades
+		*/
+		float GetRolloff() const;
+
+		/**
+		* Returns the distance past which its sound in the world fades no more
+		*/
+		float GetMaxDistance() const;
+
+		/**
+		* Returns the bus its sounds play on, empty for none
+		*/
+		const std::string& GetBus() const;
+
+		/**
+		* Returns by how much the pitch varies at random
+		*/
+		float GetPitchVariation() const;
+
+		/**
+		* Plays a sound once, beside its own (see OvAudio::Entities::AudioSource::PlayOneShot), if its actor is active
+		* @param p_sound
+		* @param p_volumeScale
+		*/
+		void PlayOneShot(OvAudio::Resources::Sound& p_sound, float p_volumeScale = 1.0f);
+
+		/**
 		* Returns the sound attached to the audio source
 		*/
 		OvAudio::Resources::Sound* GetSound() const;
@@ -145,7 +207,7 @@ namespace OvCore::ECS::Components
 		void Pause();
 
 		/**
-		* Stop the audio source
+		* Stop the audio source, and the sounds it played once
 		*/
 		void Stop();
 

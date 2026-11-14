@@ -20,6 +20,7 @@ the editor and the built game read.
 | `input_actions` | empty | The project's input actions, a JSON file relative to `Assets` (see [Input](Input.md)); none when empty |
 | `translations` | empty | The project's translations, a folder of `<language>.json` tables relative to `Assets` (see [Localization](Localization.md)); none when empty |
 | `default_language` | `en` | The language a text missing from the current one is taken from, and the first one when neither the player nor the system chose |
+| `audio_buses` | `Music,Effects,Interface,Ambience` | The project's audio buses, comma-separated, 8 at most, each with a volume of its own beside the Master's (see [Audio](Audio.md)); none when empty. A name given twice, and `Master`, are left out with a warning |
 | `build_type` | the platform's | The editor's build configuration |
 
 ## Optional keys

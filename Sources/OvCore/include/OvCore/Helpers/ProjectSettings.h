@@ -7,6 +7,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <OvCore/Scripting/JsonLimits.h>
 #include <OvPhysics/Settings/PhysicsSettings.h>
@@ -15,6 +16,11 @@
 
 namespace OvCore::Helpers::ProjectSettings
 {
+	/**
+	* The buses of a project without the audio_buses key
+	*/
+	constexpr const char* kDefaultAudioBuses = "Music,Effects,Interface,Ambience";
+
 	/**
 	* The limits a project sets on what its scripts may do
 	*/
@@ -61,4 +67,12 @@ namespace OvCore::Helpers::ProjectSettings
 	* @param p_projectSettings
 	*/
 	RuntimeLimits ReadRuntimeLimits(const OvTools::Filesystem::IniFile& p_projectSettings);
+
+	/**
+	* Reads the audio buses of a project file: audio_buses, comma-separated names (kDefaultAudioBuses without the key,
+	* none when empty). A name given twice, "Master" (the volume of every sound, always there) and the names past
+	* OvAudio::Core::AudioEngine::kMaxBuses are logged and left out
+	* @param p_projectSettings
+	*/
+	std::vector<std::string> ReadAudioBuses(const OvTools::Filesystem::IniFile& p_projectSettings);
 }

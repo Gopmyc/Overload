@@ -68,32 +68,14 @@ void OvAudio::Data::SoundInstance::SetPan(float p_pan)
 	}
 }
 
-void OvAudio::Data::SoundInstance::SetAttenuationModel(OvAudio::Settings::EAttenuationModel p_model, float p_factor)
+void OvAudio::Data::SoundInstance::SetAttenuation(const OvAudio::Settings::AttenuationSettings& p_settings)
 {
-	using namespace OvTools::Utils;
-
 	if (m_spatial)
 	{
 		Validate();
-		m_backend.set3dSourceAttenuation(
-			m_handle,
-			GetAttenuationModelValue(p_model),
-			p_factor
-		);
-	}
-}
-
-void OvAudio::Data::SoundInstance::SetAttenuationThreshold(float p_distance)
-{
-	// Matches irrKlang default value for compatibility.
-	// Don't change this value if you don't know what you are doing:
-	// This value causes the sound to stop attenuating after it reaches the max distance.
-	constexpr float kMaxDistance = 1000000000.0f;
-
-	if (m_spatial)
-	{
-		Validate();
-		m_backend.set3dSourceMinMaxDistance(m_handle, p_distance, kMaxDistance);
+		const auto settings = p_settings.Sanitized();
+		m_backend.set3dSourceAttenuation(m_handle, GetAttenuationModelValue(settings.model), settings.rolloff);
+		m_backend.set3dSourceMinMaxDistance(m_handle, settings.minDistance, settings.maxDistance);
 	}
 }
 

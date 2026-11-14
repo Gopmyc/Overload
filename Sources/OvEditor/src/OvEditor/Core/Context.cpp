@@ -291,6 +291,7 @@ bool OvEditor::Core::Context::CompleteProjectSettings()
 	added |= projectSettings.Add<std::string>("input_actions", "");
 	added |= projectSettings.Add<std::string>("translations", "");
 	added |= projectSettings.Add<std::string>("default_language", "en");
+	added |= projectSettings.Add<std::string>("audio_buses", OvCore::Helpers::ProjectSettings::kDefaultAudioBuses);
 	return added;
 }
 
@@ -299,4 +300,5 @@ void OvEditor::Core::Context::ApplyProjectSettings()
 	const auto physicsSettings = OvCore::Helpers::ProjectSettings::ReadPhysicsSettings(projectSettings);
 	physicsEngine->SetGravity(physicsSettings.gravity);
 	physicsEngine->ApplyLayerSettings(physicsSettings);
+	audioEngine->SetBuses(OvCore::Helpers::ProjectSettings::ReadAudioBuses(projectSettings));
 }
