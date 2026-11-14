@@ -1019,6 +1019,8 @@ void OvEditor::Core::EditorActions::StopPlaying()
 {
 	if (m_editorMode != EEditorMode::EDIT)
 	{
+		// The game's scripts hear it end (Events.AddQuit), as a built game's do, before its scene goes
+		m_context.scriptEngine->NotifyQuit();
 		m_context.window->SetCursorMode(OvWindowing::Cursor::ECursorMode::NORMAL);
 		OvCore::Helpers::InputHelpers::UpdateGameInputGate(false, true); // The game's lock and cursor shape leave with it
 		OvCore::Helpers::InputHelpers::ResetGameInputGate();

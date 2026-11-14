@@ -85,6 +85,12 @@ namespace OvCore::Scripting
 		void Reload();
 
 		/**
+		* Tells the scripts the game ends (Events.AddQuit), the scene still current: once for the scripting state, so a
+		* second call before the next Reload does nothing
+		*/
+		void NotifyQuit();
+
+		/**
 		* Checks if the scripting engine is in a good state.
 		* @return True if the engine is okay, false otherwise.
 		*/

@@ -90,7 +90,7 @@ default language, whatever the machine's.
 | `PrefabRefs` | In each instance of a prefab, a reference between two of its actors names the instance's own actor; a reference to an actor of the scene is kept |
 | `Queries` | `Physics.CastRay`, `CastSphere`, `OverlapSphere`, `OverlapBox`, layer masks and triggers, from Lua |
 | `Settings` | The project file reaches the game: layer names and ignored pairs, `json_max_depth`, `storage_max_file_mib`, `max_frame_delta` |
-| `Events` | The global `Update` and `LateUpdate` events: their place around the Behaviours' callbacks, their step, an owner that dies, a removal, a callback added while they run |
+| `Events` | The global `Update` and `LateUpdate` events: their place around the Behaviours' callbacks, their step, an owner that dies, a removal, a callback added while they run; then the game's end (`Events.AddQuit`), which gives the verdict: once, with nothing, the scene still there, an owner gone skipped |
 | `Shaders` | Every engine shader loads, all its variants compiled; a shader built on `Standard`'s four extension points draws; the fog option on `Standard` and `Unlit`; an additive and a premultiplied material drawn in the transparent pass |
 | `Gamepad` | The gamepad API from Lua with no pad connected: the enums, every read false or 0, pads out of range, the dead zone and its range |
 | `InputActions` | The project's actions from Lua: their order and bindings, rebinding with its swaps and refusals, resets, the bindings saved in the save folder, the labels a menu shows |

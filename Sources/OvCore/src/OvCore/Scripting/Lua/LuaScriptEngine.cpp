@@ -42,6 +42,8 @@ namespace OvCore::Scripting
 		// Shared, so that a callback that adds or removes one while the event runs never moves the one running
 		std::vector<std::shared_ptr<LuaFrameCallback>> update;
 		std::vector<std::shared_ptr<LuaFrameCallback>> lateUpdate;
+		std::vector<std::shared_ptr<LuaFrameCallback>> quit;
+		bool quitNotified = false;
 		uint64_t nextId = 1;
 		OvTools::Eventing::ListenerID updateListener = 0;
 		OvTools::Eventing::ListenerID lateUpdateListener = 0;
@@ -80,6 +82,32 @@ namespace
 		}
 
 		std::erase_if(p_callbacks, [](const auto& p_entry) { return p_entry->removed; });
+	}
+
+	/**
+	* Runs the callbacks of the quit event, once: one that fails is logged and the others still run, one whose owner
+	* is gone is skipped, one removed meanwhile is skipped at once, and one added meanwhile is not called
+	*/
+	void RunQuitCallbacks(std::vector<std::shared_ptr<OvCore::Scripting::LuaFrameCallback>>& p_callbacks)
+	{
+		const auto running = p_callbacks;
+
+		for (const auto& entry : running)
+		{
+			if (entry->removed || (entry->owner && !entry->owner->IsAlive()))
+				continue;
+
+			const sol::protected_function_result result = entry->callback();
+
+			if (!result.valid())
+			{
+				const sol::error error = result;
+				OVLOG_ERROR(std::format("Events.AddQuit: a callback failed: {}", error.what()));
+			}
+		}
+
+		// The event comes once: none of them is called again
+		p_callbacks.clear();
 	}
 
 	// Registry keys for the shared scripts. Living in the registry keeps them out of _G,
@@ -317,6 +345,16 @@ void OvCore::Scripting::LuaScriptEngineBase::Reload()
 {
 	static_cast<LuaScriptEngine&>(*this).DestroyContext();
 	static_cast<LuaScriptEngine&>(*this).CreateContext();
+}
+
+template<>
+void OvCore::Scripting::LuaScriptEngineBase::NotifyQuit()
+{
+	if (!m_context.frameEvents || m_context.frameEvents->quitNotified)
+		return;
+
+	m_context.frameEvents->quitNotified = true;
+	RunQuitCallbacks(m_context.frameEvents->quit);
 }
 
 template<>
@@ -627,7 +665,10 @@ uint64_t OvCore::Scripting::LuaScriptEngine::AddFrameCallback(EFrameEvent p_even
 	entry->callback = p_callback.as<sol::protected_function>();
 	entry->owner = p_owner;
 
-	auto& callbacks = p_event == EFrameEvent::UPDATE ? m_context.frameEvents->update : m_context.frameEvents->lateUpdate;
+	auto& callbacks =
+		p_event == EFrameEvent::UPDATE ? m_context.frameEvents->update :
+		p_event == EFrameEvent::LATE_UPDATE ? m_context.frameEvents->lateUpdate :
+		m_context.frameEvents->quit;
 	callbacks.push_back(entry);
 
 	return entry->id;
@@ -638,7 +679,7 @@ bool OvCore::Scripting::LuaScriptEngine::RemoveFrameCallback(uint64_t p_id)
 	if (!m_context.frameEvents)
 		return false;
 
-	for (auto* callbacks : { &m_context.frameEvents->update, &m_context.frameEvents->lateUpdate })
+	for (auto* callbacks : { &m_context.frameEvents->update, &m_context.frameEvents->lateUpdate, &m_context.frameEvents->quit })
 	{
 		const auto found = std::find_if(callbacks->begin(), callbacks->end(), [p_id](const auto& p_entry)
 		{

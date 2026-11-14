@@ -1,4 +1,6 @@
--- The global Update and LateUpdate events: their place in the frame, their step, their owner, their removal
+-- The global Update and LateUpdate events: their place in the frame, their step, their owner, their removal. Then the
+-- game's end (Events.AddQuit): the check quits, and gives its verdict from there, so that it fails if the end never
+-- comes
 local Check = require("Scripts/Checks/Check")
 local Log = require("Scripts/Checks/EventsLog")
 
@@ -7,6 +9,7 @@ local oCheck = Check.New("Events")
 local nFrame = 0
 local oOwner = nil
 local nOwnedCalls, nRemovedCalls = 0, 0
+local nQuitCalls, nGoneOwnerQuitCalls = 0, 0
 local tAddedAt = {}
 
 function EventsCheck:OnStart()
@@ -41,6 +44,20 @@ function EventsCheck:OnStart()
 
 	local bOk, sError = pcall(Events.AddUpdate, 42)
 	oCheck:Expect(not bOk and tostring(sError):find("a function is expected") ~= nil, "a callback must be a function")
+
+	-- The game's end: skipped for an owner gone by then (the one above, destroyed at frame 2); once, with nothing, and
+	-- the scene still there, for an owner alive
+	Events.AddQuit(function() nGoneOwnerQuitCalls = nGoneOwnerQuitCalls + 1 end, oOwner)
+
+	local oKeeper = Scenes.GetCurrentScene():CreateActor("Keeper", "")
+	Events.AddQuit(function(...)
+		nQuitCalls = nQuitCalls + 1
+		oCheck:Equal(select("#", ...), 0, "the game's end passes nothing")
+		oCheck:Equal(nQuitCalls, 1, "the game's end comes once")
+		oCheck:Equal(nGoneOwnerQuitCalls, 0, "a callback whose owner is gone is skipped")
+		oCheck:Expect(oKeeper:IsAlive(), "the scene and its actors are still there")
+		oCheck:Finish()
+	end, oKeeper)
 end
 
 function EventsCheck:OnUpdate(nDelta)
@@ -60,7 +77,9 @@ function EventsCheck:OnUpdate(nDelta)
 		oCheck:Equal(nRemovedCalls, 0, "calls of a removed callback")
 		oCheck:Equal(tAddedAt.adder, 1, "frame of the callback that adds another")
 		oCheck:Equal(tAddedAt.added, 2, "first frame of the callback added while the event ran")
-		oCheck:Finish()
+
+		-- The verdict comes from the game's end
+		Application.Quit()
 	end
 end
 

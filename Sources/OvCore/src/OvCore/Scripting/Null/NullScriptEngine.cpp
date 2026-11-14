@@ -55,6 +55,11 @@ void OvCore::Scripting::NullScriptEngineBase::Reload()
 }
 
 template<>
+void OvCore::Scripting::NullScriptEngineBase::NotifyQuit()
+{
+}
+
+template<>
 bool OvCore::Scripting::NullScriptEngineBase::IsOk() const
 {
 	return true;

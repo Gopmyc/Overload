@@ -685,8 +685,8 @@ void BindLuaGlobal(sol::state& p_luaState)
 	// The sandbox's own require: a module of the project's assets, or of the engine's with ":"
 	p_luaState.set_function("require", [](const std::string& p_path) { return OVSERVICE(ScriptEngine).RequireScript(p_path); });
 
-	// Frame events outside any Behaviour, for the modules that keep a clock (timers, tweens): an owner, an actor, ends
-	// its callback with it
+	// Frame events outside any Behaviour, for the modules that keep a clock (timers, tweens), and the game's end, for
+	// those that keep something to write (saves): an owner, an actor, ends its callback with it
 	using EFrameEvent = OvCore::Scripting::LuaScriptEngine::EFrameEvent;
 	const auto addFrameCallback = [](EFrameEvent p_event, std::string_view p_name)
 	{
@@ -704,6 +704,7 @@ void BindLuaGlobal(sol::state& p_luaState)
 	p_luaState.create_named_table("Events",
 		"AddUpdate", addFrameCallback(EFrameEvent::UPDATE, "AddUpdate"),
 		"AddLateUpdate", addFrameCallback(EFrameEvent::LATE_UPDATE, "AddLateUpdate"),
+		"AddQuit", addFrameCallback(EFrameEvent::QUIT, "AddQuit"),
 		"Remove", [](uint64_t p_id) { return OVSERVICE(ScriptEngine).RemoveFrameCallback(p_id); }
 	);
 

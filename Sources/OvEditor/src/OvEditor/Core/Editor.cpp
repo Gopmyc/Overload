@@ -63,6 +63,13 @@ OvEditor::Core::Editor::Editor(Context& p_context) :
 OvEditor::Core::Editor::~Editor()
 {
 	Settings::EditorSettings::Save();
+
+	// Closed while a game plays: its scripts hear it end (Events.AddQuit), as when it is stopped
+	if (m_editorActions.GetCurrentEditorMode() != EditorActions::EEditorMode::EDIT)
+	{
+		m_context.scriptEngine->NotifyQuit();
+	}
+
 	m_context.sceneManager.UnloadCurrentScene();
 }
 

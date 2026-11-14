@@ -37,7 +37,7 @@ namespace sol
 namespace OvCore::Scripting
 {
 	/**
-	* The callbacks of the global Update and LateUpdate events (Events.AddUpdate...), which live with the Lua state
+	* The callbacks of the global Update, LateUpdate and Quit events (Events.AddUpdate...), which live with the Lua state
 	*/
 	struct LuaFrameEvents;
 
@@ -107,13 +107,15 @@ namespace OvCore::Scripting
 		*/
 		enum class EFrameEvent
 		{
-			UPDATE,     // Every frame, before every Behaviour's OnUpdate
-			LATE_UPDATE // Every frame, after every Behaviour's OnLateUpdate
+			UPDATE,      // Every frame, before every Behaviour's OnUpdate
+			LATE_UPDATE, // Every frame, after every Behaviour's OnLateUpdate
+			QUIT         // Once, as the game ends (NotifyQuit), the scene still current
 		};
 
 		/**
-		* Calls the Lua function with the frame's step at each event from the next frame on, until it is removed, it
-		* fails, or its owner (when given) is no longer alive. Returns its id
+		* Calls the Lua function at each event until it is removed, it fails, or its owner (when given) is no longer
+		* alive: with the frame's step at each frame from the next one on, or with nothing once as the game ends.
+		* Returns its id
 		* @param p_event
 		* @param p_callback
 		* @param p_owner
