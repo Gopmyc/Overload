@@ -19,6 +19,7 @@
 #include <OvCore/ECS/Components/CAmbientBoxLight.h>  
 #include <OvCore/ECS/Components/CAmbientSphereLight.h>  
 #include <OvCore/ECS/Components/CAudioListener.h>  
+#include <OvAudio/Core/AudioEngine.h>
 #include <OvCore/ECS/Components/CAudioSource.h>  
 #include <OvCore/ECS/Components/CBoneAttachment.h>
 #include <OvCore/ECS/Components/CAnimator.h>
@@ -1011,9 +1012,44 @@ void BindLuaComponents(sol::state& p_luaState)
 		"RequestShadowMapUpdate", &CDirectionalLight::RequestShadowMapUpdate
 	);
 
+	p_luaState.new_enum<OvAudio::Settings::EAttenuationModel>("AttenuationModel", {
+		{ "NONE", OvAudio::Settings::EAttenuationModel::NONE },
+		{ "INVERSE_DISTANCE", OvAudio::Settings::EAttenuationModel::INVERSE_DISTANCE },
+		{ "LINEAR_DISTANCE", OvAudio::Settings::EAttenuationModel::LINEAR_DISTANCE },
+		{ "EXPONENTIAL_DISTANCE", OvAudio::Settings::EAttenuationModel::EXPONENTIAL_DISTANCE }
+	});
+
 	p_luaState.new_usertype<CAudioSource>("AudioSource",
 		sol::base_classes, sol::bases<AComponent>(),
 		"Play", &CAudioSource::Play,
+		"PlayOneShot", [](CAudioSource& p_this, OvAudio::Resources::Sound* p_sound, sol::optional<float> p_volume)
+		{
+			if (!p_sound)
+			{
+				throw sol::error("AudioSource:PlayOneShot: a sound is needed (Resources.GetSound)");
+			}
+			p_this.PlayOneShot(*p_sound, p_volume.value_or(1.0f));
+		},
+		"SetBus", [](CAudioSource& p_this, const std::string& p_bus)
+		{
+			if (!p_bus.empty() && !OVSERVICE(OvAudio::Core::AudioEngine).HasBus(p_bus))
+			{
+				throw sol::error("AudioSource:SetBus: no bus '" + p_bus + "' (Master, or one of the project's audio_buses)");
+			}
+			p_this.SetBus(p_bus);
+		},
+		"GetBus", [](CAudioSource& p_this)
+		{
+			return p_this.GetBus().empty() ? std::string(OvAudio::Core::AudioEngine::kMasterBus) : p_this.GetBus();
+		},
+		"SetPitchVariation", &CAudioSource::SetPitchVariation,
+		"GetPitchVariation", &CAudioSource::GetPitchVariation,
+		"SetAttenuationModel", &CAudioSource::SetAttenuationModel,
+		"GetAttenuationModel", &CAudioSource::GetAttenuationModel,
+		"SetRolloff", &CAudioSource::SetRolloff,
+		"GetRolloff", &CAudioSource::GetRolloff,
+		"SetMaxDistance", &CAudioSource::SetMaxDistance,
+		"GetMaxDistance", &CAudioSource::GetMaxDistance,
 		"Stop", &CAudioSource::Stop,
 		"Pause", &CAudioSource::Pause,
 		"Resume", &CAudioSource::Resume,

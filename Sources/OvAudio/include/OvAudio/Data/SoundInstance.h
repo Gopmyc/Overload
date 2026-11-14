@@ -7,7 +7,7 @@
 #pragma once
 
 #include <OvAudio/Data/SoundHandle.h>
-#include <OvAudio/Settings/EAttenuationModel.h>
+#include <OvAudio/Settings/AttenuationSettings.h>
 #include <OvMaths/FVector3.h>
 
 namespace SoLoud { class Soloud; }
@@ -57,17 +57,11 @@ namespace OvAudio::Data
 		void SetPan(float p_pan);
 
 		/**
-		* Sets the attenuation model of the sound instance
-		* @param p_model
-		* @param p_factor
+		* Sets how a spatial sound fades with its distance to the listener (sanitized, see AttenuationSettings). It takes
+		* effect at the next update of the audio engine
+		* @param p_settings
 		*/
-		void SetAttenuationModel(OvAudio::Settings::EAttenuationModel p_model, float p_factor = 1.0f);
-
-		/**
-		* Sets the minimum distance before applying sound attenuation
-		* @param p_distance
-		*/
-		void SetAttenuationThreshold(float p_distance);
+		void SetAttenuation(const OvAudio::Settings::AttenuationSettings& p_settings);
 
 		/**
 		* Updates the position of the sound

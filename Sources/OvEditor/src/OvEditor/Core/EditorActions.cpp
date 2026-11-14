@@ -1040,6 +1040,10 @@ void OvEditor::Core::EditorActions::StopPlaying()
 			m_context.sceneManager.StoreCurrentSceneSourcePath(sceneSourcePath); // To bo able to save or reload the scene whereas the scene is loaded from memory (Supposed to have no path)
 		m_sceneBackup.reset();
 
+		// The sounds the game played once go with it, as its sources' did, and the volumes it set
+		m_context.audioEngine->StopOneShots();
+		m_context.audioEngine->ResetVolumes();
+
 		// A game stopped while paused leaves the audio suspended, and the next one would start without it. Its sounds
 		// went with its scene, so resuming now plays none of them again
 		if (m_context.audioEngine->IsSuspended())

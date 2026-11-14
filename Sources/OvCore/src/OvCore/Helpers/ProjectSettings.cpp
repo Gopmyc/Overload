@@ -14,6 +14,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <OvAudio/Core/AudioEngine.h>
 #include <OvCore/Helpers/ProjectSettings.h>
 #include <OvDebug/Logger.h>
 
@@ -227,4 +228,44 @@ OvCore::Helpers::ProjectSettings::RuntimeLimits OvCore::Helpers::ProjectSettings
 	limits.maxFrameDelta = ReadInRange(p_projectSettings, "max_frame_delta", 0.1f, 0.001f, 1.0f);
 
 	return limits;
+}
+
+std::vector<std::string> OvCore::Helpers::ProjectSettings::ReadAudioBuses(const OvTools::Filesystem::IniFile& p_projectSettings)
+{
+	using OvAudio::Core::AudioEngine;
+
+	std::string value = kDefaultAudioBuses;
+	p_projectSettings.TryGet("audio_buses", value);
+
+	std::vector<std::string> buses;
+
+	for (const std::string_view entry : Split(value, ','))
+	{
+		const std::string name(entry);
+
+		if (name.empty())
+		{
+			continue;
+		}
+
+		if (name == AudioEngine::kMasterBus)
+		{
+			OVLOG_WARNING("audio_buses: \"Master\" is the volume of every sound, always there, not a bus to name: left out");
+		}
+		else if (std::ranges::find(buses, name) != buses.end())
+		{
+			OVLOG_WARNING("audio_buses: \"" + name + "\" is named twice: left out the second time");
+		}
+		else if (buses.size() == AudioEngine::kMaxBuses)
+		{
+			OVLOG_WARNING("audio_buses: only the first " + std::to_string(AudioEngine::kMaxBuses) + " buses are used");
+			break;
+		}
+		else
+		{
+			buses.push_back(name);
+		}
+	}
+
+	return buses;
 }
