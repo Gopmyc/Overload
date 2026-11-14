@@ -155,6 +155,12 @@ later version of the same major version.
   skirts hiding the gaps; its colour comes from a colour map, an image or a colour per sample from a script, on the
   albedo of `:Materials/Terrain.ovmat` or any material. In C++, `OvCore::Terrain::Heightmap` and `TerrainMesher`. The
   Lua API is now 1.17. See [Docs/Terrain.md](Docs/Terrain.md).
+- **Levels of detail for models**: a `ModelRenderer` takes up to 7 lighter models, each drawn from its distance on
+  with the renderer's materials by slot, the distance measured to the centre of the model's bounds rather than to its
+  pivot, with a margin against flicker and a bias per renderer (`lods` and `lod_bias` in a file, a list in the
+  inspector; `SetLodModels`, `GetLodModels`, `GetLodLevel`, `GetLodError`, `SetLodBias` and `GetLodBias` in Lua). A
+  model with bones takes levels with the same bones. In C++, `OvCore::Rendering::LodSelection`. The Lua API is now
+  1.18. See [Docs/Rendering.md](Docs/Rendering.md#levels-of-detail).
 
 ### Changed
 

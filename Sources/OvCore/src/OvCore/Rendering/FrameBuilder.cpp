@@ -569,7 +569,10 @@ OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::
 		const auto& transform = owner.transform.GetFTransform();
 		const auto& materials = materialRenderer->GetMaterials();
 
-		for (auto& mesh : model->GetMeshes())
+		// The level of detail for this view, the same in every pass of the frame, drawn with the renderer's materials
+		const auto* drawnModel = modelRenderer->SelectLod(p_input.viewPosition, p_input.mainView);
+
+		for (auto& mesh : drawnModel->GetMeshes())
 		{
 			OvTools::Utils::OptRef<OvRendering::Data::Material> material;
 
@@ -589,7 +592,7 @@ OvCore::Rendering::FrameBuilder::ParsingResult OvCore::Rendering::FrameBuilder::
 				switch (modelRenderer->GetFrustumBehaviour())
 				{
 				case MESH_BOUNDS: return mesh->GetBoundingSphere();
-				case DEPRECATED_MODEL_BOUNDS: return model->GetBoundingSphere();
+				case DEPRECATED_MODEL_BOUNDS: return drawnModel->GetBoundingSphere();
 				case CUSTOM_BOUNDS: return modelRenderer->GetCustomBoundingSphere();
 				default: return std::nullopt;
 				}

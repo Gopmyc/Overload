@@ -1978,8 +1978,8 @@ void OvEditor::Core::EditorActions::PropagateFileRename(std::string p_previousNa
 
 			if (auto currentScene = m_context.sceneManager.GetCurrentScene())
 				for (auto actor : currentScene->GetActors())
-					if (auto modelRenderer = actor->GetComponent<OvCore::ECS::Components::CModelRenderer>(); modelRenderer && modelRenderer->GetModel() == model)
-						modelRenderer->SetModel(nullptr);
+					if (auto modelRenderer = actor->GetComponent<OvCore::ECS::Components::CModelRenderer>())
+						modelRenderer->ForgetModel(model); // Its own model and its levels
 
 			OvCore::Global::ServiceLocator::Get<OvCore::ResourceManagement::ModelManager>().UnloadResource(p_previousName);
 		}
