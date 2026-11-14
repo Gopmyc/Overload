@@ -11,6 +11,7 @@
 
 #include <OvCore/Global/ServiceLocator.h>
 #include <OvCore/Helpers/InputHelpers.h>
+#include <OvCore/Helpers/VersionedSave.h>
 #include <OvCore/Input/GameInput.h>
 #include <OvDebug/Logger.h>
 #include <OvTools/Filesystem/IniFile.h>
@@ -160,21 +161,16 @@ void OvCore::Input::LoadProjectActions(const OvTools::Filesystem::IniFile& p_pro
 		return;
 	}
 
-	std::string error;
-
-	if (const auto saved = p_saveStorage.Read(kBindingsFile, error))
+	// Version 0, the file before its envelope, has the same shape
+	if (const auto saved = OvCore::Helpers::VersionedSave::Read(p_saveStorage, kBindingsFile, kBindingsVersion))
 	{
 		std::vector<std::string> warnings;
-		p_actions.LoadBindings(*saved, warnings);
+		p_actions.LoadBindings(OvTools::Utils::Json::Write(*saved), warnings);
 
 		for (const std::string& warning : warnings)
 		{
 			OVLOG_WARNING(std::string(kBindingsFile) + ": " + warning);
 		}
-	}
-	else if (error != "not found")
-	{
-		OVLOG_WARNING(std::string(kBindingsFile) + ": " + error);
 	}
 }
 
@@ -182,7 +178,11 @@ void OvCore::Input::SaveBindings(OvTools::Filesystem::SaveStorage& p_saveStorage
 {
 	std::string error;
 
-	if (!p_saveStorage.Write(kBindingsFile, p_actions.SaveBindings(), error))
+	if (const auto bindings = OvTools::Utils::Json::Parse(p_actions.SaveBindings(), error))
+	{
+		OvCore::Helpers::VersionedSave::Write(p_saveStorage, kBindingsFile, kBindingsVersion, *bindings);
+	}
+	else
 	{
 		OVLOG_WARNING(std::string(kBindingsFile) + ": cannot be written, " + error);
 	}

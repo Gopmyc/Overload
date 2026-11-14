@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 
+#include <OvCore/Helpers/VersionedSave.h>
 #include <OvCore/Localization/Localization.h>
 #include <OvDebug/Logger.h>
 #include <OvTools/Filesystem/IniFile.h>
@@ -764,12 +765,10 @@ void OvCore::Localization::LoadProjectTranslations(const OvTools::Filesystem::In
 	}
 
 	// The player's choice, else the system's language
-	std::string error;
-	if (const auto saved = p_saveStorage.Read(kLanguageFile, error))
+	// Version 0, the file before its envelope, has the same shape
+	if (const auto saved = OvCore::Helpers::VersionedSave::Read(p_saveStorage, kLanguageFile, kLanguageVersion))
 	{
-		std::string parseError;
-		const auto document = OvTools::Utils::Json::Parse(*saved, parseError);
-		const Value* language = document ? document->Find("language") : nullptr;
+		const Value* language = saved->Find("language");
 		const std::string* code = language ? language->AsString() : nullptr;
 
 		if (code && p_localization.SetLanguage(*code))
@@ -778,10 +777,6 @@ void OvCore::Localization::LoadProjectTranslations(const OvTools::Filesystem::In
 		}
 
 		OVLOG_WARNING(std::string(kLanguageFile) + ": no language with a table, the system's or the default one is used");
-	}
-	else if (error != "not found")
-	{
-		OVLOG_WARNING(std::string(kLanguageFile) + ": " + error);
 	}
 
 	if (const std::string system = MatchLanguage(GetSystemLanguage(), codes); !system.empty())
@@ -792,11 +787,6 @@ void OvCore::Localization::LoadProjectTranslations(const OvTools::Filesystem::In
 
 void OvCore::Localization::SaveLanguage(OvTools::Filesystem::SaveStorage& p_saveStorage, const Localization& p_localization)
 {
-	const std::string text = OvTools::Utils::Json::Write(Value(OvTools::Utils::Json::Object{ { "language", Value(p_localization.GetLanguage()) } }));
-	std::string error;
-
-	if (!p_saveStorage.Write(kLanguageFile, text, error))
-	{
-		OVLOG_WARNING(std::string(kLanguageFile) + ": cannot be written, " + error);
-	}
+	OvCore::Helpers::VersionedSave::Write(p_saveStorage, kLanguageFile, kLanguageVersion,
+		Value(OvTools::Utils::Json::Object{ { "language", Value(p_localization.GetLanguage()) } }));
 }

@@ -42,8 +42,10 @@ function InputActionsCheck:OnUpdate(nDelta)
 	bOk, sWhy = Inputs.SetBinding("Fly", 1, "F")
 	oCheck:Expect(not bOk and sWhy:find("no action named") ~= nil, "unknown action refused: " .. tostring(sWhy))
 
-	-- Saved at once in the save folder
-	local tSaved = Json.Decode(Storage.Read("input_bindings.json") or "{}")
+	-- Saved at once in the save folder, in the envelope of save files
+	local tFile = Json.Decode(Storage.Read("input_bindings.json") or "{}")
+	oCheck:Equal(tFile.version, 1, "the bindings' version")
+	local tSaved = tFile.data or {}
 	local tJump = tSaved.bindings and tSaved.bindings[1]
 	oCheck:Equal(tJump and tJump.name, "Jump", "Jump saved first")
 	oCheck:Equal(tJump and Join(tJump.inputs), "E,,,", "Jump's slots saved")

@@ -18,6 +18,7 @@ local Timers = require(":Libraries/Std/Timers")  -- or one of them
 | `Ease` | Easing curves, and an approach that ignores the frame rate |
 | `Pool` | Objects made once and taken again |
 | `StateMachine` | States tried in order, with enter, update and exit |
+| `SaveFile` | Files of the save folder that keep their version, migrated from one to the next, written later or as the game ends |
 
 It is not part of the Lua API that `Application.GetApiVersion()` versions (see [Scripting](Scripting.md)): it is
 loaded like any module, and the engine's [`CHANGELOG.md`](../CHANGELOG.md) says when it changes.
@@ -161,3 +162,40 @@ self.machine:Update(deltaTime) -- in OnUpdate
   `enter` as it changes, then calls its `update`. It returns the state's name.
 - `machine:GetState()` gives the name of the current state; `machine:SetState(name)` moves to a state whatever the
   conditions, until the next `Update`; `machine:Resolve()` returns the state that should be the current one.
+
+## SaveFile
+
+```lua
+local settings = Std.SaveFile.New("settings.json", {
+	version = 2,
+	migrations = {
+		[0] = function(data) data.Version = nil; return data end, -- a file from before the envelope
+		[1] = function(data) data.volume = data.volume or 1; return data end,
+	},
+})
+
+local data = settings:Read() or Defaults()        -- migrated to version 2, or nil
+settings:Schedule(function() return Build() end) -- written a second after the last ask
+```
+
+- `SaveFile.New(name, spec)` defines a file of the save folder (see [Saving](Saving.md) for the names `Storage`
+  takes): `spec.version`, a whole number of 1 or more, and `spec.migrations`, where `migrations[n]` takes the data of
+  version n and returns that of version n + 1 (it may change the table it gets). A name is defined once.
+- The file holds the envelope `{"version": n, "data": ...}`, in JSON. Any other table counts as version 0, whole: a file
+  written before the envelope reaches the game through the migration from 0.
+- `file:Read()` returns the data, migrated to the current version, or `nil` and why. A file the game cannot use is set
+  aside, copied beside it once a run under each name, with a warning, and the game starts from its defaults; its next
+  write replaces the file:
+  - unreadable, or not a table: `<name>.broken.json`;
+  - of a newer version than the game's (the player went back a version): `<name>.v<n>.json`;
+  - a migration missing, failing or returning no table: `<name>.broken.json`.
+
+  A file migrated is not written back: the next write does it, in the current version.
+- `file:Write(data)` writes at once and returns `true`, or `nil` and why, warned once.
+- `file:Schedule(build[, delay])` writes what `build()` returns `delay` seconds of real time after the last ask (1 by
+  default): a slider dragged writes once. `file:Flush()` writes what waits at once, `file:IsPending()` tells whether a
+  write waits, and `SaveFile.FlushAll()` flushes every file. A `build` that fails or returns no table is logged, and
+  nothing is written.
+- **What waits is written as the game ends** (`Events.AddQuit`, see [Scripting](Scripting.md)): quitting, the window
+  closed, a game stopped in the editor. A game need not flush before it quits.
+- `file:GetName()` and `file:GetVersion()`.

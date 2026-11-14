@@ -11,7 +11,8 @@
 --- - Tween: values carried over time, eased, chained, advancing by themselves;
 --- - Ease: easing curves, and a frame rate independent approach;
 --- - Pool: objects made once and taken again;
---- - StateMachine: states tried in order, with enter, update and exit.
+--- - StateMachine: states tried in order, with enter, update and exit;
+--- - SaveFile: files of the save folder that keep their version, with migrations and writes made later.
 ---
 --- See Docs/StandardLibrary.md in the engine's repository.
 ---@class Std
@@ -22,6 +23,7 @@
 ---@field Ease StdEase
 ---@field Pool StdPoolModule
 ---@field StateMachine StdStateMachineModule
+---@field SaveFile StdSaveFileModule
 local Std = {
 	Class = require(":Libraries/Std/Class"),
 	Signal = require(":Libraries/Std/Signal"),
@@ -29,7 +31,8 @@ local Std = {
 	Tween = require(":Libraries/Std/Tween"),
 	Ease = require(":Libraries/Std/Ease"),
 	Pool = require(":Libraries/Std/Pool"),
-	StateMachine = require(":Libraries/Std/StateMachine")
+	StateMachine = require(":Libraries/Std/StateMachine"),
+	SaveFile = require(":Libraries/Std/SaveFile")
 }
 
 return Std
