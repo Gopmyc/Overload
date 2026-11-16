@@ -14,9 +14,10 @@
 #include <sol/sol.hpp>
 
 #include <OvCore/ECS/Components/AComponent.h>
+#include <OvCore/Scripting/Lua/LuaMathChecks.h>
 
 // Every source that uses sol includes it through this header: the customizations below change how sol pushes and
-// reads components, and must be seen the same way everywhere
+// reads components, those of LuaMathChecks.h how it reads maths values, and must be seen the same way everywhere
 
 namespace OvCore::ECS::Components
 {

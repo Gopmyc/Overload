@@ -282,4 +282,7 @@ void BindLuaMath(sol::state& p_luaState)
 		"z", &FQuaternion::z,
 		"w", &FQuaternion::w
 	);
+
+	// The maths arguments are checked by the ids their metatables hold
+	OvCore::Scripting::MarkMathMetatables(p_luaState.lua_state());
 }

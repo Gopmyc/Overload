@@ -270,6 +270,15 @@ later version of the same major version.
 - **`Component` methods on lights and bodies**: `GetOwner()` and the other `Component` methods answer on a
   `PointLight`, a `SpotLight`, a `DirectionalLight`, the ambient lights, a `PhysicalBox`, a `PhysicalSphere` and a
   `PhysicalCapsule`. Their usertypes named only their direct base, so these methods were `nil` on them.
+- **A maths argument that is not one raises an error instead of crashing**: in a Release build, sol reads its
+  arguments unchecked, so that a binding taking a `Vector2`, `Vector3`, `Vector4`, `Quaternion`, `Matrix3` or
+  `Matrix4` read whatever it was given as one. `nil`, a table such as `{ x = 0, y = 0, z = 0 }` or a number crashed
+  the game (`Physics.Raycast(nil, ...)`, `Transform:SetLocalPosition({ ... })`), and another maths type was read as
+  this one, out of bounds for a smaller one (`Matrix4.Transpose(Matrix3.new())`). It now raises an error in Lua's
+  words, `bad argument #2 to 'Distance' (Vector3 expected, got table)`, as a Debug build refused such values already.
+  The self of an operator or a field is checked to be a userdata, so that `nil + v` and a table given a vector's
+  metatable are refused too. A maths argument costs a read of its metatable, about 30 ns; a field, next to nothing.
+  See [Docs/Scripting.md](Docs/Scripting.md).
 
 ## [0.1.0] - 2026-11-07
 

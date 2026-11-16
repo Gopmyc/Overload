@@ -100,6 +100,24 @@ binding.
 
   It is safe from any callback, `OnStart` included.
 
+## Maths values
+
+- `Vector2`, `Vector3`, `Vector4`, `Quaternion`, `Matrix3` and `Matrix4` are usertypes. A function that takes one takes
+  only that: a value made by `.new`, by an operator or by the engine. `nil`, a plain table such as
+  `{ x = 1, y = 2, z = 3 }`, a number, another maths type or a table given a vector's metatable raises an error, in
+  Lua's words: `bad argument #2 to 'Distance' (Vector3 expected, got table)`, or `calling 'Dot' on bad self (...)`
+  for a method. Convert a table to a vector before handing it to the engine:
+  `Vector3.new(tPoint.x, tPoint.y, tPoint.z)`.
+- An optional maths argument (`Navigation.FindNearestPoint(point[, extents])`) may still be left out or `nil`.
+- The self of an operator or a field (`v.x`, the left operand of `v + w`) is only checked to be a userdata: Lua hands
+  them the value it found them on, so that `nil + v` and a table given a vector's metatable are refused, at next to no
+  cost on the most frequent calls. Another maths type reaches them only from a script calling a metatable's function
+  itself (`getmetatable(m4).__add(m3, m4)`), which is not checked.
+- Every other maths argument is checked in full, by one field of its metatable: about 30 ns for each.
+- An engine value's metatable (`getmetatable(v)`) belongs to it. A table given one is refused where a vector is taken,
+  but its `__gc` comes with it: when the table is collected, sol finalizes it as the value it is not, which crashes a
+  Debug build. This holds for every engine usertype; copy what a script needs instead.
+
 ## Update order and time
 
 - Actors update in scene order, the order of the scene file. Actors instantiated at run time come last.
