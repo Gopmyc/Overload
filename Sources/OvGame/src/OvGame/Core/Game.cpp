@@ -123,6 +123,13 @@ void OvGame::Core::Game::Update(float p_deltaTime)
 			RenderCurrentScene(m_sceneRenderer, m_context);
 			m_context.framebuffer->BlitToBackBuffer(windowWidth, windowHeight);
 		}
+
+		{
+			// The actors destroyed this frame freed, as the editor does each frame: a game that builds and drops actors
+			// as the player goes (a world streamed in tiles) would otherwise keep every one of them, drawn
+			ZoneScopedN("Scene garbage collection");
+			currentScene->CollectGarbages();
+		}
 	}
 
 	m_context.sceneManager.Update();
