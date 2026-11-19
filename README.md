@@ -1,3 +1,16 @@
+# Adventurer
+
+Adventurer is a general-purpose 3D game engine with Lua scripting, built on [Overload](https://github.com/Overload-Technologies/Overload) 1.9. It lives on the `Adventurer` branch of this fork and keeps Overload's editor, runtime and project format. Games use it through its public API: the Lua scripting API, the shader includes declared in the manual, and the project file. Nothing in the engine knows any particular game.
+
+- **Version**: `VERSION.txt` (Adventurer's own, semantic versioning). `Application.GetEngineVersion()` returns it to scripts, so that a project can check the version it was made for. The Overload version it is based on is `OVERLOAD_VERSION`.
+- **Changes**: [`CHANGELOG.md`](CHANGELOG.md) lists what Adventurer adds to Overload, version by version.
+- **Manual**: [`Docs/`](Docs/README.md) states the engine's rules and pitfalls for scripts, physics, rendering, animation, saving and input. The Lua API reference is in `Resources/Engine/Lua/`, one definition file per type, and the UI library documents itself in `Resources/Engine/Libraries/UI/Docs/`.
+- **Contributing**: one branch and one pull request per change, against `Adventurer`. A change is generic (it would serve a game of another genre unchanged), configurable rather than hard-coded, documented in the manual and the changelog, and keeps existing projects working.
+
+The rest of this file is Overload's own README.
+
+---
+
 ![overload-banner-2](https://github.com/user-attachments/assets/feef5188-582c-4812-bb80-b893026811ee)
 
 <p align="center">

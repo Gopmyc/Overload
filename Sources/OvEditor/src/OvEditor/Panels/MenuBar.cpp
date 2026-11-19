@@ -274,7 +274,7 @@ void OvEditor::Panels::MenuBar::CreateLayoutMenu()
 
 void OvEditor::Panels::MenuBar::CreateHelpMenu()
 {
-	const std::string repoURL = "https://github.com/Overload-Technologies/Overload";
+	const std::string repoURL = "https://github.com/Gopmyc/Overload";
 
 	auto& helpMenu = CreateWidget<MenuList>("Help");
 	helpMenu.CreateWidget<MenuItem>("GitHub").ClickedEvent += [repoURL] {OvTools::Utils::SystemCalls::OpenURL(repoURL); };
@@ -291,7 +291,7 @@ void OvEditor::Panels::MenuBar::CreateHelpMenu()
 	helpMenu.CreateWidget<MenuItem>("Bug Report").ClickedEvent += [repoURL] {OvTools::Utils::SystemCalls::OpenURL(repoURL + "/issues/new?assignees=&labels=Bug&template=bug_report.md&title="); };
 	helpMenu.CreateWidget<MenuItem>("Feature Request").ClickedEvent += [repoURL] {OvTools::Utils::SystemCalls::OpenURL(repoURL + "/issues/new?assignees=&labels=Feature&template=feature_request.md&title="); };
 	helpMenu.CreateWidget<Visual::Separator>();
-	helpMenu.CreateWidget<Texts::Text>("Version: " + std::string(OVERLOAD_VERSION));
+	helpMenu.CreateWidget<Texts::Text>("Version: Adventurer " + std::string(ADVENTURER_VERSION) + " (Overload " + std::string(OVERLOAD_VERSION) + ")");
 }
 
 void OvEditor::Panels::MenuBar::RegisterPanel(const std::string& p_name, OvUI::Panels::PanelWindow& p_panel)

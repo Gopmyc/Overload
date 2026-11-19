@@ -42,29 +42,29 @@ PLATFORM="linux_x64"
 pushd "$SCRIPT_DIR/../../Build/" > /dev/null
 
 # Delete any existing folder with the release name
-if [ -d "Overload-$VERSION-$PLATFORM" ]; then
-    rm -rf "Overload-$VERSION-$PLATFORM"
+if [ -d "Adventurer-$VERSION-$PLATFORM" ]; then
+    rm -rf "Adventurer-$VERSION-$PLATFORM"
 fi
 
 # Create Releases folder if it doesn't exist
 mkdir -p ../Releases
 
 # Copy the Publish folder to a new folder
-cp -r Publish "../Releases/Overload-$VERSION-$PLATFORM"
+cp -r Publish "../Releases/Adventurer-$VERSION-$PLATFORM"
 
 # Create the archive, delete any existing one first
-if [ -f "../Releases/Overload-$VERSION-$PLATFORM.tar.gz" ]; then
-    rm "../Releases/Overload-$VERSION-$PLATFORM.tar.gz"
+if [ -f "../Releases/Adventurer-$VERSION-$PLATFORM.tar.gz" ]; then
+    rm "../Releases/Adventurer-$VERSION-$PLATFORM.tar.gz"
 fi
 
 pushd ../Releases > /dev/null
-tar -czf "Overload-$VERSION-$PLATFORM.tar.gz" "Overload-$VERSION-$PLATFORM"
-echo "Archive created: Releases/Overload-$VERSION-$PLATFORM.tar.gz"
+tar -czf "Adventurer-$VERSION-$PLATFORM.tar.gz" "Adventurer-$VERSION-$PLATFORM"
+echo "Archive created: Releases/Adventurer-$VERSION-$PLATFORM.tar.gz"
 popd > /dev/null
 
 # Delete temporary build
-if [ -d "../Releases/Overload-$VERSION-$PLATFORM" ]; then
-    rm -rf "../Releases/Overload-$VERSION-$PLATFORM"
+if [ -d "../Releases/Adventurer-$VERSION-$PLATFORM" ]; then
+    rm -rf "../Releases/Adventurer-$VERSION-$PLATFORM"
     echo "Temporary build deleted."
 fi
 
